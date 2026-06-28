@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Ko mascot, thinking expression">
+  <!--
+    Ko mascot — thinking
+    Eyes become small dashes (squinting in thought).
+  -->
+  <path
+    d="M 256 56
+       C 360 56 432 144 432 256
+       C 432 360 360 440 256 440
+       C 152 440 80 360 80 256
+       C 80 144 152 56 256 56 Z"
+    fill="#2A6F97"
+  />
+  <circle cx="332" cy="312" r="22" fill="#F4A261" />
+  <!-- Thinking eyes: short horizontal dashes -->
+  <rect x="194" y="226" width="28" height="8" rx="4" fill="#FFFFFF" />
+  <rect x="290" y="226" width="28" height="8" rx="4" fill="#FFFFFF" />
+</svg>

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Ko mascot, happy expression">
+  <!--
+    Ko mascot — happy
+    Identical silhouette to base; eyes become upward arcs (eyebrows lifted).
+  -->
+  <path
+    d="M 256 56
+       C 360 56 432 144 432 256
+       C 432 360 360 440 256 440
+       C 152 440 80 360 80 256
+       C 80 144 152 56 256 56 Z"
+    fill="#2A6F97"
+  />
+  <circle cx="332" cy="312" r="22" fill="#F4A261" />
+  <!-- Happy eyes: small upward arcs (smile-shaped) -->
+  <path d="M 196 226 Q 208 214 220 226" stroke="#FFFFFF" stroke-width="6" fill="none" stroke-linecap="round" />
+  <path d="M 292 226 Q 304 214 316 226" stroke="#FFFFFF" stroke-width="6" fill="none" stroke-linecap="round" />
+</svg>

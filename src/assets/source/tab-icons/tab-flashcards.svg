@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Flashcards: stacked cards with hiragana あ -->
+  <rect x="10" y="22" width="40" height="30" rx="4" fill="#2A6F97" opacity="0.5" />
+  <rect x="14" y="14" width="40" height="30" rx="4" fill="#2A6F97" />
+  <text x="34" y="36" font-family="serif" font-size="22" font-weight="900" fill="#E0F2FE" text-anchor="middle">あ</text>
+</svg>

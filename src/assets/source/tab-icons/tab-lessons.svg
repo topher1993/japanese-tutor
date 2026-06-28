@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Lessons: open book -->
+  <path d="M6 18 Q6 14 10 14 L30 14 L32 18 L32 52 L10 52 Q6 52 6 48 Z" fill="#2A6F97" />
+  <path d="M58 18 Q58 14 54 14 L34 14 L32 18 L32 52 L54 52 Q58 52 58 48 Z" fill="#2A6F97" />
+  <line x1="14" y1="22" x2="26" y2="22" stroke="#E0F2FE" stroke-width="2" stroke-linecap="round" />
+  <line x1="14" y1="28" x2="26" y2="28" stroke="#E0F2FE" stroke-width="2" stroke-linecap="round" />
+  <line x1="14" y1="34" x2="22" y2="34" stroke="#E0F2FE" stroke-width="2" stroke-linecap="round" />
+  <line x1="38" y1="22" x2="50" y2="22" stroke="#E0F2FE" stroke-width="2" stroke-linecap="round" />
+  <line x1="38" y1="28" x2="50" y2="28" stroke="#E0F2FE" stroke-width="2" stroke-linecap="round" />
+  <line x1="38" y1="34" x2="46" y2="34" stroke="#E0F2FE" stroke-width="2" stroke-linecap="round" />
+</svg>

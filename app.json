@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "Japanese Tutor",
+    "slug": "japanese-tutor-mobile-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "icon": "./assets/icon.png",
+    "ios": {
+      "icon": "./assets/icon.png",
+      "supportsTablet": true,
+      "bundleIdentifier": "com.belion.japanesetutor"
+    },
+    "android": {
+      "icon": "./assets/icon.png",
+      "package": "com.belion.japanesetutor",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundImage": "./src/assets/source/adaptive/android-adaptive-background-1080.png",
+        "monochromeImage": "./src/assets/source/adaptive/android-adaptive-monochrome-1080.png",
+        "backgroundColor": "#2A6F97"
+      },
+      "notification": {
+        "icon": "./assets/notification-icon.png",
+        "color": "#2A6F97"
+      }
+    },
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2A6F97",
+      "dark": {
+        "image": "./assets/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#0F172A"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      [
+        "expo-build-properties",
+        {
+          "ios": { "deploymentTarget": "16.4" },
+          "android": { "minSdkVersion": 24 }
+        }
+      ]
+    ],
+    "experiments": {
+      "reanimated": true
+    }
+  }
+}

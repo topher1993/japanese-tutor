@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="7-day streak badge">
+  <circle cx="32" cy="32" r="30" fill="#F4A261"/>
+  <path d="M 32 14
+           C 28 22 22 26 22 34
+           C 22 42 28 48 32 48
+           C 36 48 42 42 42 34
+           C 42 26 36 22 32 14 Z"
+        fill="#FFFFFF"/>
+</svg>

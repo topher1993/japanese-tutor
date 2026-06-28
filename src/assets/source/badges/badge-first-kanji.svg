@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="First kanji learned badge">
+  <circle cx="32" cy="32" r="30" fill="#2A6F97"/>
+  <!-- Person radical 亻 (from Sensei's whitelist, kanji 人) -->
+  <path d="M 26 18 L 32 18 L 32 24 L 38 24 L 38 28 L 32 28 L 32 46 L 38 46 L 38 50 L 26 50 L 26 46 L 32 46 L 32 28 L 26 28 L 26 24 L 32 24 L 32 18 Z"
+        fill="#FFFFFF"/>
+</svg>

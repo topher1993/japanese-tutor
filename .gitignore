@@ -1,0 +1,76 @@
+# ---------------------------------------------------------------------------
+# Japanese Tutor Mobile App — ignore rules
+# Aligns with Expo SDK 54 + React Native 0.81 + TypeScript defaults.
+# ---------------------------------------------------------------------------
+
+# ---- Dependencies ----------------------------------------------------------
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+pnpm-debug.log
+.pnpm-store/
+
+# ---- Build output (Expo web + native) --------------------------------------
+# Historical per-phase build outputs (dist-phase16f/, dist-web-phase7/, ...)
+dist-*/
+.expo/
+.expo-shared/
+web-build/
+android/app/build/
+android/build/
+android/.gradle/
+ios/build/
+ios/Pods/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+*.ipa
+*.app
+
+# ---- TypeScript -----------------------------------------------------------
+*.tsbuildinfo
+
+# ---- Metro / Hermes / Reanimated -----------------------------------------
+.metro-health-check*
+.metro-cache/
+.haste_cache/
+*.jsbundle
+
+# ---- Misc / OS / editor noise --------------------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*.log
+*.tgz
+.env
+.env.*
+
+# ---- Local Hermes / agent runtime scratch --------------------------------
+.hermes/runs/
+.hermes/scratch/
+.hermes/cache/
+.hermes/briefs/
+.hermes/review/
+.hermes/work-cards/
+
+# ---- Phase 26 asset generation ---------------------------------------------
+# Raw AI-generated assets before human/Tusk QC — never commit
+src/assets/source/generated/
+
+# Top-level /assets/ holds symlinks/copies referenced by app.json;
+# committed, but the symlinks themselves are platform-specific.
+# Comment-out if you prefer explicit copies over symlinks.
+# assets/*.symlink
+
+# ---- Docs runtime captures (renderer output + on-device captures) ---------
+docs/screenshots/
+docs/device-qa/
+
+# ---- Root-level one-off / stale artifacts (not durable baseline) ---------
+font-test.png
+qr/
+phase7-npm-audit.json
+.hermes/verification-cache.json

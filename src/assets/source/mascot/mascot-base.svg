@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Ko mascot, base expression">
+  <!--
+    Ko mascot (こ) — base expression
+    Brand color: ocean blue #2A6F97
+    Accent: amber #F4A261
+    Two colors max. No mouth. No limbs. Single droplet body.
+    Designed for the Japanese Tutor app per Phase 26 asset brief.
+  -->
+  <!-- Body: rounded droplet/seed shape, slightly tilted right -->
+  <path
+    d="M 256 56
+       C 360 56 432 144 432 256
+       C 432 360 360 440 256 440
+       C 152 440 80 360 80 256
+       C 80 144 152 56 256 56 Z"
+    fill="#2A6F97"
+  />
+  <!-- Amber cheek dot (lower-right of mascot) -->
+  <circle cx="332" cy="312" r="22" fill="#F4A261" />
+  <!-- Eyes: two small dots, no mouth -->
+  <circle cx="208" cy="232" r="10" fill="#FFFFFF" />
+  <circle cx="304" cy="232" r="10" fill="#FFFFFF" />
+</svg>
