@@ -22,10 +22,6 @@
         "backgroundImage": "./src/assets/source/adaptive/android-adaptive-background-1080.png",
         "monochromeImage": "./src/assets/source/adaptive/android-adaptive-monochrome-1080.png",
         "backgroundColor": "#2A6F97"
-      },
-      "notification": {
-        "icon": "./assets/notification-icon.png",
-        "color": "#2A6F97"
       }
     },
     "splash": {
@@ -50,9 +46,6 @@
           "android": { "minSdkVersion": 24 }
         }
       ]
-    ],
-    "experiments": {
-      "reanimated": true
-    }
+    ]
   }
 }
