@@ -43,16 +43,27 @@ describe('Phase Fix-A — primary CTAs are no longer dead buttons', () => {
     });
   });
 
-  describe("LessonsScreen Continue Week CTA", () => {
+  describe("LessonsScreen primary CTA", () => {
     const src = readFile(join(SRC, 'screens', 'LessonsScreen.tsx'));
 
     it('the continue button opens the daily lesson (not undefined)', () => {
-      // The redesigned LessonsScreen uses the <Button> primitive.
-      expect(src).toMatch(/<Button[\s\S]*?label=\{?`Continue Week \$\{weekProgress\.index\}`?\}?/);
-      const block = src.match(/<Button[\s\S]*?label=\{?`Continue Week[^`]*`?\}?[\s\S]*?\/>/);
-      expect(block).not.toBeNull();
-      expect(block![0]).toMatch(/onPress=\{[^}]*setSelected\([^}]*dailyLesson/);
-      expect(block![0]).not.toMatch(/=>\s*undefined/);
+      // Phase 30: the primary CTA on the lessons list uses
+      // `dailyLesson.lesson.id` (mid-week "Continue <title>" or
+      // "Start Week N" preview). Match that button specifically so the
+      // test does not pick up the secondary "Next: <lesson>" button that
+      // appears inside the lesson-detail view.
+      // Use a non-greedy regex that anchors on the label starting with
+      // `dailyLesson.isWeekPreview` so we only match the primary CTA.
+      const primaryButton = src.match(
+        /<Button\b[^>]*?\blabel=\{\s*dailyLesson\.isWeekPreview[^]*?\/>/,
+      );
+      expect(primaryButton, 'primary CTA button missing').not.toBeNull();
+      // The onPress handler is an async multi-line arrow function, so a
+      // [^}]* match won't span it; assert on the structural pieces
+      // independently instead.
+      expect(primaryButton![0]).toMatch(/setSelected\(dailyLesson\.lesson\.id\)/);
+      expect(primaryButton![0]).not.toMatch(/=>\s*undefined/);
+      expect(primaryButton![0]).toContain('store.completeCurrentLesson');
     });
 
     it('accepts a pendingLessonId prop and auto-opens that lesson', () => {

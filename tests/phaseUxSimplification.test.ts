@@ -110,9 +110,14 @@ describe('UX-0/1/2/3/4 simplification — non-technical user friendly', () => {
   });
 
   describe('LessonsScreen simplified — one primary action, hidden categories', () => {
-    it('primary action is "Continue Week N"', () => {
+    it('primary action reflects progress ("Continue <lesson>" or "Start Week N")', () => {
       const src = readScreen('LessonsScreen.tsx');
-      expect(src).toContain('Continue Week');
+      // Phase 30: the label is now dynamic — "Continue ${lesson.title}"
+      // mid-week, "Start Week ${weekProgress.index}" when the previous
+      // week is finished. Assert on the structural shape rather than the
+      // literal "Continue Week" copy that no longer exists.
+      expect(src).toMatch(/label=\{\s*dailyLesson\.isWeekPreview/);
+      expect(src).toMatch(/dailyLesson\.lesson\.title/);
     });
 
     it('title is "Lessons" not "Learn"', () => {

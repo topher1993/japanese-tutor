@@ -3,14 +3,16 @@ import { getDailyLesson, getLocalizedLessonItem, getWorkplaceSurvivalTopics } fr
 
 describe('Sensei-compatible lesson data', () => {
   it('returns a daily lesson with multilingual learner content', () => {
-    const lesson = getDailyLesson();
-    expect(lesson.title).toContain('Workplace Greetings');
-    expect(lesson.items.length).toBeGreaterThanOrEqual(3);
-    expect(lesson.items[0]).toMatchObject({ japanese: expect.any(String), romaji: expect.any(String), english: expect.any(String), vietnamese: expect.any(String), filipino: expect.any(String) });
+    // Phase 30: getDailyLesson now returns a DailyLessonView; the
+    // SenseiLesson itself lives at `.lesson`.
+    const view = getDailyLesson();
+    expect(view.lesson.title).toContain('Workplace Greetings');
+    expect(view.lesson.items.length).toBeGreaterThanOrEqual(3);
+    expect(view.lesson.items[0]).toMatchObject({ japanese: expect.any(String), romaji: expect.any(String), english: expect.any(String), vietnamese: expect.any(String), filipino: expect.any(String) });
   });
 
   it('localizes lesson item explanations by selected support language', () => {
-    const item = getDailyLesson().items[0];
+    const item = getDailyLesson().lesson.items[0];
     expect(getLocalizedLessonItem(item, 'vi').supportText).toBe(item.vietnamese);
     expect(getLocalizedLessonItem(item, 'tl').supportText).toBe(item.filipino);
     expect(getLocalizedLessonItem(item, 'en').supportText).toBe(item.english);

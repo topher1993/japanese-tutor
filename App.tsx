@@ -13,6 +13,7 @@ import { SourcesScreen } from './src/screens/SourcesScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { SenseiReviewScreen } from './src/screens/SenseiReviewScreen';
 import { TabBar } from './src/components/TabBar';
+import { CompletionToast } from './src/components/CompletionToast';
 import { ds } from './src/theme/designSystem';
 import type { AppTab } from './src/types/navigation';
 import type { LearnerLanguage } from './src/types/onboarding';
@@ -280,13 +281,14 @@ export default function App() {
   }
 
   return (
-    <AppShell maxWidth={shellMaxWidth}>
-      <LearningRepositoryProvider>
-        <View style={styles.body}>{render(tab, supportLanguage, () => setShowFeedback(true), () => setShowSources(true), () => setShowSettings(true), () => setTab('Lessons'), onReviewDue, dueReviewMode)}</View>
-        <TabBar items={bottomTabs} activeId={tab} onSelect={onTabChange} />
-      </LearningRepositoryProvider>
-    </AppShell>
-  );
+      <AppShell maxWidth={shellMaxWidth}>
+        <LearningRepositoryProvider>
+          <View style={styles.body}>{render(tab, supportLanguage, () => setShowFeedback(true), () => setShowSources(true), () => setShowSettings(true), () => setTab('Lessons'), onReviewDue, dueReviewMode)}</View>
+          <TabBar items={bottomTabs} activeId={tab} onSelect={onTabChange} />
+          <CompletionToast />
+        </LearningRepositoryProvider>
+      </AppShell>
+    );
 }
 
 const styles = StyleSheet.create({

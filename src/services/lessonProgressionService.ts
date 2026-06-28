@@ -124,6 +124,6 @@ function build(currentWeek: number): LessonProgression {
   };
 }
 
-export function buildLessonProgression(): LessonProgression {
-  return build(1);
+export function buildLessonProgression(currentWeek: number = 1): LessonProgression {
+  return build(currentWeek);
 }

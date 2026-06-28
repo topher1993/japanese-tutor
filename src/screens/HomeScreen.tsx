@@ -14,6 +14,7 @@ import { getDailyLesson } from '../services/lessonService';
 import { getSupportLanguageDisplayName, getSupportTranslation } from '../services/supportLanguageService';
 import { useLearningContext } from '../services/learningContext';
 import type { LearnerLanguage } from '../types/onboarding';
+import type { LearnerProgress } from '../types/progress';
 import { PlacementTestPanel } from './PlacementTestPanel';
 import { ds } from '../theme/designSystem';
 
@@ -26,26 +27,38 @@ export function HomeScreen({
   onStartLesson?: () => void;
   onReviewDue?: () => void;
 }) {
-  const lesson = getDailyLesson();
-  const phrase = lesson.items[0];
-  const primaryTranslation = getSupportTranslation(phrase, supportLanguage);
-  const [showPlacement, setShowPlacement] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
-  // P0-02 + P0-03 fix: StreakFlame now reads from the persistent store, not a hardcoded 3.
+  // Phase 30: read progress so the daily lesson copy reflects the
+  // learner's actual completion state instead of always defaulting to
+  // Week 1 Day 1.
   const { ready, store, srs } = useLearningContext();
-  const [streak, setStreak] = useState<number>(0);
-  const [dueCount, setDueCount] = useState<number>(0);
+  const [progress, setProgress] = useState<LearnerProgress | null>(null);
   useEffect(() => {
     if (!ready || !store) return;
     let cancelled = false;
-    Promise.all([
-      store.getDashboard().then(d => d.currentStreak),
-      srs ? srs.dueCount() : Promise.resolve(0),
-    ])
-      .then(([s, d]) => { if (!cancelled) { setStreak(s); setDueCount(d); } })
-      .catch(() => { if (!cancelled) { setStreak(0); setDueCount(0); } });
+    store.getProgress()
+      .then((p) => { if (!cancelled) setProgress(p); })
+      .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [ready, store, srs]);
+  }, [ready, store]);
+  const lesson = getDailyLesson(progress ?? undefined);
+  const phrase = lesson.lesson.items[0];
+  const primaryTranslation = getSupportTranslation(phrase, supportLanguage);
+    const [showPlacement, setShowPlacement] = useState(false);
+    const [showHelp, setShowHelp] = useState(false);
+    // P0-02 + P0-03 fix: StreakFlame now reads from the persistent store, not a hardcoded 3.
+    const [streak, setStreak] = useState<number>(0);
+    const [dueCount, setDueCount] = useState<number>(0);
+    useEffect(() => {
+      if (!ready || !store) return;
+      let cancelled = false;
+      Promise.all([
+        store.getDashboard().then(d => d.currentStreak),
+        srs ? srs.dueCount() : Promise.resolve(0),
+      ])
+        .then(([s, d]) => { if (!cancelled) { setStreak(s); setDueCount(d); } })
+        .catch(() => { if (!cancelled) { setStreak(0); setDueCount(0); } });
+      return () => { cancelled = true; };
+    }, [ready, store, srs]);
 
   if (showPlacement) {
     return (
@@ -65,7 +78,7 @@ export function HomeScreen({
           <View style={styles.greetingText}>
             <ScreenHeader
               title="Home"
-              subtitle={`${getSupportLanguageDisplayName(supportLanguage)} • ${lesson.title}`}
+              subtitle={`${getSupportLanguageDisplayName(supportLanguage)} • ${lesson.lesson.title}`}
             />
           </View>
         </View>
@@ -98,7 +111,7 @@ export function HomeScreen({
         <View style={styles.lessonLabelRow}>
           <Text style={styles.lessonLabel}>Today's lesson</Text>
           <View style={styles.lessonBadge}>
-            <Text style={styles.lessonBadgeText}>{lesson.level} • Week {lesson.week}</Text>
+            <Text style={styles.lessonBadgeText}>{lesson.lesson.level} • Week {lesson.lesson.week} • {lesson.lessonsDoneThisWeek}/{lesson.lessonsTotalThisWeek} done</Text>
           </View>
         </View>
         <Text style={styles.lessonTitle}>{phrase.japanese}</Text>

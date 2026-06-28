@@ -8,11 +8,13 @@ import { getAdditionalLessonCategoryContent, getLocalizedAdditionalLessonPhrase 
 import { getSupportLanguageDisplayName } from '../services/supportLanguageService';
 import { getLessonCategoryCards, type LessonCategoryCardId } from '../services/lessonCategoryService';
 import type { LearnerLanguage } from '../types/onboarding';
+import type { LearnerProgress } from '../types/progress';
 import { WorkplaceSurvivalScreen } from './WorkplaceSurvivalScreen';
 import { ExampleSentencesScreen } from './ExampleSentencesScreen';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
+import { notifyLessonCompleted } from '../components/CompletionToast';
 import { Disclosure } from '../components/Disclosure';
 import { EmptyStateArt } from '../components/EmptyStateArt';
 import { Icon, type IconName } from '../components/Icon';
@@ -26,22 +28,35 @@ import { ds } from '../theme/designSystem';
 
 export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { supportLanguage?: LearnerLanguage; pendingLessonId?: string }) {
   const lessons = getAllLessons();
-  const { ready, store } = useLearningContext();
-  const categories = getLessonCategoryCards();
-  const dailyLesson = getDailyLesson();
-  const [selectedCategory, setSelectedCategory] = useState<LessonCategoryCardId | undefined>(undefined);
-  const [selected, setSelected] = useState<string | undefined>(undefined);
-  const [showExamples, setShowExamples] = useState(false);
-  const nav = createLessonNavigator(lessons, selected);
-  const [progression] = useState(() => buildLessonProgression());
-  const [showKanji, setShowKanji] = useState(false);
-  const [showMore, setShowMore] = useState(false);
-  const currentWeek = progression.currentWeekDetails();
-  const weekProgress = {
-    index: progression.currentWeek,
-    total: progression.weeks.length,
-    minutes: currentWeek.recommendedMinutes,
-  };
+    const { ready, store } = useLearningContext();
+    const categories = getLessonCategoryCards();
+    const [progress, setProgress] = useState<LearnerProgress | null>(null);
+    const dailyLesson = getDailyLesson(progress ?? undefined);
+    const [selectedCategory, setSelectedCategory] = useState<LessonCategoryCardId | undefined>(undefined);
+    const [selected, setSelected] = useState<string | undefined>(undefined);
+    const [showExamples, setShowExamples] = useState(false);
+    const nav = createLessonNavigator(lessons, selected);
+    const [progression] = useState(() => buildLessonProgression(dailyLesson.lesson.week));
+    const [showKanji, setShowKanji] = useState(false);
+    const [showMore, setShowMore] = useState(false);
+    const currentWeek = progression.currentWeekDetails();
+    const weekProgress = {
+      index: progression.currentWeek,
+      total: progression.weeks.length,
+      minutes: currentWeek.recommendedMinutes,
+    };
+
+    // Phase 30: re-read the raw learner progress on mount so the daily
+    // lesson label and weekly progress copy reflect the learner's actual
+    // completion state instead of always defaulting to Week 1 Day 1.
+    useEffect(() => {
+      if (!ready || !store) return;
+      let cancelled = false;
+      store.getProgress()
+        .then((p) => { if (!cancelled) setProgress(p); })
+        .catch(() => undefined);
+      return () => { cancelled = true; };
+    }, [ready, store]);
 
   useEffect(() => {
     if (pendingLessonId) {
@@ -182,37 +197,77 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
   }
 
   return (
-    <ScreenScaffold>
-      <ScreenHeader title="Lessons" subtitle={`Week ${weekProgress.index} of ${weekProgress.total} • ${weekProgress.minutes} min`} />
-
-      <Card tone="brand" shadow="hero" style={styles.heroCard}>
-        <View style={styles.heroHeader}>
-          <Mascot expression="encourage" size={56} />
-          <View style={styles.heroTextWrap}>
-            <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeText}>This week</Text>
-            </View>
-            <Text style={styles.heroTitle}>{currentWeek.label.replace(/^Week \d+ — /, '')}</Text>
-          </View>
-        </View>
-        <Text style={styles.heroMeta}>Theme: {currentWeek.theme}</Text>
-        {currentWeek.objectives.map((objective, idx) => (
-          <View key={idx} style={styles.objectiveRow}>
-            <Text style={styles.bullet}>•</Text>
-            <Text style={styles.objectiveText}>{objective}</Text>
-          </View>
-        ))}
-      </Card>
-
-      <View style={styles.ctaWrapper}>
-        <Button
-          label={`Continue Week ${weekProgress.index}`}
-          onPress={() => setSelected(dailyLesson.id)}
-          iconRight="arrow-right"
-          variant="secondary"
-          testID="learn-continue-button"
+      <ScreenScaffold>
+        <ScreenHeader
+          title="Lessons"
+          subtitle={`Week ${weekProgress.index} of ${weekProgress.total} • ${dailyLesson.lessonsDoneThisWeek} of ${dailyLesson.lessonsTotalThisWeek} lessons done • ${weekProgress.minutes} min`}
         />
-      </View>
+
+        <Card tone="brand" shadow="hero" style={styles.heroCard}>
+          <View style={styles.heroHeader}>
+            <Mascot expression="encourage" size={56} />
+            <View style={styles.heroTextWrap}>
+              <View style={styles.heroBadge}>
+                <Text style={styles.heroBadgeText}>
+                  {dailyLesson.isWeekPreview ? 'New week unlocked!' : `Week ${weekProgress.index}`}
+                </Text>
+              </View>
+              <Text style={styles.heroTitle}>{currentWeek.label.replace(/^Week \d+ — /, '')}</Text>
+            </View>
+          </View>
+          <Text style={styles.heroMeta}>Theme: {currentWeek.theme}</Text>
+          {dailyLesson.isWeekPreview ? (
+            <Text style={styles.heroMeta}>
+              You finished Week {weekProgress.index - 1}. Tap below to start Week {weekProgress.index}.
+            </Text>
+          ) : null}
+          {currentWeek.objectives.map((objective, idx) => (
+            <View key={idx} style={styles.objectiveRow}>
+              <Text style={styles.bullet}>•</Text>
+              <Text style={styles.objectiveText}>{objective}</Text>
+            </View>
+          ))}
+          <Text style={styles.heroMeta}>
+            {dailyLesson.lessonsDoneThisWeek} of {dailyLesson.lessonsTotalThisWeek} lessons done this week
+          </Text>
+        </Card>
+
+        <View style={styles.ctaWrapper}>
+          <Button
+            label={
+              dailyLesson.isWeekPreview
+                ? `Start Week ${weekProgress.index}`
+                : `Continue ${dailyLesson.lesson.title}`
+            }
+            onPress={async () => {
+                        if (ready && store) {
+                          try {
+                            await store.completeCurrentLesson(dailyLesson.lesson.id, 100, new Date().toISOString().slice(0, 10));
+                            // Re-read progress so the next render reflects the new
+                            // completion and (if applicable) advances to the next week.
+                            const refreshed = await store.getProgress();
+                            setProgress(refreshed);
+                            // Surface an in-app notification per the user's request.
+                            const done = refreshed.completedLessonIds.length;
+                            const total = lessons.length;
+                            const weeklyDone = dailyLesson.lessonsDoneThisWeek + 1;
+                            const weeklyTotal = dailyLesson.lessonsTotalThisWeek;
+                            const detail =
+                              weeklyDone >= weeklyTotal
+                                ? `Week ${dailyLesson.lesson.week} complete! ${done} of ${total} lessons done total.`
+                                : `${weeklyDone} of ${weeklyTotal} lessons done this week.`;
+                            notifyLessonCompleted({ message: `✓ ${dailyLesson.lesson.title}`, detail });
+                          } catch {
+                            /* best-effort */
+                          }
+                        }
+                        setSelected(dailyLesson.lesson.id);
+                      }}
+            iconRight="arrow-right"
+            variant="secondary"
+            testID="learn-continue-button"
+          />
+        </View>
 
       <Text style={styles.sectionTitle}>Topics</Text>
       <View style={styles.chipRow}>
@@ -240,11 +295,17 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
           onPress={() => setShowExamples(true)}
         />
         <ToolRow
-          icon="clock"
-          label="Today's plan"
-          hint={`${weekProgress.minutes} min • ${currentWeek.objectives.length} goals`}
-          onPress={() => setSelected(dailyLesson.id)}
-        />
+                  icon="clock"
+                  label="Today's plan"
+                  hint={
+                    dailyLesson.isCourseComplete
+                      ? 'Course complete — keep reviewing'
+                      : dailyLesson.isWeekPreview
+                        ? `Start Week ${weekProgress.index} (Day 1)`
+                        : `${dailyLesson.lesson.title} • ${dailyLesson.lessonsDoneThisWeek}/${dailyLesson.lessonsTotalThisWeek} this week`
+                  }
+                  onPress={() => setSelected(dailyLesson.lesson.id)}
+                />
       </Disclosure>
     </ScreenScaffold>
   );
