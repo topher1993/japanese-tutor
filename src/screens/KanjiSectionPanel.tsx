@@ -6,6 +6,8 @@ import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
+import { FlipCard } from '../components/FlipCard';
+import { JishoLink } from '../components/JishoLink';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ds } from '../theme/designSystem';
@@ -38,6 +40,7 @@ export function KanjiSectionPanel({ onBack }: { onBack?: () => void }) {
   }, []);
   const [level, setLevel] = useState<KanjiLevel>('N5');
   const [cardIndex, setCardIndex] = useState(0);
+  const [incomingDirection, setIncomingDirection] = useState<'left' | 'right' | null>(null);
 
   if (!section) {
     return (
@@ -54,6 +57,16 @@ export function KanjiSectionPanel({ onBack }: { onBack?: () => void }) {
   const cardsInLevel = section.cards.filter(c => c.jlptLevel === level);
   const safeCardIndex = Math.min(cardIndex, Math.max(0, cardsInLevel.length - 1));
   const card = cardsInLevel[safeCardIndex];
+
+  function showNextCard() {
+    setIncomingDirection('left');
+    setCardIndex(index => Math.min(cardsInLevel.length - 1, index + 1));
+  }
+
+  function showPreviousCard() {
+    setIncomingDirection('right');
+    setCardIndex(index => Math.max(0, index - 1));
+  }
 
   if (!card) {
     return (
@@ -74,38 +87,61 @@ export function KanjiSectionPanel({ onBack }: { onBack?: () => void }) {
         ))}
       </View>
 
-      <Card shadow="hero" style={styles.kanjiCard}>
-        <View style={styles.kanjiHeader}>
-          <Badge label={card.jlptLevel} tone="info" />
-          <Text style={styles.counter}>{safeCardIndex + 1} / {cardsInLevel.length}</Text>
-        </View>
-        <Text style={styles.kanji}>{card.kanji}</Text>
-        <Text style={styles.readings}>{card.readings.join(' / ')}</Text>
-        <View style={styles.divider} />
-        <Text style={styles.meanings}>{card.meanings.join(', ')}</Text>
-        <Text style={styles.sectionLabel}>Example words</Text>
-        {card.exampleWords.map(w => (
-          <Text key={w} style={styles.example}>• {w}</Text>
-        ))}
-        <View style={styles.actions}>
-          <Button label="Prev" onPress={() => setCardIndex(index => Math.max(0, index - 1))} variant="soft" icon="arrow-left" fullWidth={false} style={styles.actionBtn} />
-          <Button label="Next" onPress={() => setCardIndex(index => Math.min(cardsInLevel.length - 1, index + 1))} variant="primary" iconRight="arrow-right" fullWidth={false} style={styles.actionBtn} />
-        </View>
-      </Card>
+      <View style={styles.flipWrap}>
+        <FlipCard
+          key={card.id}
+          front={
+            <View style={styles.cardFace}>
+              <Badge label={card.jlptLevel} tone="info" />
+              <Text style={styles.kanji}>{card.kanji}</Text>
+              <Text style={styles.readings}>{card.readings.join(' / ')}</Text>
+              <View style={styles.divider} />
+              <Text style={styles.meanings}>{card.meanings.join(', ')}</Text>
+              <Text style={styles.cardHint}>Tap for example words • swipe to change card</Text>
+            </View>
+          }
+          back={
+            <View style={styles.cardFace}>
+              <Text style={styles.sectionLabel}>Example words</Text>
+              {card.exampleWords.slice(0, 3).map(example => (
+                <View key={`${card.id}-${example.japanese}`} style={styles.exampleRow}>
+                  <Text style={styles.exampleJapanese}>• {example.japanese}</Text>
+                  <Text style={styles.exampleReading}>{example.reading} • {example.romaji}</Text>
+                  <Text style={styles.exampleEnglish}>{example.english}</Text>
+                </View>
+              ))}
+            </View>
+          }
+          cardNumber={safeCardIndex + 1}
+          totalCards={cardsInLevel.length}
+          cornerBadge={<JishoLink japanese={card.kanji} variant="corner" testID={`kanji-jisho-${card.id}`} />}
+          onSwipeLeft={showNextCard}
+          onSwipeRight={showPreviousCard}
+          swipeInDirection={incomingDirection}
+        />
+      </View>
+      <View style={styles.actions}>
+        <Button label="Prev" onPress={showPreviousCard} variant="soft" icon="arrow-left" fullWidth={false} style={styles.actionBtn} />
+        <Button label="Next" onPress={showNextCard} variant="primary" iconRight="arrow-right" fullWidth={false} style={styles.actionBtn} />
+      </View>
     </ScreenScaffold>
   );
 }
 
 const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', gap: ds.spacing.xs, marginBottom: ds.spacing.sm },
-  kanjiCard: { padding: ds.spacing.lg, gap: ds.spacing.xs, alignItems: 'center' },
-  kanjiHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', alignSelf: 'stretch' },
+  flipWrap: { marginTop: ds.spacing.xs },
+  cardFace: { alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' },
   kanji: { fontSize: 96, lineHeight: 110, fontWeight: '900', color: ds.colors.text, marginTop: ds.spacing.sm },
   readings: { color: ds.colors.primary, fontWeight: '900', fontSize: ds.type.heading, marginTop: ds.spacing.xs, flexShrink: 1, textAlign: 'center' },
   divider: { height: 1, backgroundColor: ds.colors.divider, marginVertical: ds.spacing.sm, alignSelf: 'stretch' },
   meanings: { color: ds.colors.text, fontWeight: '800', fontSize: ds.type.body, textAlign: 'center', flexShrink: 1 },
-  sectionLabel: { marginTop: ds.spacing.md, marginBottom: ds.spacing.xs, fontWeight: '900', color: ds.colors.primary, fontSize: ds.type.caption, textTransform: 'uppercase', alignSelf: 'flex-start' },
-  example: { fontSize: ds.type.body, color: ds.colors.text, lineHeight: 22, flexShrink: 1, alignSelf: 'flex-start' },
+  sectionLabel: { marginBottom: ds.spacing.sm, fontWeight: '900', color: ds.colors.primary, fontSize: ds.type.caption, textTransform: 'uppercase', alignSelf: 'flex-start' },
+  cardHint: { marginTop: ds.spacing.md, fontSize: ds.type.caption, fontWeight: '800', color: ds.colors.textMuted, textAlign: 'center' },
+  exampleRow: { alignSelf: 'stretch', paddingVertical: ds.spacing.xs, borderBottomWidth: 1, borderBottomColor: ds.colors.divider },
+  exampleJapanese: { fontSize: ds.type.heading, color: ds.colors.text, fontWeight: '900', flexShrink: 1 },
+  exampleReading: { marginTop: ds.spacing.xs, fontSize: ds.type.caption, color: ds.colors.primary, fontWeight: '800', flexShrink: 1 },
+  exampleEnglish: { marginTop: ds.spacing.xs, fontSize: ds.type.caption, color: ds.colors.textMuted, flexShrink: 1 },
   actions: { flexDirection: 'row', gap: ds.spacing.sm, marginTop: ds.spacing.md, alignSelf: 'stretch' },
   actionBtn: { flex: 1 },
   counter: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.textMuted },

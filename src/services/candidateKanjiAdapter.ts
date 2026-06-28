@@ -1,11 +1,11 @@
-import { kanjiExampleWords } from '../data/generated/kanjiExampleWords';
+import { kanjiExampleWords, type KanjiExampleWord } from '../data/generated/kanjiExampleWords';
 import type { KanjiCard, KanjiLesson } from './kanjiSectionService';
 
 function isSingleKanjiCharacter(value: string): boolean {
   return value.length === 1 && /[\u3400-\u9fff]/.test(value);
 }
 
-function getExampleWords(kanji: string): string[] {
+function getExampleWords(kanji: string): KanjiExampleWord[] {
   return kanjiExampleWords[kanji] ?? [];
 }
 

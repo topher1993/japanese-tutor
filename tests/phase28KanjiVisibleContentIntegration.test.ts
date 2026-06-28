@@ -47,7 +47,24 @@ describe('Phase 28 kanji visible content integration', () => {
     for (const card of visible) {
       expect(card.kanji.length).toBe(1);
       expect(card.exampleWords.length).toBeGreaterThan(0);
+      for (const example of card.exampleWords) {
+        expect(example.japanese.trim().length).toBeGreaterThan(0);
+        expect(example.reading.trim().length).toBeGreaterThan(0);
+        expect(example.romaji.trim().length).toBeGreaterThan(0);
+        expect(example.english.trim().length).toBeGreaterThan(0);
+      }
     }
+  });
+
+  it('KanjiSectionPanel uses flashcard-style swipe cards and a Jisho corner link', () => {
+    const source = readFileSync(join(process.cwd(), 'src/screens/KanjiSectionPanel.tsx'), 'utf8');
+
+    expect(source).toContain('<FlipCard');
+    expect(source).toContain('onSwipeLeft={showNextCard}');
+    expect(source).toContain('onSwipeRight={showPreviousCard}');
+    expect(source).toContain('<JishoLink japanese={card.kanji} variant="corner"');
+    expect(source).toContain('example.romaji');
+    expect(source).toContain('example.english');
   });
 
   it('KanjiSectionPanel navigates the flat level card pool, not a 5-card lesson window', () => {
