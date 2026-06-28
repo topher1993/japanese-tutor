@@ -565,6 +565,28 @@ const raw: RawEntry[] = [
   { japanese: 'じゃあね', kana: 'じゃあね', romaji: 'jaa ne', english: 'see you (casual)', category: 'greetings' },
   { japanese: '気をつけて', kana: 'きをつけて', romaji: 'ki wo tsukete', english: 'take care', category: 'greetings' },
   { japanese: 'お大事に', kana: 'おだいじに', romaji: 'odaiji ni', english: 'take care (to sick person)', category: 'greetings' },
+  // Phase 29: compounds promoted from n5KanjiCandidateData. These are
+  // real JLPT N5 vocabulary words that were misplaced in the kanji file
+  // and silently dropped by isSingleKanjiCharacter. They now surface
+  // through Flashcards / Vocab lessons.
+  { japanese: '毎週', kana: 'まいしゅう', romaji: 'maishuu', english: 'every week', category: 'time' },
+  { japanese: '毎朝', kana: 'まいあさ', romaji: 'maiasa', english: 'every morning', category: 'time' },
+  { japanese: '山道', kana: 'やまみち', romaji: 'yamamichi', english: 'mountain path', category: 'places' },
+  { japanese: '冷蔵庫', kana: 'れいぞうこ', romaji: 'reizouko', english: 'refrigerator', category: 'home' },
+  { japanese: '医者', kana: 'いしゃ', romaji: 'isha', english: 'doctor', category: 'people' },
+  { japanese: '宿題', kana: 'しゅくだい', romaji: 'shukudai', english: 'homework', category: 'daily-life' },
+  { japanese: '勉強', kana: 'べんきょう', romaji: 'benkyou', english: 'study', category: 'daily-life' },
+  { japanese: '練習', kana: 'れんしゅう', romaji: 'renshuu', english: 'practice', category: 'daily-life' },
+  { japanese: '本当', kana: 'ほんとう', romaji: 'hontou', english: 'truth / really', category: 'expressions' },
+  { japanese: '多分', kana: 'たぶん', romaji: 'tabun', english: 'maybe', category: 'expressions' },
+  { japanese: '少少', kana: 'しょうしょう', romaji: 'shoushou', english: 'a little', category: 'expressions' },
+  { japanese: '上手', kana: 'じょうず', romaji: 'jouzu', english: 'skillful', category: 'adjectives' },
+  { japanese: '下手', kana: 'へた', romaji: 'heta', english: 'unskillful', category: 'adjectives' },
+  { japanese: '大好き', kana: 'だいすき', romaji: 'daisuki', english: 'love', category: 'adjectives' },
+  { japanese: '嫌い', kana: 'きらい', romaji: 'kirai', english: 'dislike', category: 'adjectives' },
+  { japanese: '逃げて', kana: 'にげて', romaji: 'nigete', english: 'run away (imperative)', category: 'emergency' },
+  { japanese: '開ける', kana: 'あける', romaji: 'akeru', english: 'to open', category: 'verbs' },
+  { japanese: '結婚', kana: 'けっこん', romaji: 'kekkon', english: 'marriage', category: 'daily-life' },
 ];
 
 const seen = new Set<string>();
