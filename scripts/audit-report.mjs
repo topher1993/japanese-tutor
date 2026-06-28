@@ -24,6 +24,55 @@ const ROOT = dirname(__dirname);
 const OUT = join(ROOT, 'docs', 'phase-22-dependency-audit.md');
 const PKG = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
 
+/**
+ * Safely stringify npm-audit's `via` field without ever rendering
+ * "[object Object]".
+ *
+ * npm-audit's `via` field can be:
+ *   - an array of strings (advisory IDs / GHSA references)
+ *   - an array of objects (`{ title, url, severity, ... }`)
+ *   - a plain string (rare, but observed)
+ *   - an object without `title` (rare, but observed)
+ *   - null / undefined (when a vulnerability has no upstream advice)
+ *
+ * All shapes are mapped to a stable string. Unknown objects fall back to
+ * `JSON.stringify` rather than the naive `String(...)` coercion that
+ * would render the literal text "[object Object]".
+ *
+ * NOTE: This helper is the script-side mirror of `stringifyVia` in
+ * src/services/auditLog.ts. The two must stay in sync because the .mjs
+ * script cannot import from a .ts file without a build step, and the
+ * test (tests/phase25P3StringifyViaField.test.ts) replicates this logic
+ * inline to guard the contract.
+ */
+function stringifyViaField(via) {
+  if (via == null) return 'unknown';
+  if (typeof via === 'string') return via;
+  if (Array.isArray(via)) {
+    return via
+      .map((x) => (typeof x === 'string' ? x : x && typeof x === 'object' && typeof x.title === 'string' ? x.title : null))
+      .filter((s) => s !== null && s.length > 0)
+      .join(', ') || 'unknown';
+  }
+  if (typeof via === 'object') {
+    const obj = via;
+    if (typeof obj.title === 'string') return obj.title;
+    if (typeof obj.name === 'string') return obj.name;
+    if (typeof obj.url === 'string') return obj.url;
+    if (typeof obj.severity === 'string') return obj.severity;
+    try {
+      return JSON.stringify(via);
+    } catch {
+      return 'unknown';
+    }
+  }
+  // numbers, booleans, bigints, symbols — never "[object Object]"
+  if (typeof via === 'number' || typeof via === 'boolean' || typeof via === 'bigint') {
+    return String(via);
+  }
+  return 'unknown';
+}
+
 function runAudit() {
   try {
     const out = execSync('npm audit --omit=dev --json', {
@@ -75,7 +124,7 @@ function topAdvisories(report, n = 10) {
     .map(([name, v]) => ({
       name,
       severity: v.severity,
-      via: Array.isArray(v.via) ? v.via.map(x => typeof x === 'string' ? x : x.title).join(', ') : String(v.via),
+      via: stringifyViaField(v.via),
       range: v.range,
     }))
     .sort((a, b) => {
