@@ -1,5 +1,5 @@
 export type SupportLanguage = 'en' | 'vi' | 'tl';
-export type LessonCategory = 'workplace' | 'safety' | 'daily-life' | 'hr' | 'emergency';
+export type LessonCategory = 'workplace' | 'safety' | 'daily-life' | 'hr' | 'emergency' | 'grammar';
 export type TranslationReviewStatus = 'approved' | 'draft';
 
 export interface LessonItem {

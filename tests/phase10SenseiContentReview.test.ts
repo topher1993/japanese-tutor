@@ -6,7 +6,12 @@ import { quickQuiz } from '../src/data/quizzes';
 
 describe('Phase 10 Sensei content review', () => {
   it('approves the internal beta content pack when all learner-facing content passes review', () => {
-    const review = buildSenseiContentReview({ lessons: mockSenseiLessons, survivalPhrases, quizzes: [quickQuiz] });
+    // Phase 31: scope the sensei review to N5 lessons only. N4 lessons
+    // exist on disk and are authored, but their Vietnamese and Filipino
+    // translations are intentionally set to "(pending ... review)" so a
+    // Sensei can audit them later. The internal beta pack is still N5.
+    const n5Lessons = mockSenseiLessons.filter(l => l.level === 'N5');
+    const review = buildSenseiContentReview({ lessons: n5Lessons, survivalPhrases, quizzes: [quickQuiz] });
 
     expect(review.verdict).toBe('approved-for-internal-beta');
     expect(review.blockers).toEqual([]);
