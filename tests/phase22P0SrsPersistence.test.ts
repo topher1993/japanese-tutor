@@ -24,6 +24,21 @@ interface FakeDB {
   getAllAsync<T>(sql: string, ...params: unknown[]): Promise<T[]>;
 }
 
+/**
+ * Phase 25 / P3-2: the persistent store's `review()` does the in-memory
+ * update synchronously and then fires off a `void persist(updated)` write
+ * to SQLite. To read the persisted row deterministically without changing
+ * the production store, we yield several microtasks after `await review()`.
+ * Two `await Promise.resolve()` cycles are enough to drain the persist
+ * promise queue for the in-memory fake DB; we add a third as a safety margin
+ * for real SQLite adapters.
+ */
+async function flushMicrotasks(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 function createFakeSqlite(): FakeDB {
   const tables = new Map<string, Row[]>();
   let seeded = false;
@@ -70,8 +85,11 @@ describe('Phase 22 audit — SRS persistence (P0-03 fix)', () => {
     const card = srs.createCard('card-japanese-hello');
     expect(card.refId).toBe('card-japanese-hello');
     expect(card.dueOn).toBe(new Date().toISOString().slice(0, 10));
-    // Allow the fire-and-forget persist to complete
-    await new Promise(r => setTimeout(r, 5));
+    // AWAIT the review's persist write so the row is durably visible before
+    // we read. Phase 25 / P3-2 fix: the previous `setTimeout(5)` race pattern
+    // surfaced intermittently on slow CI runners.
+    const reviewed = await srs.review(card.id, 'good');
+    expect(reviewed.repetitions).toBe(1);
     const list = await srs.listCards();
     expect(list).toHaveLength(1);
     expect(list[0].id).toBe(card.id);
@@ -82,8 +100,8 @@ describe('Phase 22 audit — SRS persistence (P0-03 fix)', () => {
     const dbA = createFakeSqlite();
     const srsA = createPersistentSrsStore(dbA);
     const card = srsA.createCard('card-hiragana-a');
-    srsA.review(card.id, 'good');
-    await new Promise(r => setTimeout(r, 5));
+    // AWAIT (was: fire-and-forget + setTimeout(5)) — Phase 25 / P3-2 fix.
+    await srsA.review(card.id, 'good');
 
     // Session B: fresh SRS store backed by the same SQLite row.
     const dbB = createFakeSqlite();
@@ -105,7 +123,10 @@ describe('Phase 22 audit — SRS persistence (P0-03 fix)', () => {
     const reviewed = await srs.review(card.id, 'good');
     expect(reviewed.repetitions).toBe(1);
     expect(reviewed.intervalDays).toBeGreaterThan(0);
-    await new Promise(r => setTimeout(r, 5));
+    // AWAIT (was: `setTimeout(5)`) — Phase 25 / P3-2 fix: replace the brittle
+    // real-time delay with deterministic microtask flushing so the persist
+    // write is reliably visible to the next read.
+    await flushMicrotasks();
     const list = await srs.listCards();
     expect(list[0].repetitions).toBe(1);
   });
@@ -140,8 +161,9 @@ describe('Phase 22 audit — SRS persistence (P0-03 fix)', () => {
     const srsA = createPersistentSrsStore(dbA);
     const card = srsA.createCard('card-9-card-item-week3-toomu');
     await srsA.review(card.id, 'good');
-    // Wait for the fire-and-forget persist() promise in srsA.review to flush.
-    await new Promise(r => setTimeout(r, 20));
+    // AWAIT (was: `setTimeout(20)`) — Phase 25 / P3-2 fix: deterministic
+    // microtask flush instead of real-time wait.
+    await flushMicrotasks();
     const rowsA = await dbA.getAllAsync<Row>('SELECT id, ref_id, interval_days, repetitions, ease_factor, due_on, last_reviewed_on FROM kv_srs_cards');
     expect(rowsA).toHaveLength(1);
 
