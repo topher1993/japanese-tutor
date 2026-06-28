@@ -1,7 +1,7 @@
 # Current Expo QA Access — Temporary LAN Server
 
 Status: live temporary LAN QA server
-Date: 2026-06-28
+Date: 2026-06-28 (Phase 29 — kanji/vocab split, restarted after Metro died)
 
 ## Current Expo Go URL
 
@@ -31,7 +31,7 @@ This is **not** a stable beta distribution link.
 Hermes background process:
 
 ```text
-proc_3366c4c88fbc
+proc_22658b13c0e4
 ```
 
 Metro local health check:
