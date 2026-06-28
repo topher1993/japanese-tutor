@@ -17,17 +17,18 @@ export async function buildCandidateKanjiSection(): Promise<{ cards: KanjiCard[]
   const cards: KanjiCard[] = [];
 
   for (const k of n5) {
+    const readings = [...k.onReadings, ...k.kunReadings];
     cards.push({
       id: `cand-kanji-${k.id}`,
       kanji: k.kanji,
-      meanings: ['(review needed)'],
-      readings: ['(pending)'],
+      meanings: k.meanings,
+      readings,
       jlptLevel: 'N5',
       exampleWords: [],
     });
   }
 
-  for (const k of n4.slice(0, 200)) {
+  for (const k of n4) {
     cards.push({
       id: `cand-kanji-${k.id}`,
       kanji: k.kanji,
