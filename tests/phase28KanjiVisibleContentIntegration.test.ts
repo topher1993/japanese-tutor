@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { buildKanjiSection } from '../src/services/kanjiSectionService';
+import { buildKanjiSection, mergeKanjiCardPool } from '../src/services/kanjiSectionService';
 import { buildCandidateKanjiSection } from '../src/services/candidateKanjiAdapter';
 
 describe('Phase 28 kanji visible content integration', () => {
@@ -24,7 +24,7 @@ describe('Phase 28 kanji visible content integration', () => {
     const n5Candidates = candidateCards.filter((card) => card.id.startsWith('cand-kanji-kanji-n5-'));
     const n4Candidates = candidateCards.filter((card) => card.id.startsWith('cand-kanji-n4-kanji-'));
 
-    expect(n5Candidates.length).toBeGreaterThan(100);
+    expect(n5Candidates.length).toBeGreaterThan(70);
     expect(n4Candidates.length).toBeGreaterThan(800);
     for (const card of candidateCards) {
       expect(card.meanings.length).toBeGreaterThan(0);
@@ -33,6 +33,20 @@ describe('Phase 28 kanji visible content integration', () => {
       expect(card.meanings).not.toContain('N4 kanji candidate');
       expect(card.readings).not.toContain('(pending)');
       expect(card.readings).not.toContain('(pending on/kun)');
+    }
+  });
+
+  it('deduplicates visible kanji and gives every visible card example words', async () => {
+    const base = buildKanjiSection();
+    const candidate = await buildCandidateKanjiSection();
+    const visible = mergeKanjiCardPool([...base.cards, ...candidate.cards]);
+    const uniqueKanji = new Set(visible.map((card) => card.kanji));
+
+    expect(visible.length).toBeGreaterThan(800);
+    expect(uniqueKanji.size).toBe(visible.length);
+    for (const card of visible) {
+      expect(card.kanji.length).toBe(1);
+      expect(card.exampleWords.length).toBeGreaterThan(0);
     }
   });
 

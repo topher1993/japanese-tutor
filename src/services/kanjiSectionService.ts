@@ -21,6 +21,30 @@ export interface KanjiSection {
   lessons: KanjiLesson[];
 }
 
+function uniqueStrings(items: string[]): string[] {
+  return Array.from(new Set(items.filter(item => item.trim().length > 0)));
+}
+
+export function mergeKanjiCardPool(cards: KanjiCard[]): KanjiCard[] {
+  const byKanji = new Map<string, KanjiCard>();
+  for (const card of cards) {
+    const existing = byKanji.get(card.kanji);
+    if (!existing) {
+      byKanji.set(card.kanji, { ...card });
+      continue;
+    }
+    byKanji.set(card.kanji, {
+      ...existing,
+      meanings: uniqueStrings([...existing.meanings, ...card.meanings]),
+      readings: uniqueStrings([...existing.readings, ...card.readings]),
+      exampleWords: uniqueStrings([...existing.exampleWords, ...card.exampleWords]).slice(0, 6),
+      // Keep the simpler level when a kanji appears in both N5 and N4 pools.
+      jlptLevel: existing.jlptLevel === 'N5' || card.jlptLevel === 'N5' ? 'N5' : 'N4',
+    });
+  }
+  return Array.from(byKanji.values());
+}
+
 const CARDS: Omit<KanjiCard, 'id'>[] = [
   { kanji: '日', meanings: ['day', 'sun', 'Japan'], readings: ['ニチ', 'ジツ', 'ひ'], jlptLevel: 'N5', exampleWords: ['日本', '毎日', '日曜日'] },
   { kanji: '本', meanings: ['book', 'origin'], readings: ['ホン', 'もと'], jlptLevel: 'N5', exampleWords: ['本', '日本', '本当'] },

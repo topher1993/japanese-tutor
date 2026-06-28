@@ -1,4 +1,13 @@
+import { kanjiExampleWords } from '../data/generated/kanjiExampleWords';
 import type { KanjiCard, KanjiLesson } from './kanjiSectionService';
+
+function isSingleKanjiCharacter(value: string): boolean {
+  return value.length === 1 && /[\u3400-\u9fff]/.test(value);
+}
+
+function getExampleWords(kanji: string): string[] {
+  return kanjiExampleWords[kanji] ?? [];
+}
 
 /**
  * Phase 22 audit fix P1-07: N5 and N4 candidate kanji packs are loaded via
@@ -11,8 +20,12 @@ export async function buildCandidateKanjiSection(): Promise<{ cards: KanjiCard[]
     import('../data/candidates/n5KanjiCandidatePack'),
     import('../data/candidates/n4CandidatePack'),
   ]);
-  const n5 = n5Module.getN5KanjiCandidatePack().filter(e => e.reviewStatus === 'approved-for-beta');
-  const n4 = n4Module.getN4KanjiCandidatePack().filter(e => e.reviewStatus === 'approved-for-beta');
+  const n5 = n5Module.getN5KanjiCandidatePack()
+    .filter(e => e.reviewStatus === 'approved-for-beta')
+    .filter(e => isSingleKanjiCharacter(e.kanji));
+  const n4 = n4Module.getN4KanjiCandidatePack()
+    .filter(e => e.reviewStatus === 'approved-for-beta')
+    .filter(e => isSingleKanjiCharacter(e.kanji));
 
   const cards: KanjiCard[] = [];
 
@@ -24,7 +37,7 @@ export async function buildCandidateKanjiSection(): Promise<{ cards: KanjiCard[]
       meanings: k.meanings,
       readings,
       jlptLevel: 'N5',
-      exampleWords: [],
+      exampleWords: getExampleWords(k.kanji),
     });
   }
 
@@ -35,7 +48,7 @@ export async function buildCandidateKanjiSection(): Promise<{ cards: KanjiCard[]
       meanings: k.meanings,
       readings: k.onyomi.length > 0 || k.kunyomi.length > 0 ? [...k.onyomi, ...k.kunyomi] : ['(pending on/kun)'],
       jlptLevel: 'N4',
-      exampleWords: [],
+      exampleWords: getExampleWords(k.kanji),
     });
   }
 
@@ -62,7 +75,11 @@ export async function getCandidateKanjiCounts(): Promise<{ n5: number; n4: numbe
     import('../data/candidates/n5KanjiCandidatePack'),
     import('../data/candidates/n4CandidatePack'),
   ]);
-  const n5 = n5Module.getN5KanjiCandidatePack().filter(e => e.reviewStatus === 'approved-for-beta').length;
-  const n4 = n4Module.getN4KanjiCandidatePack().filter(e => e.reviewStatus === 'approved-for-beta').length;
+  const n5 = n5Module.getN5KanjiCandidatePack()
+    .filter(e => e.reviewStatus === 'approved-for-beta')
+    .filter(e => isSingleKanjiCharacter(e.kanji)).length;
+  const n4 = n4Module.getN4KanjiCandidatePack()
+    .filter(e => e.reviewStatus === 'approved-for-beta')
+    .filter(e => isSingleKanjiCharacter(e.kanji)).length;
   return { n5, n4, total: n5 + n4 };
 }

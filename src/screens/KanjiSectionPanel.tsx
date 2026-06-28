@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { buildKanjiSection, type KanjiLevel } from '../services/kanjiSectionService';
+import { buildKanjiSection, mergeKanjiCardPool, type KanjiLevel } from '../services/kanjiSectionService';
 import { buildCandidateKanjiSection, getCandidateKanjiCounts } from '../services/candidateKanjiAdapter';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
@@ -24,7 +24,7 @@ export function KanjiSectionPanel({ onBack }: { onBack?: () => void }) {
         const candidate = await buildCandidateKanjiSection();
         if (cancelled) return;
         setSection({
-          cards: [...base.cards, ...candidate.cards],
+          cards: mergeKanjiCardPool([...base.cards, ...candidate.cards]),
           lessons: [...base.lessons, ...candidate.lessons],
         });
       } catch {

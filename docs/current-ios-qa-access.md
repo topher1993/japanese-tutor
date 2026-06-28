@@ -31,7 +31,7 @@ This is **not** a stable beta distribution link.
 Hermes background process:
 
 ```text
-proc_3e2ce70a5ba4
+proc_c94ecf6b0c7f
 ```
 
 Metro local health check:
