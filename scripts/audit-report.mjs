@@ -39,11 +39,11 @@ const PKG = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
  * `JSON.stringify` rather than the naive `String(...)` coercion that
  * would render the literal text "[object Object]".
  *
- * NOTE: This helper is the script-side mirror of `stringifyVia` in
- * src/services/auditLog.ts. The two must stay in sync because the .mjs
- * script cannot import from a .ts file without a build step, and the
- * test (tests/phase25P3StringifyViaField.test.ts) replicates this logic
- * inline to guard the contract.
+ * NOTE: This helper lives in the .mjs script because the .mjs cannot
+ * import from a .ts file without a build step. The contract test
+ * (tests/phase25P3StringifyViaField.test.ts) replicates this logic
+ * inline and asserts every branch; pair any future change here with a
+ * matching update to the inline copy in that test file.
  */
 function stringifyViaField(via) {
   if (via == null) return 'unknown';
