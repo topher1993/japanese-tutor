@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { buildKanjiSection, type KanjiLevel } from '../services/kanjiSectionService';
 import { buildCandidateKanjiSection, getCandidateKanjiCounts } from '../services/candidateKanjiAdapter';
@@ -47,10 +47,13 @@ export function KanjiSectionPanel({ onBack }: { onBack?: () => void }) {
     );
   }
 
-  const lessons = section.lessons.filter(l => l.jlptLevel === level);
-  const currentLesson = lessons[Math.floor(cardIndex / 5)];
-  const cardsInLevel = currentLesson?.cards ?? [];
-  const card = cardsInLevel[cardIndex % 5];
+  // Phase 28 content-visibility fix: navigate the full visible card pool for
+  // the selected JLPT level. The previous implementation selected small lesson
+  // windows instead of walking every loaded card, which made hundreds of
+  // candidate kanji unreachable in the UI.
+  const cardsInLevel = section.cards.filter(c => c.jlptLevel === level);
+  const safeCardIndex = Math.min(cardIndex, Math.max(0, cardsInLevel.length - 1));
+  const card = cardsInLevel[safeCardIndex];
 
   if (!card) {
     return (
@@ -74,7 +77,7 @@ export function KanjiSectionPanel({ onBack }: { onBack?: () => void }) {
       <Card shadow="hero" style={styles.kanjiCard}>
         <View style={styles.kanjiHeader}>
           <Badge label={card.jlptLevel} tone="info" />
-          <Text style={styles.counter}>{cardIndex + 1} / {section.cards.filter(c => c.jlptLevel === level).length}</Text>
+          <Text style={styles.counter}>{safeCardIndex + 1} / {cardsInLevel.length}</Text>
         </View>
         <Text style={styles.kanji}>{card.kanji}</Text>
         <Text style={styles.readings}>{card.readings.join(' / ')}</Text>
@@ -85,8 +88,8 @@ export function KanjiSectionPanel({ onBack }: { onBack?: () => void }) {
           <Text key={w} style={styles.example}>• {w}</Text>
         ))}
         <View style={styles.actions}>
-          <Button label="Prev" onPress={() => setCardIndex(Math.max(0, cardIndex - 1))} variant="soft" icon="arrow-left" fullWidth={false} style={styles.actionBtn} />
-          <Button label="Next" onPress={() => setCardIndex(cardIndex + 1)} variant="primary" iconRight="arrow-right" fullWidth={false} style={styles.actionBtn} />
+          <Button label="Prev" onPress={() => setCardIndex(index => Math.max(0, index - 1))} variant="soft" icon="arrow-left" fullWidth={false} style={styles.actionBtn} />
+          <Button label="Next" onPress={() => setCardIndex(index => Math.min(cardsInLevel.length - 1, index + 1))} variant="primary" iconRight="arrow-right" fullWidth={false} style={styles.actionBtn} />
         </View>
       </Card>
     </ScreenScaffold>
