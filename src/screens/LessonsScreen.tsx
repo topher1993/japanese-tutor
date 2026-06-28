@@ -159,29 +159,52 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
           </Card>
         ))}
         {nav.nextLesson() ? (
-          <Button
-            label={`Next: ${nav.nextLesson()!.title}`}
-            onPress={() => setSelected(nav.nextLesson()!.id)}
-            variant="secondary"
-            iconRight="arrow-right"
-          />
-        ) : null}
-        <Button
-          label="Mark this lesson complete"
-          variant="primary"
-          iconRight="check"
-          onPress={async () => {
-            if (ready && store) {
-              try { await store.completeCurrentLesson(lesson.id, 100, new Date().toISOString().slice(0, 10)); } catch { /* best-effort */ }
-            }
-            const next = nav.nextLesson();
-            if (next) setSelected(next.id);
-          }}
-          testID="lesson-mark-complete-button"
-        />
-      </ScreenScaffold>
-    );
-  }
+                  <Button
+                    label={`Next: ${nav.nextLesson()!.title}`}
+                    onPress={() => setSelected(nav.nextLesson()!.id)}
+                    variant="secondary"
+                    iconRight="arrow-right"
+                  />
+                ) : null}
+                <Button
+                  label="Mark this lesson complete"
+                  variant="primary"
+                  iconRight="check"
+                  onPress={async () => {
+                    if (ready && store) {
+                      try {
+                        await store.completeCurrentLesson(lesson.id, 100, new Date().toISOString().slice(0, 10));
+                        // Phase 30b: always re-read progress and fire the
+                        // completion toast, even when there is no next lesson.
+                        // The previous shape `if (next) setSelected(next.id)`
+                        // silently did nothing on the last lesson, leaving the
+                        // user staring at the same screen with no signal that
+                        // anything happened.
+                        const refreshed = await store.getProgress();
+                        setProgress(refreshed);
+                        notifyLessonCompleted({
+                          message: `✓ ${lesson.title}`,
+                          detail: `${refreshed.completedLessonIds.length} of ${lessons.length} lessons done total.`,
+                        });
+                        const next = nav.nextLesson();
+                        if (next) {
+                          setSelected(next.id);
+                        } else {
+                          // Course complete — bounce back to the lessons list
+                          // so the user sees the celebration state instead of
+                          // being stuck on this detail view.
+                          setSelected(undefined);
+                        }
+                      } catch {
+                        /* best-effort */
+                      }
+                    }
+                  }}
+                  testID="lesson-mark-complete-button"
+                />
+              </ScreenScaffold>
+            );
+          }
 
   if (lessons.length === 0) {
     return (
@@ -204,41 +227,56 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
         />
 
         <Card tone="brand" shadow="hero" style={styles.heroCard}>
-          <View style={styles.heroHeader}>
-            <Mascot expression="encourage" size={56} />
-            <View style={styles.heroTextWrap}>
-              <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>
-                  {dailyLesson.isWeekPreview ? 'New week unlocked!' : `Week ${weekProgress.index}`}
+                <View style={styles.heroHeader}>
+                  <Mascot expression="encourage" size={56} />
+                  <View style={styles.heroTextWrap}>
+                    <View style={styles.heroBadge}>
+                      <Text style={styles.heroBadgeText}>
+                        {dailyLesson.isCourseComplete
+                          ? 'Course complete 🎉'
+                          : dailyLesson.isWeekPreview
+                            ? 'New week unlocked!'
+                            : `Week ${weekProgress.index}`}
+                      </Text>
+                    </View>
+                    <Text style={styles.heroTitle}>
+                      {dailyLesson.isCourseComplete
+                        ? 'You finished every lesson!'
+                        : currentWeek.label.replace(/^Week \d+ — /, '')}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.heroMeta}>Theme: {currentWeek.theme}</Text>
+                {dailyLesson.isCourseComplete ? (
+                  <Text style={styles.heroMeta}>
+                    {dailyLesson.lessonsDoneThisWeek} of {dailyLesson.lessonsTotalThisWeek} lessons done. Keep reviewing!
+                  </Text>
+                ) : null}
+                {dailyLesson.isWeekPreview ? (
+                  <Text style={styles.heroMeta}>
+                    You finished Week {weekProgress.index - 1}. Tap below to start Week {weekProgress.index}.
+                  </Text>
+                ) : null}
+                {currentWeek.objectives.map((objective, idx) => (
+                  <View key={idx} style={styles.objectiveRow}>
+                    <Text style={styles.bullet}>•</Text>
+                    <Text style={styles.objectiveText}>{objective}</Text>
+                  </View>
+                ))}
+                <Text style={styles.heroMeta}>
+                  {dailyLesson.lessonsDoneThisWeek} of {dailyLesson.lessonsTotalThisWeek} {dailyLesson.isCourseComplete ? 'lessons done total' : 'lessons done this week'}
                 </Text>
-              </View>
-              <Text style={styles.heroTitle}>{currentWeek.label.replace(/^Week \d+ — /, '')}</Text>
-            </View>
-          </View>
-          <Text style={styles.heroMeta}>Theme: {currentWeek.theme}</Text>
-          {dailyLesson.isWeekPreview ? (
-            <Text style={styles.heroMeta}>
-              You finished Week {weekProgress.index - 1}. Tap below to start Week {weekProgress.index}.
-            </Text>
-          ) : null}
-          {currentWeek.objectives.map((objective, idx) => (
-            <View key={idx} style={styles.objectiveRow}>
-              <Text style={styles.bullet}>•</Text>
-              <Text style={styles.objectiveText}>{objective}</Text>
-            </View>
-          ))}
-          <Text style={styles.heroMeta}>
-            {dailyLesson.lessonsDoneThisWeek} of {dailyLesson.lessonsTotalThisWeek} lessons done this week
-          </Text>
-        </Card>
+              </Card>
 
         <View style={styles.ctaWrapper}>
-          <Button
-            label={
-              dailyLesson.isWeekPreview
-                ? `Start Week ${weekProgress.index}`
-                : `Continue ${dailyLesson.lesson.title}`
-            }
+                <Button
+                  label={
+                    dailyLesson.isCourseComplete
+                      ? 'Review lessons 🎉'
+                      : dailyLesson.isWeekPreview
+                        ? `Start Week ${weekProgress.index}`
+                        : `Continue ${dailyLesson.lesson.title}`
+                  }
             onPress={async () => {
                         if (ready && store) {
                           try {

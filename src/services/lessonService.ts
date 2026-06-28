@@ -14,7 +14,7 @@ export interface WeeklyLessonSummary { week: number; objectives: string[]; lesso
 export interface DailyLessonView {
   /** The lesson the learner should study next. */
   lesson: SenseiLesson;
-  /** Human-friendly label like "Week 1 — Day 2". */
+  /** Human-friendly label like "Week 1 — Day 2" or "Course complete". */
   weekLabel: string;
   /** How many lessons in the lesson's week are already in `completedLessonIds`. */
   lessonsDoneThisWeek: number;
@@ -36,8 +36,9 @@ export interface DailyLessonView {
  *   2. If the learner has finished every lesson in the PREVIOUS week, we
  *      hand back a lesson from the NEXT week and flag `isWeekPreview: true`
  *      so the screen can render "Week 1 done — tap to start Week 2".
- *   3. If everything is finished, we return the last lesson and flag
- *      `isCourseComplete: true`.
+ *   3. If everything is finished, we return the last lesson, flag
+ *      `isCourseComplete: true`, and report the FULL course totals (not
+ *      just the last week's count) so the UI can say "18 of 18 done".
  *   4. With no progress yet, we still start at `mockSenseiLessons[0]` so
  *      a brand-new install shows Week 1 Day 1.
  *
@@ -52,15 +53,19 @@ export function getDailyLesson(progress?: LearnerProgress | null): DailyLessonVi
   const nextUncompleted = mockSenseiLessons.find((lesson) => !completed.has(lesson.id));
 
   if (!nextUncompleted) {
-    // Everything is done — keep returning the last lesson but flag course complete.
+    // Everything is done — keep returning the last lesson but flag
+    // course complete. The weekLabel / lessonsDoneThisWeek reflect the
+    // FULL course totals (not just the last week), so the UI can show
+    // "🎉 Course complete — 18 of 18 lessons done" instead of the
+    // misleading "0 of 8 done this week" that an empty last-week
+    // counter would produce.
     const lastLesson = mockSenseiLessons[mockSenseiLessons.length - 1];
-    const lastWeekNumber = lastLesson.week;
-    const lastWeekLessons = mockSenseiLessons.filter((l) => l.week === lastWeekNumber);
+    const totalCompleted = mockSenseiLessons.filter((l) => completed.has(l.id)).length;
     return {
       lesson: lastLesson,
-      weekLabel: `Week ${lastLesson.week} — Day ${lastLesson.day}`,
-      lessonsDoneThisWeek: lastWeekLessons.length,
-      lessonsTotalThisWeek: lastWeekLessons.length,
+      weekLabel: 'Course complete',
+      lessonsDoneThisWeek: totalCompleted,
+      lessonsTotalThisWeek: mockSenseiLessons.length,
       isWeekPreview: false,
       isCourseComplete: true,
     };

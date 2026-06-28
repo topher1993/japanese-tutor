@@ -53,9 +53,11 @@ describe('Phase Fix-A — primary CTAs are no longer dead buttons', () => {
       // test does not pick up the secondary "Next: <lesson>" button that
       // appears inside the lesson-detail view.
       // Use a non-greedy regex that anchors on the label starting with
-      // `dailyLesson.isWeekPreview` so we only match the primary CTA.
+      // `dailyLesson.isCourseComplete` so we only match the primary CTA.
+      // Phase 30b added the course-complete branch (`isCourseComplete ?
+      // 'Review lessons 🎉' : isWeekPreview ? ...`).
       const primaryButton = src.match(
-        /<Button\b[^>]*?\blabel=\{\s*dailyLesson\.isWeekPreview[^]*?\/>/,
+        /<Button\b[^>]*?\blabel=\{\s*dailyLesson\.isCourseComplete[^]*?\/>/,
       );
       expect(primaryButton, 'primary CTA button missing').not.toBeNull();
       // The onPress handler is an async multi-line arrow function, so a

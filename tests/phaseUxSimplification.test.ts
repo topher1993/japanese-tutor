@@ -110,13 +110,11 @@ describe('UX-0/1/2/3/4 simplification — non-technical user friendly', () => {
   });
 
   describe('LessonsScreen simplified — one primary action, hidden categories', () => {
-    it('primary action reflects progress ("Continue <lesson>" or "Start Week N")', () => {
+    it('primary action reflects progress ("Continue <lesson>" / "Start Week N" / "Review lessons 🎉")', () => {
       const src = readScreen('LessonsScreen.tsx');
-      // Phase 30: the label is now dynamic — "Continue ${lesson.title}"
-      // mid-week, "Start Week ${weekProgress.index}" when the previous
-      // week is finished. Assert on the structural shape rather than the
-      // literal "Continue Week" copy that no longer exists.
-      expect(src).toMatch(/label=\{\s*dailyLesson\.isWeekPreview/);
+      // Phase 30b: the label is now a 3-way ternary — course complete,
+      // week preview, or mid-week. Assert on the structural shape.
+      expect(src).toMatch(/label=\{\s*dailyLesson\.isCourseComplete/);
       expect(src).toMatch(/dailyLesson\.lesson\.title/);
     });
 
