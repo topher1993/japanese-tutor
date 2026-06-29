@@ -10,9 +10,11 @@ import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ds } from '../theme/designSystem';
 import { getAllLessons } from '../services/lessonService';
 import { answerFlashcard, createFlashcardDeck } from '../services/flashcardService';
+import { buildCandidateFlashcardCards } from '../services/candidateFlashcardAdapter';
 import { answerDailyRushCard, buildDailyFlashcardRush, buildDailyRushProfilePatch, summarizeDailyRush, type DailyRushAnswerResult } from '../services/dailyFlashcardRushService';
 import { useUserProfileContext } from '../services/userProfileContext';
 import type { LearnerLanguage } from '../types/onboarding';
+import type { FlashcardDeck } from '../types/flashcard';
 
 export const NEXT_CARD_DELAY_MS = 220;
 
@@ -30,9 +32,27 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
   const [practiceOnlyRun, setPracticeOnlyRun] = useState(false);
   const { profile, updateProfile } = useUserProfileContext();
   const completedToday = profile?.dynamic.dailyRush.lastCompletedDate === date;
-  const deck = useMemo(() => createFlashcardDeck(getAllLessons()), []);
-  const rush = useMemo(() => buildDailyFlashcardRush(deck, { date, supportLanguage }), [date, deck, supportLanguage]);
-  const current = rush.cards[cardIndex];
+  const [deck, setDeck] = useState<FlashcardDeck | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const baseDeck = createFlashcardDeck(getAllLessons());
+      try {
+        const candidateCards = await buildCandidateFlashcardCards();
+        if (!cancelled) setDeck({ ...baseDeck, cards: [...baseDeck.cards, ...candidateCards] });
+      } catch {
+        if (!cancelled) setDeck(baseDeck);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const rush = useMemo(
+    () => deck ? buildDailyFlashcardRush(deck, { date, supportLanguage }) : null,
+    [date, deck, supportLanguage],
+  );
+  const current = rush?.cards[cardIndex];
   const currentAnswer = answers.find(answer => answer.cardId === current?.card.id) ?? null;
   const summary = summarizeDailyRush(answers);
 
@@ -41,33 +61,41 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
     setAnswers([]);
     setSelectedChoiceId(null);
     setCompletionSaved(false);
-  }, [rush.id]);
+  }, [rush?.id]);
 
   useEffect(() => {
     if (answers.length === 0) setPracticeOnlyRun(completedToday === true);
   }, [answers.length, completedToday]);
 
   useEffect(() => {
-    if (completionSaved || !profile || cardIndex < rush.cards.length || answers.length === 0) return;
+    if (!rush || completionSaved || !profile || cardIndex < rush.cards.length || answers.length === 0) return;
     const finalSummary = summarizeDailyRush(answers);
     const profilePatch = buildDailyRushProfilePatch(profile, finalSummary, date);
     setCompletionSaved(true);
     void updateProfile(profilePatch);
-  }, [answers, cardIndex, completionSaved, date, profile, rush.cards.length, updateProfile]);
+  }, [answers, cardIndex, completionSaved, date, profile, rush, updateProfile]);
 
   function goNext() {
     setIncomingDirection('left');
     setSelectedChoiceId(null);
-    setCardIndex(index => Math.min(index + 1, rush.cards.length));
+    setCardIndex(index => Math.min(index + 1, rush?.cards.length ?? 0));
   }
 
   function choose(choiceId: string) {
-    if (!current || currentAnswer) return;
+    if (!current || !deck || currentAnswer) return;
     const result = answerDailyRushCard(current, choiceId);
     setSelectedChoiceId(choiceId);
     setAnswers(prev => [...prev, result]);
     answerFlashcard(deck, current.card.id, result.label, date);
     setTimeout(goNext, NEXT_CARD_DELAY_MS);
+  }
+
+  if (!rush) {
+    return (
+      <ScreenScaffold>
+        <ScreenHeader title="Daily Flashcard Rush" subtitle="Loading full flashcard pool..." onBack={onBack} />
+      </ScreenScaffold>
+    );
   }
 
   if (!current || cardIndex >= rush.cards.length) {

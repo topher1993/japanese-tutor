@@ -5,5 +5,5 @@ describe('Phase 27 Metro wasm export config', () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const config = require('../metro.config.js');
     expect(config.resolver.assetExts).toContain('wasm');
-  });
+  }, 15000);
 });

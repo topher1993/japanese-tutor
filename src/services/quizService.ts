@@ -1,7 +1,15 @@
 import { quickQuiz } from '../data/quizzes';
 import type { Quiz, QuizResult } from '../types/quiz';
+import { buildCandidateQuizQuestions } from './candidateQuizAdapter';
 
-export function getQuickQuiz(): Quiz { return quickQuiz; }
+export function getQuickQuiz(): Quiz {
+  const candidateQuestions = buildCandidateQuizQuestions();
+  return {
+    ...quickQuiz,
+    title: 'Full Practice Test',
+    questions: [...quickQuiz.questions, ...candidateQuestions],
+  };
+}
 export function gradeQuiz(quiz: Quiz, answers: Record<string, string>): QuizResult {
   const feedback = quiz.questions.map(question => {
     const selectedChoice = answers[question.id];
