@@ -40,7 +40,12 @@ Curriculum (designed to be coherent, not filler):
 
 from __future__ import annotations
 
-PATH = r"C:\Users\tophe\japanese-tutor-mobile-app\src\data\mockSenseiLessons.ts"
+raise SystemExit(
+    "Deprecated: this Phase 31 generator emits romaji into learner-facing Japanese fields. "
+    "Edit src/data/mockSenseiLessons.ts directly or update this generator with Sensei-reviewed Japanese script first."
+)
+
+PATH = r"C:\\Users\\tophe\\japanese-tutor-mobile-app\\src\\data\\mockSenseiLessons.ts"
 
 PENDING_VI = "(pending vi review)"
 PENDING_TL = "(pending tl review)"

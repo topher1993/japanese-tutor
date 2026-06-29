@@ -1,0 +1,18 @@
+You are Tusk, QC authority, using GPT-5.5. Narrow QC for Japanese Tutor N4 lesson polish at C:/Users/tophe/japanese-tutor-mobile-app.
+
+Changes made:
+1. src/data/mockSenseiLessons.ts: N4 lesson learner-facing `japanese` and `exampleJapanese` fields were converted from romaji to Japanese script for all N4 lesson items. Romaji fields remain romanized.
+2. Corrected selected N4 content/romaji issues: `kanji ga yomemasu`, `dengon o onegai dekimasu ka`, `ichinichi yasumitai desu`, and the potential-form summary.
+3. Resolved duplicate N4 deck Japanese values by making N4 entries more specific than beginner versions.
+4. Added tests/n4LessonContentPolish.test.ts asserting N4 Japanese fields contain Japanese script and romaji fields do not.
+5. Disabled scripts/phase31_generate_n4_lessons.py with a clear SystemExit because it generated romaji into learner-facing Japanese fields.
+
+Validation already run:
+- npm run typecheck: passed.
+- Focused tests: tests/n4LessonContentPolish.test.ts, tests/phase31N4Lessons.test.ts, tests/translationCoverage.test.ts — 3 files / 13 tests passed.
+- Full npm test: 72 files / 548 tests passed.
+- Additional audit: N4 lessons=18; N4 items=100; N4 Japanese/example fields lacking script=0; N4 romaji fields containing Japanese=0; N4 duplicate Japanese values=0.
+- Deprecated generator exits before writing with the expected Deprecated message.
+
+QC task:
+Return a concise verdict: PASS / BLOCKED. Identify unresolved P0/P1 blockers only. TranslationReviewStatus remains draft by design; do not block on human translation approval unless there is a P0/P1 correctness issue in the Japanese-script conversion itself.
