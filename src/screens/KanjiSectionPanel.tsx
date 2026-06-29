@@ -94,8 +94,10 @@ export function KanjiSectionPanel({ onBack }: { onBack?: () => void }) {
             <View style={styles.cardFace}>
               <Badge label={card.jlptLevel} tone="info" />
               <Text style={styles.kanji}>{card.kanji}</Text>
+              <Text style={styles.sectionLabel}>On / Kun readings</Text>
               <Text style={styles.readings}>{card.readings.join(' / ')}</Text>
               <View style={styles.divider} />
+              <Text style={styles.sectionLabel}>Meanings</Text>
               <Text style={styles.meanings}>{card.meanings.join(', ')}</Text>
               <Text style={styles.cardHint}>Tap for example words • swipe to change card</Text>
             </View>

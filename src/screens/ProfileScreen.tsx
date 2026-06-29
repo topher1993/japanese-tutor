@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -6,6 +6,11 @@ import { Chip } from '../components/Chip';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { useUserProfileContext } from '../services/userProfileContext';
+import { useLearningContext } from '../services/learningContext';
+import { getAllLessons } from '../services/lessonService';
+import { buildProgressDashboard } from '../services/progressDashboardService';
+import { buildProfileProgression } from '../services/profileProgressionService';
+import type { LearnerProgress } from '../types/progress';
 import { ds } from '../theme/designSystem';
 import type { DailyStudyMinutes, JlptTargetLevel, StudyGoal, WorkplaceProfile } from '../types/userProfile';
 import type { LearnerLanguage } from '../types/onboarding';
@@ -31,8 +36,19 @@ const SITUATIONS = ['Greetings', 'Clocking in', 'Asking for help', 'Safety', 'Cu
 
 export function ProfileScreen({ onBack }: { onBack: () => void }) {
   const { ready, profile, updateProfile } = useUserProfileContext();
+  const { ready: learningReady, store } = useLearningContext();
+  const [progress, setProgress] = useState<LearnerProgress | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!learningReady || !store) return;
+    let cancelled = false;
+    store.getProgress()
+      .then(p => { if (!cancelled) setProgress(p); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [learningReady, store]);
 
   const workplace = useMemo(
     () => profile?.static.workplace ?? { industry: '', role: '', commonSituations: [] },
@@ -76,6 +92,11 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
   }
 
   const selectedGoal = GOAL_OPTIONS.find(goal => goal.value === profile.static.studyGoal) ?? GOAL_OPTIONS[0];
+  const lessons = getAllLessons();
+  const safeProgress = progress ?? { startedAt: '', completedLessonIds: [], quizScores: [], streak: { currentStreak: 0, longestStreak: 0 } };
+  const dashboard = buildProgressDashboard(safeProgress, lessons);
+  const progression = buildProfileProgression(safeProgress, lessons, dashboard);
+  const earnedBadges = progression.badges.filter(badge => badge.earned).length;
 
   return (
     <ScreenScaffold>
@@ -89,6 +110,48 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
           <Text style={styles.heroMeta}>{profile.static.supportLanguage.toUpperCase()}</Text>
           <Text style={styles.heroMeta}>{profile.static.dailyStudyMinutes} min/day</Text>
           <Text style={styles.heroMeta}>{profile.static.jlptTarget ?? 'N5'}</Text>
+        </View>
+      </Card>
+
+
+      <Card shadow="card">
+        <Text style={styles.sectionLabel}>Achievement progress</Text>
+        <View style={styles.progressStatRow}>
+          <View style={styles.progressStat}>
+            <Text style={styles.progressValue}>{progression.xp}</Text>
+            <Text style={styles.progressLabel}>XP</Text>
+          </View>
+          <View style={styles.progressStat}>
+            <Text style={styles.progressValue}>Lv {progression.level}</Text>
+            <Text style={styles.progressLabel}>Level</Text>
+          </View>
+          <View style={styles.progressStat}>
+            <Text style={styles.progressValue}>{earnedBadges}/{progression.badges.length}</Text>
+            <Text style={styles.progressLabel}>Badges</Text>
+          </View>
+        </View>
+        <Text style={styles.help}>Next milestone: {progression.nextMilestone.label}</Text>
+      </Card>
+
+      <Card shadow="card">
+        <Text style={styles.sectionLabel}>Recent study history</Text>
+        {progression.recentHistory.length > 0 ? progression.recentHistory.map(item => (
+          <View key={item.id} style={styles.historyRow}>
+            <Text style={styles.historyTitle}>{item.title}</Text>
+            <Text style={styles.historyMeta}>{item.level}{typeof item.score === 'number' ? ` • ${item.score}%` : ''}</Text>
+          </View>
+        )) : (
+          <Text style={styles.help}>Complete a lesson to start your history.</Text>
+        )}
+      </Card>
+
+      <Card shadow="card">
+        <Text style={styles.sectionLabel}>Next milestone</Text>
+        <Text style={styles.help}>{progression.nextMilestone.label}</Text>
+        <View style={styles.badgeList}>
+          {progression.badges.map(badge => (
+            <Chip key={badge.id} label={badge.label} selected={badge.earned} />
+          ))}
         </View>
       </Card>
 
@@ -223,4 +286,12 @@ const styles = StyleSheet.create({
   goalTitleActive: { color: ds.colors.brandInk },
   goalDetail: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.xs, lineHeight: 18 },
   goalDetailActive: { color: ds.colors.brandInk, opacity: 0.9 },
+  progressStatRow: { flexDirection: 'row', gap: ds.spacing.sm, marginVertical: ds.spacing.sm },
+  progressStat: { flex: 1, backgroundColor: ds.colors.surfaceAlt, borderRadius: ds.radius.md, padding: ds.spacing.sm, alignItems: 'center' },
+  progressValue: { fontSize: ds.type.heading, color: ds.colors.primary, fontWeight: '900' },
+  progressLabel: { fontSize: ds.type.micro, color: ds.colors.textMuted, fontWeight: '900', textTransform: 'uppercase', marginTop: ds.spacing.xs },
+  historyRow: { borderBottomWidth: 1, borderBottomColor: ds.colors.divider, paddingVertical: ds.spacing.sm },
+  historyTitle: { fontSize: ds.type.body, color: ds.colors.text, fontWeight: '900' },
+  historyMeta: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.xs },
+  badgeList: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.xs },
 });

@@ -46,6 +46,8 @@ describe('Phase 28 kanji visible content integration', () => {
     expect(uniqueKanji.size).toBe(visible.length);
     for (const card of visible) {
       expect(card.kanji.length).toBe(1);
+      expect(card.kanji).toMatch(/[\u3400-\u9fff]/);
+      expect(card.readings).not.toContain(card.kanji);
       expect(card.exampleWords.length).toBeGreaterThan(0);
       for (const example of card.exampleWords) {
         expect(example.japanese.trim().length).toBeGreaterThan(0);

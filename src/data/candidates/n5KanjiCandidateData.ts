@@ -17,7 +17,7 @@ interface RawKanji {
 const raw: RawKanji[] = [
   // N5 core kanji (commonly taught first)
   { kanji: '一', meanings: ['one'], on: ['イチ', 'イツ'], kun: ['ひと-', 'ひと.つ'], romaji: 'ichi / hito(tsu)', strokes: 1 },
-  { kanji: '二', meanings: ['two'], on: ['二', 'フタ'], kun: ['ふた', 'ふた.つ', 'ふたた.び'], romaji: 'ni / futa(tsu)', strokes: 2 },
+  { kanji: '二', meanings: ['two'], on: ['ニ', 'フタ'], kun: ['ふた', 'ふた.つ', 'ふたた.び'], romaji: 'ni / futa(tsu)', strokes: 2 },
   { kanji: '三', meanings: ['three'], on: ['サン', 'ゾウ'], kun: ['み', 'み.つ', 'みっ.つ'], romaji: 'san / mi(tsu)', strokes: 3 },
   { kanji: '四', meanings: ['four'], on: ['シ'], kun: ['よ', 'よ.つ', 'よっ.つ', 'よん'], romaji: 'shi / yo(tsu)', strokes: 5 },
   { kanji: '五', meanings: ['five'], on: ['ゴ'], kun: ['いつ', 'いつ.つ'], romaji: 'go / itsu(tsu)', strokes: 4 },

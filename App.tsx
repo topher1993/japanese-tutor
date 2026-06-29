@@ -12,6 +12,7 @@ import { BetaFeedbackScreen } from './src/screens/BetaFeedbackScreen';
 import { SourcesScreen } from './src/screens/SourcesScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { DailyRushScreen } from './src/screens/DailyRushScreen';
 import { SenseiReviewScreen } from './src/screens/SenseiReviewScreen';
 import { TabBar } from './src/components/TabBar';
 import { CompletionToast } from './src/components/CompletionToast';
@@ -78,13 +79,14 @@ function render(
   onOpenProfile: () => void,
   onStartLesson: () => void,
   onReviewDue: () => void,
+  onOpenDailyRush: () => void,
   dueReviewMode: boolean,
 ) {
   if (tab === 'Lessons') return <LessonsScreen supportLanguage={supportLanguage} />;
   if (tab === 'Flashcards') return <FlashcardsScreen supportLanguage={supportLanguage} dueReviewMode={dueReviewMode} />;
   if (tab === 'Quiz') return <QuizScreen supportLanguage={supportLanguage} />;
   if (tab === 'Progress') return <ProgressScreen onOpenFeedback={onOpenFeedback} onOpenSources={onOpenSources} onOpenSettings={onOpenSettings} onOpenProfile={onOpenProfile} />;
-  return <HomeScreen supportLanguage={supportLanguage} onStartLesson={onStartLesson} onReviewDue={onReviewDue} />;
+  return <HomeScreen supportLanguage={supportLanguage} onStartLesson={onStartLesson} onReviewDue={onReviewDue} onOpenDailyRush={onOpenDailyRush} />;
 }
 
 /**
@@ -119,6 +121,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(getParam('screen') === 'settings');
   const [showProfile, setShowProfile] = useState(getParam('screen') === 'profile');
   const [showReview, setShowReview] = useState(getParam('screen') === 'review');
+  const [showDailyRush, setShowDailyRush] = useState(getParam('screen') === 'daily-rush');
   // Phase 25 / P1-1: when Home's "Review N due cards now" CTA is pressed,
   // jump to Flashcards with this flag set. Flashcards uses it to pre-filter
   // the deck to cards whose SRS row is due. Cleared on any non-Flashcards tab.
@@ -294,6 +297,17 @@ export default function App() {
     );
   }
 
+
+  if (showDailyRush) {
+    return (
+      <AppShell maxWidth={shellMaxWidth}>
+        <AppProviders>
+          <DailyRushScreen supportLanguage={supportLanguage} onBack={() => setShowDailyRush(false)} />
+        </AppProviders>
+      </AppShell>
+    );
+  }
+
   // Sensei Translation Review — hidden dev tool for native-speaker reviewers.
   if (showReview) {
     return (
@@ -306,7 +320,7 @@ export default function App() {
   return (
       <AppShell maxWidth={shellMaxWidth}>
         <AppProviders>
-          <View style={styles.body}>{render(tab, supportLanguage, () => setShowFeedback(true), () => setShowSources(true), () => setShowSettings(true), () => setShowProfile(true), () => setTab('Lessons'), onReviewDue, dueReviewMode)}</View>
+          <View style={styles.body}>{render(tab, supportLanguage, () => setShowFeedback(true), () => setShowSources(true), () => setShowSettings(true), () => setShowProfile(true), () => setTab('Lessons'), onReviewDue, () => setShowDailyRush(true), dueReviewMode)}</View>
           <TabBar items={bottomTabs} activeId={tab} onSelect={onTabChange} />
           <CompletionToast />
         </AppProviders>

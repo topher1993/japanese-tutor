@@ -52,6 +52,8 @@ export interface FlipCardProps {
    * mount (no entry animation).
    */
   swipeInDirection?: 'left' | 'right' | null;
+  /** Controlled flip state for quiz/rush flows that reveal after an answer. */
+  flipped?: boolean;
 }
 
 const FLIP_DURATION_MS = 550;
@@ -71,6 +73,7 @@ export function FlipCard({
   onSwipeRight,
   disableSwipe = false,
   swipeInDirection = null,
+  flipped,
 }: FlipCardProps) {
   // Shared value 0..180 — the rotation angle of the front face.
   const flip = useSharedValue(0);
@@ -135,8 +138,19 @@ export function FlipCard({
     }
   }, [disableHaptics]);
 
+  useEffect(() => {
+    if (typeof flipped !== 'boolean') return;
+    flip.value = withSpring(flipped ? 180 : 0, {
+      damping: 14,
+      stiffness: 110,
+      mass: 0.9,
+      overshootClamping: false,
+    });
+  }, [flipped, flip]);
+
   const handlePress = useCallback(() => {
     'worker';
+    if (typeof flipped === 'boolean') return;
     const isCurrentlyFront = flip.value < 90;
     flip.value = withSpring(isCurrentlyFront ? 180 : 0, {
       damping: 14,
@@ -145,7 +159,7 @@ export function FlipCard({
       overshootClamping: false,
     });
     hapticTick();
-  }, [flip, hapticTick]);
+  }, [flip, hapticTick, flipped]);
 
   // Called by the worklet when a swipe commits (passed past threshold).
   const fireSwipeLeft = useCallback(() => {

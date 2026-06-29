@@ -47,9 +47,9 @@ describe('Phase 22 audit — query-param shell escape hatch (P1-08 fix)', () => 
     expect(src).toContain("getParam('tab')");
     expect(src).toContain("getParam('onboarding')");
     expect(src).toContain("getParam('skipOnboarding')");
-    // 'screen' appears five times (feedback, sources, settings, profile, review).
+    // 'screen' appears six times (feedback, sources, settings, profile, review, daily-rush).
     const screenMatches = src.match(/getParam\('screen'\)/g) || [];
-    expect(screenMatches.length).toBe(5);
+    expect(screenMatches.length).toBe(6);
   });
 });
 

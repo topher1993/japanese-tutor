@@ -22,10 +22,12 @@ export function HomeScreen({
   supportLanguage = 'en',
   onStartLesson,
   onReviewDue,
+  onOpenDailyRush,
 }: {
   supportLanguage?: LearnerLanguage;
   onStartLesson?: () => void;
   onReviewDue?: () => void;
+  onOpenDailyRush?: () => void;
 }) {
   // Phase 30: read progress so the daily lesson copy reflects the
   // learner's actual completion state instead of always defaulting to
@@ -107,6 +109,26 @@ export function HomeScreen({
         </Card>
       ) : null}
 
+
+      <Card shadow="card" style={styles.dailyRushCard}>
+        <View style={styles.dailyRushHeader}>
+          <Mascot expression="celebrate" size={52} />
+          <View style={styles.dailyRushCopy}>
+            <Text style={styles.dailyRushTitle}>Daily Flashcard Rush</Text>
+            <Text style={styles.dailyRushHint}>10 quick cards • 4 choices • Good/Again review labels.</Text>
+          </View>
+        </View>
+        {onOpenDailyRush ? (
+          <Button
+            label="Start Daily Rush"
+            onPress={onOpenDailyRush}
+            iconRight="arrow-right"
+            testID="home-daily-rush-cta"
+            style={styles.dailyRushCta}
+          />
+        ) : null}
+      </Card>
+
       <Card tone="brand" shadow="hero" style={styles.lessonHero}>
         <View style={styles.lessonLabelRow}>
           <Text style={styles.lessonLabel}>Today's lesson</Text>
@@ -180,4 +202,10 @@ const styles = StyleSheet.create({
   reviewHeadline: { fontSize: ds.type.body, fontWeight: '900', color: ds.colors.text },
   reviewHint: { fontSize: ds.type.caption, color: ds.colors.textMuted },
   reviewCta: { marginTop: ds.spacing.sm, alignSelf: 'flex-start' },
+  dailyRushCard: { gap: ds.spacing.sm, borderLeftWidth: 4, borderLeftColor: ds.colors.warm },
+  dailyRushHeader: { flexDirection: 'row', alignItems: 'center', gap: ds.spacing.sm },
+  dailyRushCopy: { flex: 1, minWidth: 0 },
+  dailyRushTitle: { fontSize: ds.type.heading, fontWeight: '900', color: ds.colors.text },
+  dailyRushHint: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.xs, lineHeight: 18 },
+  dailyRushCta: { marginTop: ds.spacing.xs },
 });
