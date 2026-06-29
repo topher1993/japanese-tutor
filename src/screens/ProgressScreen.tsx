@@ -69,92 +69,90 @@ export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings, 
     <ScreenScaffold>
       <ScreenHeader title="Progress" subtitle={`${view.completedLessons} of ${view.totalLessons} lessons done`} />
 
-      {!hasAnyProgress ? (
+      {hasAnyProgress ? null : (
         <View style={styles.emptyWrap}>
-          <EmptyStateArt screen="progress" size={220} />
+          <EmptyStateArt screen="progress" size={180} />
           <Text style={styles.emptyTitle}>Your journey starts here</Text>
-          <Text style={styles.emptyBody}>Complete your first lesson to start collecting badges.</Text>
+          <Text style={styles.emptyBody}>You can still open your plan, achievements, profile, settings, and sources before completing a daily task.</Text>
         </View>
-      ) : (
-        <>
-          <StreakFlame days={view.currentStreak} />
-
-          <Card shadow="card">
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionLabel}>Today's plan</Text>
-              <Text style={styles.sectionMeta}>{dailyPlan.totalMinutes} min</Text>
-            </View>
-            <View style={styles.taskList}>
-              {dailyPlan.tasks.map(task => (
-                <View key={task.id} style={styles.taskRow}>
-                  <View style={styles.taskCheck}>
-                    <Icon name="check" size={14} />
-                  </View>
-                  <Text style={styles.taskTitle}>{task.title}</Text>
-                  <Text style={styles.taskMeta}>{task.minutes} min</Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-
-          <Card shadow="card">
-            <Text style={styles.sectionLabel}>Your level</Text>
-            <View style={styles.levelRow}>
-              {levels.map(level => (
-                <Chip
-                  key={level}
-                  label={level}
-                  selected={level === dailyPlan.level}
-                />
-              ))}
-            </View>
-            <Text style={styles.levelHint}>Currently studying {dailyPlan.level}</Text>
-          </Card>
-
-          <Card shadow="card">
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionLabel}>Achievements</Text>
-              <Text style={styles.sectionMeta}>{earnedCount} of {ACHIEVEMENTS.length}</Text>
-            </View>
-            <View style={styles.badgeGrid}>
-              {ACHIEVEMENTS.map(a => (
-                <View key={a.badge} style={styles.badgeItem}>
-                  <BadgeImage badge={a.badge} size={56} earned={a.earned} />
-                  <Text style={styles.badgeTitle} numberOfLines={2}>{a.title}</Text>
-                  <Text style={styles.badgeDesc} numberOfLines={2}>{a.description}</Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-
-          <Card shadow="card">
-            <Text style={styles.sectionLabel}>JLPT levels</Text>
-            <View style={styles.jlptRow}>
-              {JLPT_BADGES.map(b => (
-                <View key={b.badge} style={styles.jlptItem}>
-                  <BadgeImage badge={b.badge} size={64} earned={b.unlocked} />
-                  <Text style={styles.jlptLabel}>{b.label}</Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-
-          <Disclosure title="More tools" icon="more" open={showMore} onToggle={() => setShowMore(v => !v)}>
-            {onOpenProfile ? (
-              <Button label="Edit learner profile" onPress={onOpenProfile} variant="soft" icon="settings" testID="progress-open-profile" />
-            ) : null}
-            {onOpenFeedback ? (
-              <Button label="Send feedback" onPress={onOpenFeedback} variant="soft" icon="feedback" />
-            ) : null}
-            {onOpenSources ? (
-              <Button label="Sources & credits" onPress={onOpenSources} variant="soft" icon="book" />
-            ) : null}
-            {onOpenSettings ? (
-              <Button label="Settings" onPress={onOpenSettings} variant="soft" icon="settings" testID="progress-open-settings" />
-            ) : null}
-          </Disclosure>
-        </>
       )}
+
+      <StreakFlame days={view.currentStreak} />
+
+      <Card shadow="card">
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>Today's plan</Text>
+          <Text style={styles.sectionMeta}>{dailyPlan.totalMinutes} min</Text>
+        </View>
+        <View style={styles.taskList}>
+          {dailyPlan.tasks.map(task => (
+            <View key={task.id} style={styles.taskRow}>
+              <View style={styles.taskCheck}>
+                <Icon name="check" size={14} />
+              </View>
+              <Text style={styles.taskTitle}>{task.title}</Text>
+              <Text style={styles.taskMeta}>{task.minutes} min</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      <Card shadow="card">
+        <Text style={styles.sectionLabel}>Your level</Text>
+        <View style={styles.levelRow}>
+          {levels.map(level => (
+            <Chip
+              key={level}
+              label={level}
+              selected={level === dailyPlan.level}
+            />
+          ))}
+        </View>
+        <Text style={styles.levelHint}>Currently studying {dailyPlan.level}</Text>
+      </Card>
+
+      <Card shadow="card">
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>Achievements</Text>
+          <Text style={styles.sectionMeta}>{earnedCount} of {ACHIEVEMENTS.length}</Text>
+        </View>
+        <View style={styles.badgeGrid}>
+          {ACHIEVEMENTS.map(a => (
+            <View key={a.badge} style={styles.badgeItem}>
+              <BadgeImage badge={a.badge} size={56} earned={a.earned} />
+              <Text style={styles.badgeTitle} numberOfLines={2}>{a.title}</Text>
+              <Text style={styles.badgeDesc} numberOfLines={2}>{a.description}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      <Card shadow="card">
+        <Text style={styles.sectionLabel}>JLPT levels</Text>
+        <View style={styles.jlptRow}>
+          {JLPT_BADGES.map(b => (
+            <View key={b.badge} style={styles.jlptItem}>
+              <BadgeImage badge={b.badge} size={64} earned={b.unlocked} />
+              <Text style={styles.jlptLabel}>{b.label}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      <Disclosure title="More tools" icon="more" open={showMore} onToggle={() => setShowMore(v => !v)}>
+        {onOpenProfile ? (
+          <Button label="Edit learner profile" onPress={onOpenProfile} variant="soft" icon="settings" testID="progress-open-profile" />
+        ) : null}
+        {onOpenFeedback ? (
+          <Button label="Send feedback" onPress={onOpenFeedback} variant="soft" icon="feedback" />
+        ) : null}
+        {onOpenSources ? (
+          <Button label="Sources & credits" onPress={onOpenSources} variant="soft" icon="book" />
+        ) : null}
+        {onOpenSettings ? (
+          <Button label="Settings" onPress={onOpenSettings} variant="soft" icon="settings" testID="progress-open-settings" />
+        ) : null}
+      </Disclosure>
     </ScreenScaffold>
   );
 }
