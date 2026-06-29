@@ -28,9 +28,18 @@ import { appSafeAreaEdges, createAppShellPadding } from './src/services/appSafeA
 import { getBottomNavigationTabs } from './src/services/appNavigationService';
 import { createInMemoryKeyValueStorage } from './src/services/keyValueStorage';
 import { LearningRepositoryProvider } from './src/services/learningContext';
+import { UserProfileProvider } from './src/services/userProfileContext';
 
 const bottomTabs = getBottomNavigationTabs();
 const tabs: AppTab[] = bottomTabs.map(tab => tab.id);
+
+function AppProviders({ children }: { children: React.ReactNode }) {
+  return (
+    <UserProfileProvider>
+      <LearningRepositoryProvider>{children}</LearningRepositoryProvider>
+    </UserProfileProvider>
+  );
+}
 
 function AppShell({ children, maxWidth }: { children: React.ReactNode; maxWidth?: number }) {
   // Phase 22 audit fix P1-05: only cap width on tablet/foldable breakpoints.
@@ -181,7 +190,7 @@ export default function App() {
   if (!onboarded) {
     return (
       <AppShell maxWidth={shellMaxWidth}>
-        <LearningRepositoryProvider>
+        <AppProviders>
           <OnboardingScreen
             initialStepId={onboardingStep ?? undefined}
             onDone={async (language) => {
@@ -216,7 +225,7 @@ export default function App() {
               setOnboarded(true);
             }}
           />
-        </LearningRepositoryProvider>
+        </AppProviders>
       </AppShell>
     );
   }
@@ -224,9 +233,9 @@ export default function App() {
   if (showFeedback) {
     return (
       <AppShell maxWidth={shellMaxWidth}>
-        <LearningRepositoryProvider>
+        <AppProviders>
           <BetaFeedbackScreen onBack={() => setShowFeedback(false)} />
-        </LearningRepositoryProvider>
+        </AppProviders>
       </AppShell>
     );
   }
@@ -234,9 +243,9 @@ export default function App() {
   if (showSources) {
     return (
       <AppShell maxWidth={shellMaxWidth}>
-        <LearningRepositoryProvider>
+        <AppProviders>
           <SourcesScreen onBack={() => setShowSources(false)} />
-        </LearningRepositoryProvider>
+        </AppProviders>
       </AppShell>
     );
   }
@@ -245,7 +254,7 @@ export default function App() {
   if (showSettings) {
     return (
       <AppShell maxWidth={shellMaxWidth}>
-        <LearningRepositoryProvider>
+        <AppProviders>
           <SettingsScreen
                       onBack={() => setShowSettings(false)}
                       onOpenReview={() => { setShowSettings(false); setShowReview(true); }}
@@ -266,7 +275,7 @@ export default function App() {
               setShowSettings(false);
             }}
           />
-        </LearningRepositoryProvider>
+        </AppProviders>
       </AppShell>
     );
   }
@@ -282,11 +291,11 @@ export default function App() {
 
   return (
       <AppShell maxWidth={shellMaxWidth}>
-        <LearningRepositoryProvider>
+        <AppProviders>
           <View style={styles.body}>{render(tab, supportLanguage, () => setShowFeedback(true), () => setShowSources(true), () => setShowSettings(true), () => setTab('Lessons'), onReviewDue, dueReviewMode)}</View>
           <TabBar items={bottomTabs} activeId={tab} onSelect={onTabChange} />
           <CompletionToast />
-        </LearningRepositoryProvider>
+        </AppProviders>
       </AppShell>
     );
 }

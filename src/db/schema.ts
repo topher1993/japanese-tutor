@@ -14,4 +14,8 @@ export const createTablesSql = [
   // Phase 22 audit fix P0-03: persistent spaced-repetition scheduler state.
   // Rows are SRS cards; one row per card the learner has created.
   `CREATE TABLE IF NOT EXISTS kv_srs_cards (id TEXT PRIMARY KEY, ref_id TEXT NOT NULL, interval_days INTEGER NOT NULL, repetitions INTEGER NOT NULL, ease_factor REAL NOT NULL, due_on TEXT NOT NULL, last_reviewed_on TEXT);`,
+  // Phase 28 user-profile foundation: single-row JSON payload store.
+  // v1 keeps schemaVersion inside the JSON payload; future migrations can read
+  // and rewrite this row without inventing a separate app-wide migration table.
+  `CREATE TABLE IF NOT EXISTS user_profile (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL);`,
 ] as const;

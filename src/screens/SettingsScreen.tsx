@@ -5,6 +5,7 @@ import { Card } from '../components/Card';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { useLearningContext } from '../services/learningContext';
+import { useUserProfileContext } from '../services/userProfileContext';
 import { ds } from '../theme/designSystem';
 
 /**
@@ -27,6 +28,7 @@ export function SettingsScreen({
   onOpenReview?: () => void;
 }) {
   const { ready, durable, resetAll } = useLearningContext();
+  const { ready: profileReady, resetProfile } = useUserProfileContext();
   const [resetting, setResetting] = useState(false);
   const [lastResetSummary, setLastResetSummary] = useState<string | null>(null);
 
@@ -38,12 +40,14 @@ export function SettingsScreen({
       // via the durable SQLite-backed stores. Runs BEFORE onReset so the
       // counts the user sees reflect actual persisted state cleared.
       const { srsRowsCleared } = await resetAll();
+      const { profileRowsCleared } = await resetProfile();
       // App.tsx handles onboarding preference + local React state reset.
       await onReset();
+      const profileSummary = profileRowsCleared > 0 ? ` Profile row reset too.` : '';
       setLastResetSummary(
         srsRowsCleared > 0
-          ? `Cleared ${srsRowsCleared} review card${srsRowsCleared === 1 ? '' : 's'} and all lesson progress.`
-          : 'Cleared all lesson progress (no review cards to clear).',
+          ? `Cleared ${srsRowsCleared} review card${srsRowsCleared === 1 ? '' : 's'} and all lesson progress.${profileSummary}`
+          : `Cleared all lesson progress (no review cards to clear).${profileSummary}`,
       );
     } finally {
       setResetting(false);
@@ -95,7 +99,7 @@ export function SettingsScreen({
         <Button
           label={resetting ? 'Resetting...' : 'Reset all progress'}
           onPress={confirmReset}
-          disabled={resetting || !ready}
+          disabled={resetting || !ready || !profileReady}
           icon="refresh"
           variant="secondary"
           testID="settings-reset-button"
