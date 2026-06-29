@@ -39,7 +39,7 @@ const JLPT_BADGES: { badge: BadgeKey; label: string; unlocked: boolean }[] = [
   { badge: 'jlptN4', label: 'N4', unlocked: false },
 ];
 
-export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings }: { onOpenFeedback?: () => void; onOpenSources?: () => void; onOpenSettings?: () => void }) {
+export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings, onOpenProfile }: { onOpenFeedback?: () => void; onOpenSources?: () => void; onOpenSettings?: () => void; onOpenProfile?: () => void }) {
   const { ready, store } = useLearningContext();
   const [dashboard, setDashboard] = useState<ProgressDashboard | null>(null);
 
@@ -140,6 +140,9 @@ export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings }
           </Card>
 
           <Disclosure title="More tools" icon="more" open={showMore} onToggle={() => setShowMore(v => !v)}>
+            {onOpenProfile ? (
+              <Button label="Edit learner profile" onPress={onOpenProfile} variant="soft" icon="settings" testID="progress-open-profile" />
+            ) : null}
             {onOpenFeedback ? (
               <Button label="Send feedback" onPress={onOpenFeedback} variant="soft" icon="feedback" />
             ) : null}

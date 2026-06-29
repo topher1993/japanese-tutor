@@ -11,6 +11,7 @@ import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { BetaFeedbackScreen } from './src/screens/BetaFeedbackScreen';
 import { SourcesScreen } from './src/screens/SourcesScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SenseiReviewScreen } from './src/screens/SenseiReviewScreen';
 import { TabBar } from './src/components/TabBar';
 import { CompletionToast } from './src/components/CompletionToast';
@@ -74,6 +75,7 @@ function render(
   onOpenFeedback: () => void,
   onOpenSources: () => void,
   onOpenSettings: () => void,
+  onOpenProfile: () => void,
   onStartLesson: () => void,
   onReviewDue: () => void,
   dueReviewMode: boolean,
@@ -81,7 +83,7 @@ function render(
   if (tab === 'Lessons') return <LessonsScreen supportLanguage={supportLanguage} />;
   if (tab === 'Flashcards') return <FlashcardsScreen supportLanguage={supportLanguage} dueReviewMode={dueReviewMode} />;
   if (tab === 'Quiz') return <QuizScreen supportLanguage={supportLanguage} />;
-  if (tab === 'Progress') return <ProgressScreen onOpenFeedback={onOpenFeedback} onOpenSources={onOpenSources} onOpenSettings={onOpenSettings} />;
+  if (tab === 'Progress') return <ProgressScreen onOpenFeedback={onOpenFeedback} onOpenSources={onOpenSources} onOpenSettings={onOpenSettings} onOpenProfile={onOpenProfile} />;
   return <HomeScreen supportLanguage={supportLanguage} onStartLesson={onStartLesson} onReviewDue={onReviewDue} />;
 }
 
@@ -115,6 +117,7 @@ export default function App() {
   const [showFeedback, setShowFeedback] = useState(getParam('screen') === 'feedback');
   const [showSources, setShowSources] = useState(getParam('screen') === 'sources');
   const [showSettings, setShowSettings] = useState(getParam('screen') === 'settings');
+  const [showProfile, setShowProfile] = useState(getParam('screen') === 'profile');
   const [showReview, setShowReview] = useState(getParam('screen') === 'review');
   // Phase 25 / P1-1: when Home's "Review N due cards now" CTA is pressed,
   // jump to Flashcards with this flag set. Flashcards uses it to pre-filter
@@ -280,6 +283,17 @@ export default function App() {
     );
   }
 
+  // Phase 28 profile editor.
+  if (showProfile) {
+    return (
+      <AppShell maxWidth={shellMaxWidth}>
+        <AppProviders>
+          <ProfileScreen onBack={() => setShowProfile(false)} />
+        </AppProviders>
+      </AppShell>
+    );
+  }
+
   // Sensei Translation Review — hidden dev tool for native-speaker reviewers.
   if (showReview) {
     return (
@@ -292,7 +306,7 @@ export default function App() {
   return (
       <AppShell maxWidth={shellMaxWidth}>
         <AppProviders>
-          <View style={styles.body}>{render(tab, supportLanguage, () => setShowFeedback(true), () => setShowSources(true), () => setShowSettings(true), () => setTab('Lessons'), onReviewDue, dueReviewMode)}</View>
+          <View style={styles.body}>{render(tab, supportLanguage, () => setShowFeedback(true), () => setShowSources(true), () => setShowSettings(true), () => setShowProfile(true), () => setTab('Lessons'), onReviewDue, dueReviewMode)}</View>
           <TabBar items={bottomTabs} activeId={tab} onSelect={onTabChange} />
           <CompletionToast />
         </AppProviders>
