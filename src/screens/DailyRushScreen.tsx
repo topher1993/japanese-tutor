@@ -10,7 +10,8 @@ import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ds } from '../theme/designSystem';
 import { getAllLessons } from '../services/lessonService';
 import { answerFlashcard, createFlashcardDeck } from '../services/flashcardService';
-import { answerDailyRushCard, buildDailyFlashcardRush, summarizeDailyRush, type DailyRushAnswerResult } from '../services/dailyFlashcardRushService';
+import { answerDailyRushCard, buildDailyFlashcardRush, buildDailyRushProfilePatch, summarizeDailyRush, type DailyRushAnswerResult } from '../services/dailyFlashcardRushService';
+import { useUserProfileContext } from '../services/userProfileContext';
 import type { LearnerLanguage } from '../types/onboarding';
 
 export const NEXT_CARD_DELAY_MS = 220;
@@ -25,6 +26,10 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
   const [answers, setAnswers] = useState<DailyRushAnswerResult[]>([]);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [incomingDirection, setIncomingDirection] = useState<'left' | null>(null);
+  const [completionSaved, setCompletionSaved] = useState(false);
+  const [practiceOnlyRun, setPracticeOnlyRun] = useState(false);
+  const { profile, updateProfile } = useUserProfileContext();
+  const completedToday = profile?.dynamic.dailyRush.lastCompletedDate === date;
   const deck = useMemo(() => createFlashcardDeck(getAllLessons()), []);
   const rush = useMemo(() => buildDailyFlashcardRush(deck, { date, supportLanguage }), [date, deck, supportLanguage]);
   const current = rush.cards[cardIndex];
@@ -35,7 +40,20 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
     setCardIndex(0);
     setAnswers([]);
     setSelectedChoiceId(null);
+    setCompletionSaved(false);
   }, [rush.id]);
+
+  useEffect(() => {
+    if (answers.length === 0) setPracticeOnlyRun(completedToday === true);
+  }, [answers.length, completedToday]);
+
+  useEffect(() => {
+    if (completionSaved || !profile || cardIndex < rush.cards.length || answers.length === 0) return;
+    const finalSummary = summarizeDailyRush(answers);
+    const profilePatch = buildDailyRushProfilePatch(profile, finalSummary, date);
+    setCompletionSaved(true);
+    void updateProfile(profilePatch);
+  }, [answers, cardIndex, completionSaved, date, profile, rush.cards.length, updateProfile]);
 
   function goNext() {
     setIncomingDirection('left');
@@ -60,9 +78,10 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
         <Card tone="brand" shadow="hero" style={styles.resultHero}>
           <Mascot expression={finalSummary.good >= 7 ? 'celebrate' : 'happy'} size={72} />
           <Text style={styles.resultTitle}>{finalSummary.accuracyPercent}% correct</Text>
-          <Text style={styles.resultText}>{finalSummary.good} Good • {finalSummary.again} Again • +{finalSummary.xpEarned} XP</Text>
+          <Text style={styles.resultText}>{finalSummary.good} Good • {finalSummary.again} Again • +{practiceOnlyRun ? 0 : finalSummary.xpEarned} XP</Text>
+          <Text style={styles.resultStatus}>{practiceOnlyRun ? 'Completed today — extra runs are practice only.' : 'Daily Rush saved to your profile.'}</Text>
         </Card>
-        <Button label="Do another rush" onPress={() => { setAnswers([]); setCardIndex(0); setSelectedChoiceId(null); }} iconRight="arrow-right" />
+        <Button label="Do another rush" onPress={() => { setAnswers([]); setCardIndex(0); setSelectedChoiceId(null); setCompletionSaved(false); setPracticeOnlyRun(completedToday === true); }} iconRight="arrow-right" />
         <Button label="Back" onPress={onBack} variant="soft" icon="arrow-left" />
       </ScreenScaffold>
     );
@@ -72,7 +91,7 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
 
   return (
     <ScreenScaffold>
-      <ScreenHeader title="Daily Flashcard Rush" subtitle={`${answers.length}/10 answered • +${summary.xpEarned} XP`} onBack={onBack} />
+      <ScreenHeader title="Daily Flashcard Rush" subtitle={completedToday ? `${answers.length}/10 answered • Completed today` : `${answers.length}/10 answered • +${summary.xpEarned} XP`} onBack={onBack} />
       <View style={styles.progressRow}>
         <Chip label={`${current.position} of ${rush.cards.length}`} selected />
         <Chip label={`${summary.good} Good`} selected={summary.good > 0} />
@@ -137,4 +156,5 @@ const styles = StyleSheet.create({
   resultHero: { alignItems: 'center', gap: ds.spacing.sm },
   resultTitle: { fontSize: ds.type.display, color: ds.colors.brandInk, fontWeight: '900' },
   resultText: { fontSize: ds.type.body, color: ds.colors.brandInk, fontWeight: '800', textAlign: 'center' },
+  resultStatus: { fontSize: ds.type.caption, color: ds.colors.brandInk, opacity: 0.85, textAlign: 'center', lineHeight: 18 },
 });

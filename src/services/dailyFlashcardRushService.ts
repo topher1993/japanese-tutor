@@ -1,5 +1,6 @@
 import type { LearnerLanguage } from '../types/onboarding';
 import type { FlashcardDeck, FlashcardReviewCard } from '../types/flashcard';
+import type { UserProfile, UserProfilePatch } from '../types/userProfile';
 import { getSupportTranslation } from './supportLanguageService';
 
 export type DailyRushAnswerLabel = 'good' | 'again';
@@ -137,5 +138,33 @@ export function summarizeDailyRush(results: DailyRushAnswerResult[]): DailyRushS
     again,
     xpEarned,
     accuracyPercent: results.length ? Math.round((good / results.length) * 100) : 0,
+  };
+}
+
+export function buildDailyRushProfilePatch(profile: UserProfile, summary: DailyRushSummary, date: string): UserProfilePatch {
+  const existing = profile.dynamic.dailyRush;
+  if (existing.lastCompletedDate === date) {
+    return {
+      dynamic: {
+        xp: profile.dynamic.xp,
+        dailyRush: existing,
+        lastStudyActivityAt: profile.dynamic.lastStudyActivityAt,
+      },
+    };
+  }
+
+  return {
+    dynamic: {
+      xp: profile.dynamic.xp + summary.xpEarned,
+      lastStudyActivityAt: `${date}T00:00:00.000Z`,
+      dailyRush: {
+        totalRuns: existing.totalRuns + 1,
+        totalGood: existing.totalGood + summary.good,
+        totalAgain: existing.totalAgain + summary.again,
+        totalXpEarned: existing.totalXpEarned + summary.xpEarned,
+        lastCompletedDate: date,
+        lastSummary: summary,
+      },
+    },
   };
 }

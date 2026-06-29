@@ -49,6 +49,34 @@ describe('Phase 32 Daily Flashcard Rush', () => {
     expect(summary.xpEarned).toBeGreaterThan(0);
   });
 
+  it('builds a profile patch that records one XP-bearing Daily Rush completion per date', async () => {
+    const { buildDailyRushProfilePatch } = await import('../src/services/dailyFlashcardRushService');
+    const { createDefaultUserProfile } = await import('../src/services/userProfileService');
+    const profile = createDefaultUserProfile();
+    const summary = { total: 10, good: 8, again: 2, xpEarned: 104, accuracyPercent: 80 };
+
+    const firstPatch = buildDailyRushProfilePatch(profile, summary, '2026-06-29');
+    expect(firstPatch.dynamic?.xp).toBe(104);
+    expect(firstPatch.dynamic?.dailyRush?.totalRuns).toBe(1);
+    expect(firstPatch.dynamic?.dailyRush?.totalGood).toBe(8);
+    expect(firstPatch.dynamic?.dailyRush?.lastCompletedDate).toBe('2026-06-29');
+    expect(firstPatch.dynamic?.dailyRush?.lastSummary?.accuracyPercent).toBe(80);
+
+    const alreadyCompleted = createDefaultUserProfile({ dynamic: { xp: 104, dailyRush: firstPatch.dynamic!.dailyRush } });
+    const repeatPatch = buildDailyRushProfilePatch(alreadyCompleted, summary, '2026-06-29');
+    expect(repeatPatch.dynamic?.xp).toBe(104);
+    expect(repeatPatch.dynamic?.dailyRush?.totalRuns).toBe(1);
+    expect(repeatPatch.dynamic?.dailyRush?.totalGood).toBe(8);
+  });
+
+  it('DailyRushScreen persists completion through profile context and shows completed-today status', () => {
+    const source = readFileSync('src/screens/DailyRushScreen.tsx', 'utf8');
+    expect(source).toContain('useUserProfileContext');
+    expect(source).toContain('buildDailyRushProfilePatch');
+    expect(source).toContain('Completed today');
+    expect(source).toContain('updateProfile(profilePatch)');
+  });
+
   it('wires a DailyRushScreen route and visible Home CTA without adding a bottom tab', () => {
     expect(appSource).toContain("import { DailyRushScreen } from './src/screens/DailyRushScreen';");
     expect(appSource).toContain("const [showDailyRush, setShowDailyRush] = useState(getParam('screen') === 'daily-rush');");

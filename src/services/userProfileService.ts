@@ -2,7 +2,7 @@ import type { OnboardingPreference } from './onboardingPreferenceService';
 import { getOnboardingStorageKey } from './onboardingPreferenceService';
 import type { AsyncKeyValueStorage } from './keyValueStorage';
 import { createInitialProgress } from './progressService';
-import type { UserProfile, UserProfilePatch, WorkplaceProfile } from '../types/userProfile';
+import type { DailyRushProfileStats, UserProfile, UserProfilePatch, WorkplaceProfile } from '../types/userProfile';
 import type { LearnerLanguage } from '../types/onboarding';
 import type { UserProfileRepository } from '../repositories/userProfileRepository';
 
@@ -40,6 +40,26 @@ function normalizeWorkplace(workplace: WorkplaceProfile | null | undefined): Wor
   };
 }
 
+function normalizeDailyRushStats(stats: Partial<DailyRushProfileStats> | null | undefined): DailyRushProfileStats {
+  const lastSummary = stats?.lastSummary
+    ? {
+      total: Math.max(0, Number(stats.lastSummary.total) || 0),
+      good: Math.max(0, Number(stats.lastSummary.good) || 0),
+      again: Math.max(0, Number(stats.lastSummary.again) || 0),
+      xpEarned: Math.max(0, Number(stats.lastSummary.xpEarned) || 0),
+      accuracyPercent: Math.max(0, Math.min(100, Number(stats.lastSummary.accuracyPercent) || 0)),
+    }
+    : undefined;
+  return {
+    totalRuns: Math.max(0, Number(stats?.totalRuns) || 0),
+    totalGood: Math.max(0, Number(stats?.totalGood) || 0),
+    totalAgain: Math.max(0, Number(stats?.totalAgain) || 0),
+    totalXpEarned: Math.max(0, Number(stats?.totalXpEarned) || 0),
+    lastCompletedDate: stats?.lastCompletedDate,
+    ...(lastSummary ? { lastSummary } : {}),
+  };
+}
+
 function normalizeLanguage(value: unknown): LearnerLanguage {
   return value === 'vi' || value === 'tl' || value === 'en' ? value : 'en';
 }
@@ -64,6 +84,7 @@ export function createDefaultUserProfile(overrides: UserProfileSeed = {}): UserP
     dynamic: {
       xp: 0,
       streak: createInitialProgress('2026-06-18').streak,
+      dailyRush: normalizeDailyRushStats(null),
     },
     meta: {
       schemaVersion: CURRENT_PROFILE_SCHEMA_VERSION,
@@ -116,6 +137,7 @@ function normalizeProfile(profile: UserProfile): UserProfile {
     dynamic: {
       xp: Math.max(0, Number(profile.dynamic.xp) || 0),
       streak: profile.dynamic.streak ?? createInitialProgress('2026-06-18').streak,
+      dailyRush: normalizeDailyRushStats(profile.dynamic.dailyRush),
       lastStudyActivityAt: profile.dynamic.lastStudyActivityAt,
     },
     meta: {

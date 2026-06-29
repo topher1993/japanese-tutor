@@ -21,9 +21,25 @@ export interface UserProfileStatic {
   dailyStudyMinutes: DailyStudyMinutes;
 }
 
+export interface DailyRushProfileStats {
+  totalRuns: number;
+  totalGood: number;
+  totalAgain: number;
+  totalXpEarned: number;
+  lastCompletedDate?: string;
+  lastSummary?: {
+    total: number;
+    good: number;
+    again: number;
+    xpEarned: number;
+    accuracyPercent: number;
+  };
+}
+
 export interface UserProfileDynamic {
   xp: number;
   streak: StreakState;
+  dailyRush: DailyRushProfileStats;
   lastStudyActivityAt?: string;
 }
 

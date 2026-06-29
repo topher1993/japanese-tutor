@@ -95,7 +95,10 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
   const lessons = getAllLessons();
   const safeProgress = progress ?? { startedAt: '', completedLessonIds: [], quizScores: [], streak: { currentStreak: 0, longestStreak: 0 } };
   const dashboard = buildProgressDashboard(safeProgress, lessons);
-  const progression = buildProfileProgression(safeProgress, lessons, dashboard);
+  const progression = buildProfileProgression(safeProgress, lessons, dashboard, {
+    dailyRushRuns: profile.dynamic.dailyRush.totalRuns,
+    dailyRushGood: profile.dynamic.dailyRush.totalGood,
+  });
   const earnedBadges = progression.badges.filter(badge => badge.earned).length;
 
   return (
