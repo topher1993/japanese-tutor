@@ -1,7 +1,7 @@
 import type { LessonCategory, SenseiLesson } from '../types/lesson';
 import type { LearnerProgress } from '../types/progress';
 import { createInitialProgress, completeLesson } from '../services/progressService';
-import { createTablesSql } from '../db/schema';
+import { createTablesSql, CURRENT_SCHEMA_VERSION } from '../db/schema';
 
 export interface SqliteLikeDatabase {
   execAsync(sql: string): Promise<void>;
@@ -21,15 +21,102 @@ export interface PersistentLearningRepository {
   deleteAllProgress(): Promise<void>;
 }
 
+// Phase 37a: the three new JSON-blob fields attached to LearnerProgress for
+// weekly-todo gating. They live as optional fields on the extended view because
+// `src/types/progress.ts` is owned by an earlier phase and we cannot widen it
+// from here; consumers should treat them as `Record<string, unknown>` /
+// `Record<number, boolean>` per the proposal §3.3 contract.
+export interface TodoStateMap { [todoId: string]: unknown; }
+export interface WeekTodosInitializedMap { [weekNumber: number]: boolean; }
+export interface TodoEventCountsMap { [eventKey: string]: unknown; }
+
+export interface ExtendedLearnerProgress extends LearnerProgress {
+  todoStates: TodoStateMap;
+  weekTodosInitialized: WeekTodosInitializedMap;
+  todoEventCounts: TodoEventCountsMap;
+}
+
+const SCHEMA_META_KEY_PROGRESS = 'progress';
+
+// Safe JSON parse: returns the provided fallback on any parse error and warns.
+// Per the Phase 37a work card P0-1, parse failures must NEVER throw — they
+// degrade to an empty object so the rest of the app keeps working.
+function safeParseJson<T>(raw: unknown, fallback: T, warnContext: string): T {
+  if (raw == null) return fallback;
+  if (typeof raw !== 'string') return fallback;
+  try {
+    const parsed = JSON.parse(raw) as T;
+    return parsed == null ? fallback : parsed;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn(`[phase37a] failed to parse ${warnContext}; falling back to ${JSON.stringify(fallback)}`, error);
+    return fallback;
+  }
+}
+
+// Apply empty defaults for the three todo JSON-blob fields added in Phase 37a
+// WITHOUT overwriting any values that already exist on the input. The function
+// name is misleading if you read it as "force defaults" — it is actually
+// "fill in defaults only where missing". This matters for saveCompletedLesson,
+// which calls withTodoDefaults(completeLesson(...)) on every lesson completion:
+// a prior 37b todo-update path must not be wiped by a subsequent lesson-complete
+// event. The QC round-1 finding flagged this; the spread below preserves truthy
+// values and only fills in `{}` when a field is undefined.
+//
+// Note: `LearnerProgress` itself does not declare the todo fields yet — that
+// widening belongs to phase 37b when the todo service is introduced. Until then,
+// callers that pass an extended shape (which only this repo does) preserve their
+// values via the cast below; callers that pass the plain v1 shape get the
+// default `{}` per field, matching the previous behaviour.
+function withTodoDefaults(progress: LearnerProgress): ExtendedLearnerProgress {
+  const extended = progress as ExtendedLearnerProgress;
+  return {
+    ...progress,
+    todoStates: extended.todoStates ?? {},
+    weekTodosInitialized: extended.weekTodosInitialized ?? {},
+    todoEventCounts: extended.todoEventCounts ?? {},
+  };
+}
+
 export function createSqliteLearningRepository(db: SqliteLikeDatabase): PersistentLearningRepository {
   let lessonsCache: SenseiLesson[] = [];
-  let progressCache = createInitialProgress('2026-06-18');
+  let progressCache: ExtendedLearnerProgress = withTodoDefaults(createInitialProgress('2026-06-18'));
   const memoryTables = db.tables;
+
+  async function readSchemaVersion(tableKey: string): Promise<number> {
+    if (!memoryTables) return 1; // native path always reads via SQL — handled below by caller's getAllAsync
+    const rows = (memoryTables.get('schema_meta') ?? []) as Array<{ key: string; value: string }>;
+    const row = rows.find(r => r.key === tableKey);
+    if (!row) return 1;
+    const parsed = Number.parseInt(row.value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  }
+
+  async function writeSchemaVersion(tableKey: string, version: number): Promise<void> {
+    if (memoryTables) {
+      const rows = (memoryTables.get('schema_meta') ?? []) as Array<{ key: string; value: string }>;
+      const idx = rows.findIndex(r => r.key === tableKey);
+      const row = { key: tableKey, value: String(version) };
+      if (idx >= 0) rows[idx] = row; else rows.push(row);
+      memoryTables.set('schema_meta', rows);
+    }
+    await db.runAsync('INSERT OR REPLACE INTO schema_meta VALUES (?, ?)', tableKey, String(version));
+  }
+
   return {
     async initialize() {
       for (const sql of createTablesSql) await db.execAsync(sql);
       if (memoryTables && !memoryTables.has('lessons')) memoryTables.set('lessons', []);
       if (memoryTables && !memoryTables.has('progress_events')) memoryTables.set('progress_events', []);
+      if (memoryTables && !memoryTables.has('schema_meta')) memoryTables.set('schema_meta', []);
+
+      // Phase 37a migration: record CURRENT_SCHEMA_VERSION for the progress
+      // table on first run. v1 rows already in the DB keep working because the
+      // CREATE TABLE statement above defaults the new columns to '{}'.
+      const existing = await readSchemaVersion(SCHEMA_META_KEY_PROGRESS);
+      if (existing < CURRENT_SCHEMA_VERSION) {
+        await writeSchemaVersion(SCHEMA_META_KEY_PROGRESS, CURRENT_SCHEMA_VERSION);
+      }
     },
     async saveLessons(lessons) {
       lessonsCache = [...lessons];
@@ -43,15 +130,49 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
     },
     async findLessonsByCategory(category) { return (await this.getLessons()).filter(lesson => lesson.category === category); },
     async saveCompletedLesson(lessonId, score, date) {
-      progressCache = completeLesson(progressCache, lessonId, score, date);
+      progressCache = withTodoDefaults(completeLesson(progressCache, lessonId, score, date));
       if (memoryTables) memoryTables.set('progress_events', progressCache.quizScores);
-      await db.runAsync('INSERT OR REPLACE INTO progress VALUES (?, ?, ?, ?, ?)', `${lessonId}:${date}`, lessonId, 1, date, score);
+      // Phase 37a: 5-tuple → 8-tuple. The three new JSON-blob columns are
+      // populated from progressCache so any caller that reads them back via
+      // getProgress() sees the same values.
+      const todoStates = JSON.stringify(progressCache.todoStates ?? {});
+      const weekTodosInitialized = JSON.stringify(progressCache.weekTodosInitialized ?? {});
+      const todoEventCounts = JSON.stringify(progressCache.todoEventCounts ?? {});
+      await db.runAsync(
+        'INSERT OR REPLACE INTO progress VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        `${lessonId}:${date}`,
+        lessonId,
+        1,
+        date,
+        score,
+        todoStates,
+        weekTodosInitialized,
+        todoEventCounts,
+      );
     },
-    async getProgress() { return progressCache; },
+    async getProgress() {
+      // If the test/host seeded progress through runAsync (e.g. the v1 5-tuple
+      // migration test), the memory mirror may carry todo column payloads that
+      // we want to surface as part of the returned object. JSON-parse failures
+      // are tolerated per the work card.
+      if (memoryTables?.has('progress')) {
+        const rows = memoryTables.get('progress') as Array<Record<string, unknown>> | undefined;
+        if (rows && rows.length > 0) {
+          const row = rows[rows.length - 1];
+          progressCache = {
+            ...progressCache,
+            todoStates: safeParseJson<TodoStateMap>(row.todo_states ?? row.todoStates, {}, 'progress.todo_states'),
+            weekTodosInitialized: safeParseJson<WeekTodosInitializedMap>(row.week_todos_initialized ?? row.weekTodosInitialized, {}, 'progress.week_todos_initialized'),
+            todoEventCounts: safeParseJson<TodoEventCountsMap>(row.todo_event_counts ?? row.todoEventCounts, {}, 'progress.todo_event_counts'),
+          };
+        }
+      }
+      return progressCache;
+    },
     async deleteAllProgress() {
       // Native: DROP + recreate the progress table so indexes and FKs reset
       // cleanly. In-memory mirror is also wiped via createInitialProgress().
-      progressCache = createInitialProgress('2026-06-18');
+      progressCache = withTodoDefaults(createInitialProgress('2026-06-18'));
       if (memoryTables) memoryTables.set('progress_events', []);
       try {
         await db.runAsync('DELETE FROM progress');
