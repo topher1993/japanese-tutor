@@ -13,9 +13,18 @@ import { StreakFlame } from '../components/StreakFlame';
 import { getAllLessons } from '../services/lessonService';
 import { buildProgressDashboard, type ProgressDashboard } from '../services/progressDashboardService';
 import { buildProfileProgression } from '../services/profileProgressionService';
+import { buildLessonInteractionPath } from '../services/lessonInteractionPathService';
+import { buildLessonProgression } from '../services/lessonProgressionService';
 import { createStudyPlanTracker, type StudyLevel } from '../services/studyPlanService';
 import { useLearningContext } from '../services/learningContext';
 import { useUserProfileContext } from '../services/userProfileContext';
+import { isTodoFeatureEnabled } from '../services/practiceProgressStore';
+import { getAllWeekPlans } from '../services/weeklyPlansService';
+import {
+  buildAllTodoBoards,
+  type TodoPayload,
+} from '../services/weeklyTodoService';
+import { emptyTodoEventCounts } from '../types/weeklyTodo';
 import { ds } from '../theme/designSystem';
 import type { LearnerProgress } from '../types/progress';
 import type { JlptTargetLevel } from '../types/userProfile';
@@ -87,6 +96,41 @@ export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings, 
   const n5Unlocked = true;
   const n4Unlocked = achievements.some(a => a.id === 'n4-unlocked' && a.earned);
 
+  // Phase 37e: build the per-week todo board for the current week so the
+  // Progress tab can show a "Week N todos: X/Y complete" widget. Mirrors
+  // the 37c/37d lesson+path derivation pattern. Gated behind
+  // `isTodoFeatureEnabled()` so default flag-off behavior is unchanged.
+  const lessonPath = useMemo(
+    () => buildLessonInteractionPath(lessons, safeProgress),
+    [lessons, safeProgress],
+  );
+  const lessonProgression = buildLessonProgression(lessonPath.currentWeek.week);
+  const progressCurrentWeek = lessonProgression.currentWeekDetails().weekNumber;
+  const progressTodoPayload = useMemo<TodoPayload>(() => ({
+    todoStates: {},
+    weekTodosInitialized: {},
+    todoEventCounts: emptyTodoEventCounts(),
+    completedLessonIds: safeProgress.completedLessonIds,
+  }), [safeProgress.completedLessonIds]);
+  const progressTodoBoards = useMemo(
+    () => buildAllTodoBoards(getAllWeekPlans(), progressTodoPayload),
+    [progressTodoPayload],
+  );
+  const progressTodoBoard = progressTodoBoards[progressCurrentWeek];
+  const progressTodosEnabled = isTodoFeatureEnabled();
+  const progressTodosLabel = progressTodoBoard
+    ? `Week ${progressCurrentWeek} todos: ${progressTodoBoard.completedCount} / ${progressTodoBoard.totalCount} complete`
+    : `Week ${progressCurrentWeek} todos: 0 / 0 complete`;
+  const progressTodosHelper = progressTodoBoard
+    ? progressTodoBoard.isLegacyWeek
+      ? 'Completed before weekly todos were introduced'
+      : progressTodoBoard.totalCount === 0
+        ? 'No todos authored for this week yet.'
+        : progressTodoBoard.allDone
+          ? 'All todos complete — next week unlocked.'
+          : 'Keep completing the weekly todos to advance.'
+    : 'No board built for this week.';
+
   return (
     <ScreenScaffold>
       <ScreenHeader title="Progress" subtitle={`${view.completedLessons} of ${view.totalLessons} lessons done`} />
@@ -111,6 +155,34 @@ export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings, 
         </View>
         <Text style={styles.levelHint}>{view.nextRecommendedLesson ? `Next: ${view.nextRecommendedLesson.title}` : 'All bundled lessons complete.'}</Text>
       </Card>
+
+      {/* Phase 37e: render the "Week N todos" widget only when
+          `isTodoFeatureEnabled()` is true so the default learner experience
+          (flag=false) is unchanged. When the flag flips in 37g this becomes
+          a visible source of progression alongside Course progress. */}
+      {progressTodosEnabled && progressTodoBoard ? (
+        <Card shadow="card">
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>Weekly todos</Text>
+            <Text style={styles.sectionMeta}>
+              {progressTodoBoard.completedCount} / {progressTodoBoard.totalCount}
+            </Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${progressTodoBoard.totalCount === 0
+                    ? 0
+                    : Math.min(100, Math.max(0, Math.round((progressTodoBoard.completedCount / progressTodoBoard.totalCount) * 100)))}%`,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.levelHint}>{progressTodosLabel} • {progressTodosHelper}</Text>
+        </Card>
+      ) : null}
 
       <Card shadow="card">
         <View style={styles.sectionHeader}>
