@@ -8,6 +8,18 @@ import { useLearningContext } from '../services/learningContext';
 import { useUserProfileContext } from '../services/userProfileContext';
 import { ds } from '../theme/designSystem';
 
+// Phase 37g — dev-only feature-flag toggle. The helper lives in src/dev/ and
+// is gated behind `__DEV__` at the render site below so release builds
+// tree-shake the import out of the bundle.
+import {
+  disableWeeklyTodos,
+  enableWeeklyTodos,
+} from '../dev/featureFlagDevMenu';
+
+// React Native injects `__DEV__` at runtime; declare it for TS so the dev
+// section can be hidden in production builds without a typecheck error.
+declare const __DEV__: boolean | undefined;
+
 /**
  * Phase 22 audit fix P1-06 + Phase 25 audit fix P0-2: minimal Settings screen
  * with a "Reset all progress" affordance.
@@ -111,6 +123,38 @@ export function SettingsScreen({
           <Text style={styles.summary} testID="settings-reset-summary">{lastResetSummary}</Text>
         ) : null}
       </Card>
+
+      {/* Phase 37g — dev-only flag toggle. Hidden in production builds via the
+          `__DEV__` guard so the bundle tree-shakes the dev-menu helper out of
+          release builds. Mirrors the existing Card + sectionLabel style. */}
+      {typeof __DEV__ !== 'undefined' && __DEV__ ? (
+        <Card shadow="card">
+          <Text style={styles.sectionLabel}>Dev</Text>
+          <Text style={styles.help}>
+            Phase 37g rollout controls. Toggling the flag here flips the weekly-todos gate on/off in this session — useful for QA before promoting to Tier 2/3/4. See docs/phase-37-rollout.md.
+          </Text>
+          <Button
+            label="Enable weekly todos"
+            onPress={() => {
+              enableWeeklyTodos();
+              Alert.alert('Weekly todos', 'Flag enabled for this session.');
+            }}
+            icon="check"
+            variant="secondary"
+            testID="settings-dev-enable-weekly-todos-button"
+          />
+          <Button
+            label="Disable weekly todos"
+            onPress={() => {
+              disableWeeklyTodos();
+              Alert.alert('Weekly todos', 'Flag disabled for this session.');
+            }}
+            icon="cross"
+            variant="secondary"
+            testID="settings-dev-disable-weekly-todos-button"
+          />
+        </Card>
+      ) : null}
     </ScreenScaffold>
   );
 }
