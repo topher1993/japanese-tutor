@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { answerCurrentQuestion, createQuizSession, finishQuizSession, getCurrentQuestion, getQuizSessionProgress } from '../services/quizSessionService';
 import { getSupportLanguageDisplayName } from '../services/supportLanguageService';
@@ -10,6 +10,29 @@ import { Icon } from '../components/Icon';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ds } from '../theme/designSystem';
+import { isTodoFeatureEnabled } from '../services/practiceProgressStore';
+import { useLearningContext } from '../services/learningContext';
+import { getAllLessons } from '../services/lessonService';
+import { buildLessonInteractionPath } from '../services/lessonInteractionPathService';
+import type { LearnerProgress } from '../types/progress';
+
+/**
+ * Phase 37d-4 — derive the active week for a quiz attempt. Mirrors the
+ * DailyRushScreen.deriveDailyRushWeekNumber / FlashcardsScreen helper:
+ * read completedLessonIds from the persistence store and fall back to
+ * week 1 when the learner has not started. QuizScreen does not own a
+ * "currentLesson" of its own, so we reuse the lesson-path builder.
+ */
+function deriveQuizWeekNumber(progress: LearnerProgress | null | undefined): number {
+  const safeProgress: LearnerProgress = progress ?? {
+    startedAt: new Date().toISOString(),
+    completedLessonIds: [],
+    quizScores: [],
+    streak: { currentStreak: 0, longestStreak: 0 },
+  };
+  const path = buildLessonInteractionPath(getAllLessons(), safeProgress);
+  return path.currentLesson?.week ?? 1;
+}
 
 export function QuizScreen({ supportLanguage = 'en' }: { supportLanguage?: LearnerLanguage }) {
   const [session, setSession] = useState(createQuizSession());
@@ -18,6 +41,44 @@ export function QuizScreen({ supportLanguage = 'en' }: { supportLanguage?: Learn
   const progress = getQuizSessionProgress(session);
   const result = session.complete ? finishQuizSession(session) : undefined;
   const candidateQuizCounts = getCandidateQuizCounts();
+
+  // Phase 37d-4: when the quiz finishes, notify the practiceProgressStore so
+  // the quiz todo gate (UI wired in 37c) records the best score. Mirrors
+  // DailyRushScreen's useEffect-on-completion pattern. Guarded behind
+  // isTodoFeatureEnabled() so default behavior is unchanged for non-37g
+  // builds. Uses the LearningRepositoryProvider's store (opened once at app
+  // boot) — do NOT open a fresh SQLite handle here.
+  const { store: practiceStore } = useLearningContext();
+  const [quizRecordedFingerprint, setQuizRecordedFingerprint] = useState<string | null>(null);
+  useEffect(() => {
+    if (!result) return;
+    // QuizResult does not carry a sessionId, so we deduplicate by
+    // `(score, total)` fingerprint. Two identical-scoring attempts in a
+    // row will be a no-op; a different attempt produces a new fingerprint
+    // and re-fires the store write (best-score merge happens in the store).
+    const fingerprint = `${result.score}:${result.total}`;
+    if (quizRecordedFingerprint === fingerprint) return;
+    if (!isTodoFeatureEnabled() || !practiceStore) return;
+    setQuizRecordedFingerprint(fingerprint);
+    void (async () => {
+      try {
+        const score = result.total > 0
+          ? Math.round((result.score / result.total) * 100)
+          : 0;
+        let weekNumber = 1;
+        try {
+          const progress = await practiceStore.getProgress();
+          weekNumber = deriveQuizWeekNumber(progress);
+        } catch {
+          // progress read failed — leave default weekNumber = 1
+        }
+        await practiceStore.recordQuizAttempt(weekNumber, score);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[quiz] failed to record todo completion', err);
+      }
+    })();
+  }, [result, practiceStore, quizRecordedFingerprint]);
 
   if (showReview) {
     return (
