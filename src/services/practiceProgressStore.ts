@@ -1,6 +1,9 @@
 import type { PersistentLearningRepository } from '../repositories/sqliteLearningRepository';
 import { getAllLessons } from './lessonService';
 import { buildProgressDashboard } from './progressDashboardService';
+import { getWeekPlan } from './weeklyPlansService';
+import { recomputeTodoStatesForWeek, type TodoPayload } from './weeklyTodoService';
+import type { TodoState, TodoEventCounts } from '../types/weeklyTodo';
 
 export type PracticeProgressStore = ReturnType<typeof createPracticeProgressStore>;
 
@@ -24,7 +27,66 @@ async function getLessonCatalog(repo: PersistentLearningRepository) {
 
 export function createPracticeProgressStore(repo: PersistentLearningRepository) {
   return {
-    async completeCurrentLesson(lessonId: string, score: number, date: string) { await repo.saveCompletedLesson(lessonId, score, date); },
+    async completeCurrentLesson(lessonId: string, score: number, date: string) {
+      await repo.saveCompletedLesson(lessonId, score, date);
+      // Phase 37b: when the todo gate is enabled and a WeekPlan exists for
+      // the lesson's week, recompute todo states from the now-updated
+      // completedLessonIds list. Idempotent: calling twice converges to the
+      // same state. The recomputed snapshot is flushed to disk via
+      // repo.saveExtendedProgress so it survives a cold start (otherwise the
+      // gate UI in 37c would read stale state after every app reload).
+      if (todoFeatureEnabled && typeof repo.saveExtendedProgress === 'function') {
+        const lessonWeek = getAllLessons().find(l => l.id === lessonId)?.week;
+        if (lessonWeek != null) {
+          const weekPlan = getWeekPlan(lessonWeek);
+          if (weekPlan && weekPlan.todos.length > 0) {
+            const updated = await repo.getProgress();
+            const extended = updated as unknown as TodoPayload & {
+              todoStates: Record<string, TodoState>;
+              weekTodosInitialized: Record<number, boolean>;
+              todoEventCounts: TodoEventCounts;
+            };
+            const existing = (extended.todoStates ?? {}) as Record<string, TodoState>;
+            const seed: Record<string, TodoState> = { ...existing };
+            if (!extended.weekTodosInitialized?.[lessonWeek]) {
+              for (const todo of weekPlan.todos) {
+                if (!seed[todo.id]) {
+                  seed[todo.id] = {
+                    todoId: todo.id,
+                    weekNumber: lessonWeek,
+                    progress: 0,
+                    target: todo.target,
+                  };
+                }
+              }
+            }
+            const payload: TodoPayload = {
+              todoStates: seed,
+              weekTodosInitialized: { ...(extended.weekTodosInitialized ?? {}), [lessonWeek]: true },
+              todoEventCounts: extended.todoEventCounts ?? {
+                flashcardReviews: {},
+                quizAttempts: {},
+                dailyRushDates: {},
+                exampleSentencesViewed: {},
+                kanjiGoodAnswers: {},
+              },
+              completedLessonIds: updated.completedLessonIds,
+            };
+            const recomputed = recomputeTodoStatesForWeek(lessonWeek, weekPlan, payload);
+            const nextTodoStates = { ...seed, ...recomputed };
+            // Cast through unknown so the two slightly-different TodoEventCounts
+            // shapes (one keyed by string index in the repo's ExtendedLearnerProgress
+            // view, one with named keys here) can converge for the persistence call.
+            await repo.saveExtendedProgress({
+              ...updated,
+              todoStates: nextTodoStates,
+              weekTodosInitialized: payload.weekTodosInitialized,
+              todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
+            } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
+          }
+        }
+      }
+    },
     async getDashboard() { return buildProgressDashboard(await repo.getProgress(), await getLessonCatalog(repo)); },
     /**
      * Phase 30 — expose the raw learner progress so screens (e.g. the

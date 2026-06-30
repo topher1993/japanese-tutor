@@ -19,6 +19,15 @@ export interface PersistentLearningRepository {
   getProgress(): Promise<LearnerProgress>;
   /** Phase 25 / P0-2: wipe every persisted lesson-completion + reset progress to initial state. */
   deleteAllProgress(): Promise<void>;
+  /**
+   * Phase 37b (additive — does not change any signature above): persist the
+   * three todo JSON-blob fields without creating a new lesson-completion row.
+   * Writes to the most recent progress row if one exists, otherwise appends a
+   * synthetic placeholder row. Used by `practiceProgressStore` after
+   * `recomputeTodoStatesForWeek` to flush the recomputed state to disk so the
+   * next `getProgress()` (after a cold start, for example) sees it.
+   */
+  saveExtendedProgress?(snapshot: ExtendedLearnerProgress): Promise<void>;
 }
 
 // Phase 37a: the three new JSON-blob fields attached to LearnerProgress for
@@ -179,6 +188,72 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
       } catch {
         // Table may not exist yet (fresh install) — recreate defensively.
         for (const sql of createTablesSql) await db.execAsync(sql);
+      }
+    },
+    async saveExtendedProgress(snapshot: ExtendedLearnerProgress) {
+      // Phase 37b: persist the three todo JSON-blob fields without creating a
+      // new lesson-completion row. Strategy:
+      //   - Update the in-memory progressCache so the next getProgress() in
+      //     this session returns the new todo state.
+      //   - In the test in-memory path: append (or update last) a row in the
+      //     `progress` table mirroring the existing 8-tuple shape, with the
+      //     recomputed todo blobs. This is what 37c's smoke test reads back.
+      //   - In the native SQLite path: best-effort UPDATE of the most recent
+      //     progress row by rowid. If no row exists (fresh learner, never
+      //     completed a lesson) we create a synthetic placeholder so the blobs
+      //     are persisted.
+      progressCache = withTodoDefaults(snapshot);
+      const todoStates = JSON.stringify(snapshot.todoStates ?? {});
+      const weekTodosInitialized = JSON.stringify(snapshot.weekTodosInitialized ?? {});
+      const todoEventCounts = JSON.stringify(snapshot.todoEventCounts ?? {});
+
+      if (memoryTables) {
+        const rows = (memoryTables.get('progress') ?? []) as Array<Record<string, unknown>>;
+        if (rows.length > 0) {
+          const last = rows[rows.length - 1];
+          rows[rows.length - 1] = {
+            ...last,
+            todo_states: todoStates,
+            week_todos_initialized: weekTodosInitialized,
+            todo_event_counts: todoEventCounts,
+          };
+          memoryTables.set('progress', rows);
+        } else {
+          rows.push({
+            id: 'todo-snapshot',
+            lesson_id: '',
+            completed: 0,
+            completed_at: null,
+            score: null,
+            todo_states: todoStates,
+            week_todos_initialized: weekTodosInitialized,
+            todo_event_counts: todoEventCounts,
+          });
+          memoryTables.set('progress', rows);
+        }
+      }
+
+      try {
+        await db.runAsync(
+          'UPDATE progress SET todo_states = ?, week_todos_initialized = ?, todo_event_counts = ? WHERE rowid = (SELECT MAX(rowid) FROM progress)',
+          todoStates,
+          weekTodosInitialized,
+          todoEventCounts,
+        );
+      } catch {
+        // No progress row exists yet — create a synthetic one so the blobs
+        // survive the next getProgress() read.
+        await db.runAsync(
+          'INSERT INTO progress (id, lesson_id, completed, completed_at, score, todo_states, week_todos_initialized, todo_event_counts) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'todo-snapshot',
+          '',
+          0,
+          null,
+          null,
+          todoStates,
+          weekTodosInitialized,
+          todoEventCounts,
+        );
       }
     },
   };
