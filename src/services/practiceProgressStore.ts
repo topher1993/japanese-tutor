@@ -89,6 +89,108 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
     },
     async getDashboard() { return buildProgressDashboard(await repo.getProgress(), await getLessonCatalog(repo)); },
     /**
+     * Phase 37d-1 — record that a Daily Rush was completed on `date` for
+     * `weekNumber`. Appends the date to
+     * `todoEventCounts.dailyRushDates[weekNumber]` (de-duplicated so repeat
+     * runs on the same day do not bloat the log) and recomputes the week's
+     * todo states, persisting the snapshot via saveExtendedProgress so the
+     * gate UI in 37c reads fresh state after a cold start.
+     *
+     * No-op while todoFeatureEnabled is false (matches the completeCurrentLesson
+     * pattern) so the gate stays invisible until 37g flips the flag.
+     *
+     * Returns the persisted LearnerProgress (mirrors the §5.1 contract).
+     */
+    async recordDailyRushComplete(weekNumber: number, date: string) {
+      if (!todoFeatureEnabled) return repo.getProgress();
+      if (typeof repo.saveExtendedProgress !== 'function') return repo.getProgress();
+
+      const weekPlan = getWeekPlan(weekNumber);
+      const updated = await repo.getProgress();
+      const extended = updated as unknown as TodoPayload & {
+        todoStates: Record<string, TodoState>;
+        weekTodosInitialized: Record<number, boolean>;
+        todoEventCounts: TodoEventCounts;
+      };
+
+      // De-duped append of the date into dailyRushDates[weekNumber]. We never
+      // mutate the existing array — we spread into a fresh one to keep the
+      // recompute input immutable across concurrent calls.
+      const priorDates = extended.todoEventCounts?.dailyRushDates?.[weekNumber] ?? [];
+      const nextDates = priorDates.includes(date) ? priorDates : [...priorDates, date];
+      const nextEventCounts: TodoEventCounts = {
+        ...(extended.todoEventCounts ?? {
+          flashcardReviews: {},
+          quizAttempts: {},
+          dailyRushDates: {},
+          exampleSentencesViewed: {},
+          kanjiGoodAnswers: {},
+        }),
+        dailyRushDates: {
+          ...(extended.todoEventCounts?.dailyRushDates ?? {}),
+          [weekNumber]: nextDates,
+        },
+      };
+
+      // Seed any todo states that haven't been materialized yet for this week.
+      // For `daily-rush` todos we compute the count directly from the updated
+      // dailyRushDates list (recomputeTodoStatesForWeek is lesson-only in 37b;
+      // 37d-1 owns the daily-rush progress rule per proposal §5).
+      const existingStates = (extended.todoStates ?? {}) as Record<string, TodoState>;
+      const seed: Record<string, TodoState> = { ...existingStates };
+      if (weekPlan && !extended.weekTodosInitialized?.[weekNumber]) {
+        for (const todo of weekPlan.todos) {
+          if (!seed[todo.id]) {
+            seed[todo.id] = {
+              todoId: todo.id,
+              weekNumber,
+              progress: 0,
+              target: todo.target,
+            };
+          }
+        }
+      }
+      if (weekPlan) {
+        for (const todo of weekPlan.todos) {
+          if (todo.kind !== 'daily-rush') continue;
+          const prior = seed[todo.id];
+          const reached = nextDates.length > 0;
+          const target = prior?.target ?? todo.target;
+          const progress = reached ? Math.min(1, target) : 0;
+          seed[todo.id] = {
+            todoId: todo.id,
+            weekNumber,
+            progress,
+            target,
+            completedAt: reached ? (prior?.completedAt ?? Date.now()) : undefined,
+            skipped: prior?.skipped,
+          };
+        }
+      }
+
+      const payload: TodoPayload = {
+        todoStates: seed,
+        weekTodosInitialized: { ...(extended.weekTodosInitialized ?? {}), [weekNumber]: true },
+        todoEventCounts: nextEventCounts,
+        completedLessonIds: updated.completedLessonIds,
+      };
+
+      const recomputed = weekPlan
+        ? recomputeTodoStatesForWeek(weekNumber, weekPlan, payload)
+        : {};
+      const nextTodoStates = { ...seed, ...recomputed };
+
+      // Cast through unknown — same pattern completeCurrentLesson uses (37b).
+      await repo.saveExtendedProgress({
+        ...updated,
+        todoStates: nextTodoStates,
+        weekTodosInitialized: payload.weekTodosInitialized,
+        todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
+      } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
+
+      return repo.getProgress();
+    },
+    /**
      * Phase 30 — expose the raw learner progress so screens (e.g. the
      * Lessons screen) can show weekly progress ("3 of 5 done this week")
      * without rebuilding the full dashboard summary on every render.

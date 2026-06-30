@@ -9,18 +9,44 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ds } from '../theme/designSystem';
 import { getAllLessons } from '../services/lessonService';
+import { buildLessonInteractionPath } from '../services/lessonInteractionPathService';
+import { isTodoFeatureEnabled } from '../services/practiceProgressStore';
+import { useLearningContext } from '../services/learningContext';
 import { answerFlashcard, createFlashcardDeck } from '../services/flashcardService';
 import { buildCandidateFlashcardCards } from '../services/candidateFlashcardAdapter';
 import { answerDailyRushCard, buildDailyFlashcardRush, buildDailyRushProfilePatch, summarizeDailyRush, timeOutDailyRushCard, type DailyRushAnswerResult } from '../services/dailyFlashcardRushService';
 import { useUserProfileContext } from '../services/userProfileContext';
 import type { LearnerLanguage } from '../types/onboarding';
 import type { FlashcardDeck } from '../types/flashcard';
+import type { LearnerProgress } from '../types/progress';
 
 export const NEXT_CARD_DELAY_MS = 220;
 export const DAILY_RUSH_TIMER_SECONDS = 10;
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Phase 37d-1 — derive the active week for a Daily Rush completion. Daily
+ * Rush is a level-wide feature (its deck covers all lessons), so the active
+ * week is the week of the user's next uncompleted lesson in the canonical
+ * lesson path. Falls back to week 1 when the user has not started.
+ *
+ * This intentionally avoids pulling in the full LearnerProgress shape — the
+ * screen only needs the week number. The completedLessonIds list is read
+ * lazily via the progress store later, so this helper is just a quick
+ * week-mapping seed.
+ */
+function deriveDailyRushWeekNumber(progress: LearnerProgress | null | undefined): number {
+  const safeProgress: LearnerProgress = progress ?? {
+    startedAt: new Date().toISOString(),
+    completedLessonIds: [],
+    quizScores: [],
+    streak: { currentStreak: 0, longestStreak: 0 },
+  };
+  const path = buildLessonInteractionPath(getAllLessons(), safeProgress);
+  return path.currentLesson?.week ?? 1;
 }
 
 export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLanguage?: LearnerLanguage; onBack: () => void }) {
@@ -35,6 +61,12 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
   const timerProgress = useRef(new Animated.Value(1)).current;
   const recordedAnswerCardIds = useRef(new Set<string>());
   const { profile, updateProfile } = useUserProfileContext();
+  // Phase 37d-1: consume the same practiceProgressStore that LessonsScreen
+  // and the rest of the app use, via the LearningRepositoryProvider context.
+  // Earlier 37d-1 draft opened a fresh SQLite handle here per rush completion,
+  // which raced with the provider's open and double-initialized the schema —
+  // replaced with the context's store accessor.
+  const { store: practiceStore } = useLearningContext();
   const completedToday = profile?.dynamic.dailyRush.lastCompletedDate === date;
   const [deck, setDeck] = useState<FlashcardDeck | null>(null);
 
@@ -120,7 +152,34 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
     const profilePatch = buildDailyRushProfilePatch(profile, finalSummary, date);
     setCompletionSaved(true);
     void updateProfile(profilePatch);
-  }, [answers, cardIndex, completionSaved, date, profile, rush, updateProfile]);
+    // Phase 37d-1 — alongside the existing UserProfile write, notify the
+    // practiceProgressStore so the daily-rush todo gate (UI wired in 37c)
+    // counts this completion. Guarded behind isTodoFeatureEnabled() so the
+    // default behavior is unchanged for non-37g builds. Uses the
+    // LearningRepositoryProvider's store (opened once at app boot by the
+    // provider) — do NOT open a fresh SQLite handle here.
+    if (isTodoFeatureEnabled() && practiceStore) {
+      void (async () => {
+        try {
+          // Derive the active week from the learner's actual progress
+          // (buildLessonInteractionPath needs completedLessonIds, not the
+          // user-profile lastCompletedDate string). We do not block on this
+          // — if the read fails we fall back to week 1.
+          let weekNumber = 1;
+          try {
+            const progress = await practiceStore.getProgress();
+            weekNumber = deriveDailyRushWeekNumber(progress);
+          } catch {
+            // progress read failed — leave default weekNumber = 1
+          }
+          await practiceStore.recordDailyRushComplete(weekNumber, date);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn('[daily-rush] failed to record todo completion', err);
+        }
+      })();
+    }
+  }, [answers, cardIndex, completionSaved, date, practiceStore, profile, rush, updateProfile]);
 
   function goNext() {
     setIncomingDirection('left');

@@ -46,20 +46,24 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
     vi.restoreAllMocks();
   });
 
-  it('1. WEEKLY_PLANS contains exactly one plan (N5 week 1) with one `lesson` todo referencing real lesson ids', () => {
+  it('1. WEEKLY_PLANS contains exactly one plan (N5 week 1) with the lesson-kind todo referencing real lesson ids', () => {
     const plans = getAllWeekPlans();
     expect(plans).toHaveLength(1);
     expect(plans[0].weekNumber).toBe(1);
-    expect(plans[0].todos).toHaveLength(1);
-    expect(plans[0].todos[0].kind).toBe('lesson');
+    // Phase 37d-1: a daily-rush todo was added alongside the lesson todo
+    // (for end-to-end recompute coverage). The lesson todo MUST stay first so
+    // 37c's "current todo" lookup still resolves to lessons.
+    const lessonTodo = plans[0].todos.find(todo => todo.kind === 'lesson');
+    expect(lessonTodo).toBeDefined();
+    expect(lessonTodo!.id).toBe('n5-w1-lessons');
 
     // The lessonIds must match what getAllLessons() actually carries for N5 week 1.
     const expected = getAllLessons()
       .filter(lesson => lesson.level === 'N5' && lesson.week === 1)
       .map(lesson => lesson.id)
       .sort();
-    expect(plans[0].todos[0].lessonIds?.slice().sort()).toEqual(expected);
-    expect(plans[0].todos[0].target).toBe(expected.length);
+    expect(lessonTodo!.lessonIds?.slice().sort()).toEqual(expected);
+    expect(lessonTodo!.target).toBe(expected.length);
   });
 
   it('2. buildWeeklyTodoBoard: empty state — totalCount > 0, completedCount 0, allDone false', () => {
@@ -73,41 +77,53 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
   });
 
   it('3. buildWeeklyTodoBoard: partial state — not all todos completed → canAdvance false', () => {
+    // Phase 37d-1: N5 W1 now has 2 todos (lesson + daily-rush). Partial state
+    // means the lesson todo is one short of its target AND the daily-rush
+    // todo is incomplete; under strategy='all', board.allDone must be false.
     const plan = n5w1Plan();
-    const todo = plan.todos[0];
+    const lessonTodo = plan.todos.find(t => t.kind === 'lesson')!;
     const expected = getAllLessons().filter(l => l.level === 'N5' && l.week === 1);
     const partial: Record<string, TodoState> = {
-      [todo.id]: {
-        todoId: todo.id,
+      [lessonTodo.id]: {
+        todoId: lessonTodo.id,
         weekNumber: 1,
-        progress: expected.length - 1, // one short
+        progress: expected.length - 1, // one short of target
         target: expected.length,
       },
     };
     const board = buildWeeklyTodoBoard(1, plan, partial, true, 'all');
     expect(board.isLegacyWeek).toBe(false);
-    expect(board.completedCount).toBe(0);
-    expect(board.totalCount).toBe(1);
+    expect(board.completedCount).toBe(0); // lesson todo not yet complete
+    expect(board.totalCount).toBe(2);     // 1 lesson + 1 daily-rush
     expect(board.allDone).toBe(false);
     expect(board.canAdvance).toBe(false);
   });
 
-  it('4. buildWeeklyTodoBoard: complete state — all lessons in todo.lessonIds completed → allDone true', () => {
+  it('4. buildWeeklyTodoBoard: complete state — all todos done → allDone true', () => {
+    // Phase 37d-1: complete state requires BOTH todos done, not just lesson.
     const plan = n5w1Plan();
-    const todo = plan.todos[0];
-    const ids = todo.lessonIds ?? [];
+    const lessonTodo = plan.todos.find(t => t.kind === 'lesson')!;
+    const rushTodo = plan.todos.find(t => t.kind === 'daily-rush')!;
+    const ids = lessonTodo.lessonIds ?? [];
     const complete: Record<string, TodoState> = {
-      [todo.id]: {
-        todoId: todo.id,
+      [lessonTodo.id]: {
+        todoId: lessonTodo.id,
         weekNumber: 1,
         progress: ids.length,
         target: ids.length,
         completedAt: Date.now(),
       },
+      [rushTodo.id]: {
+        todoId: rushTodo.id,
+        weekNumber: 1,
+        progress: 1,
+        target: 1,
+        completedAt: Date.now(),
+      },
     };
     const board = buildWeeklyTodoBoard(1, plan, complete, true, 'all');
-    expect(board.completedCount).toBe(1);
-    expect(board.totalCount).toBe(1);
+    expect(board.completedCount).toBe(2);
+    expect(board.totalCount).toBe(2);
     expect(board.allDone).toBe(true);
     expect(board.canAdvance).toBe(true);
   });
@@ -174,8 +190,10 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
       weekTodosInitialized: { 1: true },
     }, 'all')).toBe(false);
 
-    // Once week 1's lesson todo is complete, week 2 unlocks. Board is built
-    // from todoStates (not completedLessonIds), so we seed the recomputed map.
+    // Once week 1's lesson AND daily-rush todos are both complete, week 2
+    // unlocks. Phase 37d-1: the plan now has 2 todos; canAdvance=true under
+    // strategy='all' requires both. Board is built from todoStates (not
+    // completedLessonIds), so we seed the recomputed map for both todos.
     const fullPayload: TodoPayload = {
       ...makeEmptyPayload(),
       weekTodosInitialized: { 1: true },
@@ -188,6 +206,18 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
           target: ids.length,
           completedAt: Date.now(),
         },
+        // Phase 37d-1: daily-rush todo must also be marked complete for the
+        // board to reach allDone under strategy='all'. Build the payload
+        // directly with both todos done so the unlock rule fires.
+        ...(plan.todos.find(t => t.kind === 'daily-rush') ? {
+          [plan.todos.find(t => t.kind === 'daily-rush')!.id]: {
+            todoId: plan.todos.find(t => t.kind === 'daily-rush')!.id,
+            weekNumber: 1,
+            progress: 1,
+            target: 1,
+            completedAt: Date.now(),
+          },
+        } : {}),
       },
     };
     const fullBoards = buildAllTodoBoards([plan], fullPayload, 'all');

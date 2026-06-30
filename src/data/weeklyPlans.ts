@@ -25,6 +25,21 @@ export const WEEKLY_PLANS: WeekPlan[] = [
         unit: 'lessons',
         lessonIds: [...N5_WEEK_1_LESSON_IDS],
       },
+      // Phase 37d-1: a daily-rush todo so end-to-end recompute can be
+      // exercised against a real todo of this kind. Inactive while
+      // todoFeatureEnabled stays false (37g flip); even when the gate UI
+      // appears in 37c, adding this todo does not change learner-visible
+      // behavior — the current lesson todo is still the gate.
+      {
+        id: 'n5-w1-daily-rush',
+        kind: 'daily-rush',
+        title: 'Complete one Daily Flashcard Rush',
+        // §5 row `daily-rush`: target = 1. The recompute helper flips this
+        // todo to progress=1 once any date appears in
+        // todoEventCounts.dailyRushDates[1].
+        target: 1,
+        unit: 'rush',
+      },
     ],
   },
 ];
