@@ -24,7 +24,16 @@ import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { TranslationStatusBadge } from '../components/TranslationStatusBadge';
 import { JishoLink } from '../components/JishoLink';
+import { WeeklyTodoBoardView } from '../components/WeeklyTodoBoardView';
 import { useLearningContext } from '../services/learningContext';
+import { isTodoFeatureEnabled } from '../services/practiceProgressStore';
+import { getAllWeekPlans } from '../services/weeklyPlansService';
+import {
+  buildAllTodoBoards,
+  isWeekUnlocked,
+  type TodoPayload,
+} from '../services/weeklyTodoService';
+import { emptyTodoEventCounts } from '../types/weeklyTodo';
 import { ds } from '../theme/designSystem';
 
 export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { supportLanguage?: LearnerLanguage; pendingLessonId?: string }) {
@@ -42,11 +51,30 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
     const [showKanji, setShowKanji] = useState(false);
     const [showMore, setShowMore] = useState(false);
     const currentWeek = progression.currentWeekDetails();
-    const weekProgress = {
-      index: lessonPath.currentWeek.week,
-      total: progression.weeks.length,
-      minutes: currentWeek.recommendedMinutes,
-    };
+        const weekProgress = {
+          index: lessonPath.currentWeek.week,
+          total: progression.weeks.length,
+          minutes: currentWeek.recommendedMinutes,
+        };
+
+        // Phase 37c: build the per-week todo boards and decide whether the
+                // "next week" CTA is unlocked. The UI gate (`isTodoFeatureEnabled()`)
+                // stays false by default in 37c, so the block below is invisible to
+                // learners. 37g flips the flag for the rollout. Boards are recomputed
+                // whenever persisted progress changes so completed counts stay fresh.
+                const todoPayload = React.useMemo<TodoPayload>(() => ({
+                                  todoStates: {},
+                                  weekTodosInitialized: {},
+                                  todoEventCounts: emptyTodoEventCounts(),
+                                  completedLessonIds: progress?.completedLessonIds ?? [],
+                                }), [progress?.completedLessonIds]);
+                const todoBoards = React.useMemo(
+                  () => buildAllTodoBoards(getAllWeekPlans(), todoPayload),
+                  [todoPayload],
+                );
+                const todoBoard = todoBoards[weekProgress.index];
+                const nextWeekNumber = weekProgress.index + 1;
+                const nextWeekUnlocked = isWeekUnlocked(nextWeekNumber, todoBoards, todoPayload);
 
     // Phase 30: re-read the raw learner progress on mount so the daily
     // lesson label and weekly progress copy reflect the learner's actual
@@ -286,36 +314,85 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                 </Text>
               </Card>
 
-        <Text style={styles.sectionTitle}>Lesson path</Text>
-        <Card shadow="card">
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.pathTitle}>Week {lessonPath.currentWeek.week}</Text>
-            <Text style={styles.pathMeta}>{lessonPath.currentWeek.completedCount} of {lessonPath.currentWeek.totalCount} done</Text>
-          </View>
-          <View style={styles.lessonPathList}>
-            {lessonPath.currentWeek.lessons.map(item => (
-              <LessonPathRow key={item.lesson.id} item={item} onOpen={() => item.state === 'locked' ? undefined : setSelected(item.lesson.id)} />
-            ))}
-          </View>
-        </Card>
-
-        <View style={styles.ctaWrapper}>
-                <Button
-                  label={
-                    dailyLesson.isCourseComplete
-                      ? 'Review lessons 🎉'
-                      : dailyLesson.isWeekPreview
-                        ? `Start Week ${weekProgress.index}`
-                        : `Continue ${dailyLesson.lesson.title}`
-                  }
-            onPress={() => {
-                        setSelected(dailyLesson.lesson.id);
+        {/* Phase 37c: weekly-todo gate UI. Rendered ONLY when
+                    isTodoFeatureEnabled() is true so the default learner experience
+                    (flag=false) is unchanged. When 37g flips the flag, the board
+                    appears above the lesson path and the next-week CTA below is
+                    disabled with a reason text until the prior week's todos are
+                    all done. */}
+                {isTodoFeatureEnabled() && todoBoard ? (
+                  <View style={styles.todoBoardWrap}>
+                    <Text style={styles.sectionTitle}>Weekly todos</Text>
+                    <WeeklyTodoBoardView
+                      board={todoBoard}
+                      onTodoPress={(ctaRoute) => {
+                        if (ctaRoute.screen === 'lesson' && ctaRoute.params?.lessonId) {
+                          setSelected(ctaRoute.params.lessonId);
+                        }
+                        // Other kinds (flashcards / daily-rush / quiz / kanji /
+                        // example-sentences) are 37d-1..5. The board already
+                        // disables those CTAs so this branch is never hit for them.
                       }}
-            iconRight="arrow-right"
-            variant="secondary"
-            testID="learn-continue-button"
-          />
-        </View>
+                    />
+                  </View>
+                ) : null}
+
+                <Text style={styles.sectionTitle}>Lesson path</Text>
+                <Card shadow="card">
+                  <View style={styles.sectionHeaderRow}>
+                    <Text style={styles.pathTitle}>Week {lessonPath.currentWeek.week}</Text>
+                    <Text style={styles.pathMeta}>{lessonPath.currentWeek.completedCount} of {lessonPath.currentWeek.totalCount} done</Text>
+                  </View>
+                  <View style={styles.lessonPathList}>
+                    {lessonPath.currentWeek.lessons.map(item => (
+                      <LessonPathRow key={item.lesson.id} item={item} onOpen={() => item.state === 'locked' ? undefined : setSelected(item.lesson.id)} />
+                    ))}
+                  </View>
+                </Card>
+
+                <View style={styles.ctaWrapper}>
+                        <Button
+                          label={
+                            dailyLesson.isCourseComplete
+                              ? 'Review lessons 🎉'
+                              : dailyLesson.isWeekPreview
+                                ? `Start Week ${weekProgress.index}`
+                                : `Continue ${dailyLesson.lesson.title}`
+                          }
+                    onPress={() => {
+                                setSelected(dailyLesson.lesson.id);
+                              }}
+                    iconRight="arrow-right"
+                    variant="secondary"
+                    testID="learn-continue-button"
+                  />
+                </View>
+
+                {/* Phase 37c: next-week CTA gated by isWeekUnlocked. Hidden when
+                    the todo feature is off so default learners see no change.
+                    When the gate trips the CTA is disabled and the copy tells
+                    the learner what is blocking them — but the prior week's
+                    lesson list (above) is still visible per §11.1 strategy B
+                    (preview-but-locked). */}
+                {isTodoFeatureEnabled() && !dailyLesson.isCourseComplete ? (
+                  <View style={styles.ctaWrapper}>
+                    <Button
+                      label={
+                        nextWeekUnlocked
+                          ? `Start Week ${nextWeekNumber}`
+                          : `Finish Week ${weekProgress.index}'s todos to unlock Week ${nextWeekNumber}`
+                      }
+                      disabled={!nextWeekUnlocked}
+                      onPress={() => {
+                        const nextWeekFirstLesson = lessons.find(l => l.week === nextWeekNumber);
+                        if (nextWeekFirstLesson) setSelected(nextWeekFirstLesson.id);
+                      }}
+                      iconRight={nextWeekUnlocked ? 'arrow-right' : undefined}
+                      variant="soft"
+                      testID="learn-next-week-button"
+                    />
+                  </View>
+                ) : null}
 
       <Text style={styles.sectionTitle}>Topics</Text>
       <View style={styles.chipRow}>
@@ -410,6 +487,7 @@ const styles = StyleSheet.create({
   bullet: { color: ds.colors.brandInk, opacity: 0.8 },
   objectiveText: { color: ds.colors.brandInk, fontSize: ds.type.body, flexShrink: 1, lineHeight: 22 },
   ctaWrapper: { marginTop: 0 },
+  todoBoardWrap: { gap: ds.spacing.sm },
   sectionTitle: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.primary, textTransform: 'uppercase', marginBottom: 0 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.sm, rowGap: ds.spacing.sm },
   jp: { fontSize: ds.type.heading + 4, fontWeight: '900', color: ds.colors.text, flexShrink: 1 },
