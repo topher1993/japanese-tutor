@@ -35,13 +35,24 @@ function approvedVocabulary(): CandidateVocab[] {
   return [...n5, ...n4];
 }
 
+function normalizeChoice(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 function choicesFor(entry: CandidateVocab, pool: CandidateVocab[], index: number): { choices: string[]; correctIndex: number } {
-  const distractors = pool
-    .filter(candidate => candidate.id !== entry.id && candidate.english !== entry.english)
+  const seen = new Set<string>([normalizeChoice(entry.english)]);
+  const distractors: string[] = [];
+  const candidates = pool
+    .filter(candidate => candidate.id !== entry.id)
     .slice(index + 1)
-    .concat(pool.filter(candidate => candidate.id !== entry.id && candidate.english !== entry.english).slice(0, index + 1))
-    .slice(0, 3)
-    .map(candidate => candidate.english);
+    .concat(pool.filter(candidate => candidate.id !== entry.id).slice(0, index + 1));
+  for (const candidate of candidates) {
+    const key = normalizeChoice(candidate.english);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    distractors.push(candidate.english);
+    if (distractors.length === 3) break;
+  }
   const raw = [entry.english, ...distractors].slice(0, 4);
   while (raw.length < 4) raw.push(`Review option ${raw.length + 1}`);
   const offset = index % 4;

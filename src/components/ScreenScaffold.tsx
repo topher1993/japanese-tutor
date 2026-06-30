@@ -40,5 +40,5 @@ export function ScreenScaffold({ children, scroll = true, contentStyle, padded =
 const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: 'transparent' },
   content: { flexGrow: 1 },
-  padded: { paddingHorizontal: ds.spacing.md, paddingTop: ds.spacing.md, paddingBottom: ds.spacing.lg },
+  padded: { paddingHorizontal: ds.spacing.md, paddingTop: ds.spacing.md, paddingBottom: ds.spacing.xxl * 3 },
 });

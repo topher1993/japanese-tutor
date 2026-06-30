@@ -1,0 +1,5 @@
+# Japanese romanization helper dependencies for scripts/romanize-japanese.py
+# Installed with: npm run setup:romanizer
+fugashi==1.5.2
+unidic-lite==1.0.8
+jaconv==0.4.0

@@ -128,16 +128,37 @@ export function answerDailyRushCard(card: DailyRushCard, selectedChoiceId: strin
   };
 }
 
-export function summarizeDailyRush(results: DailyRushAnswerResult[]): DailyRushSummary {
-  const good = results.filter(result => result.label === 'good').length;
-  const again = results.filter(result => result.label === 'again').length;
-  const xpEarned = results.reduce((sum, result) => sum + result.xpEarned, 0);
+export function timeOutDailyRushCard(card: DailyRushCard): DailyRushAnswerResult {
+  const correct = card.choices.find(choice => choice.correct);
+  if (!correct) {
+    throw new Error(`Invalid Daily Rush timeout for ${card.card.id}`);
+  }
   return {
-    total: results.length,
+    cardId: card.card.id,
+    selectedChoiceId: 'timeout',
+    correctChoiceId: correct.id,
+    correct: false,
+    label: 'again',
+    xpEarned: 4,
+  };
+}
+
+export function summarizeDailyRush(results: DailyRushAnswerResult[]): DailyRushSummary {
+  const uniqueResults = Array.from(
+    results.reduce((byCardId, result) => {
+      if (!byCardId.has(result.cardId)) byCardId.set(result.cardId, result);
+      return byCardId;
+    }, new Map<string, DailyRushAnswerResult>()).values(),
+  );
+  const good = uniqueResults.filter(result => result.label === 'good').length;
+  const again = uniqueResults.filter(result => result.label === 'again').length;
+  const xpEarned = uniqueResults.reduce((sum, result) => sum + result.xpEarned, 0);
+  return {
+    total: uniqueResults.length,
     good,
     again,
     xpEarned,
-    accuracyPercent: results.length ? Math.round((good / results.length) * 100) : 0,
+    accuracyPercent: uniqueResults.length ? Math.round((good / uniqueResults.length) * 100) : 0,
   };
 }
 

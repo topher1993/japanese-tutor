@@ -3,9 +3,21 @@ import type { QuizQuestion } from '../types/quiz';
 
 const CHOICE_IDS = ['A', 'B', 'C', 'D'] as const;
 
-export function buildCandidateQuizQuestions(): QuizQuestion[] {
+function hasFourUniqueChoices(q: ReturnType<typeof getQuizQuestionCandidatePack>[number]): boolean {
+  const choices = q.choices.slice(0, 4);
+  if (choices.length !== 4) return false;
+  if (!choices.some(choice => choice.id === q.correctChoiceId)) return false;
+  return new Set(choices.map(choice => choice.text.trim().toLowerCase())).size === 4;
+}
+
+function getAppReadyCandidateQuizQuestions() {
   return getQuizQuestionCandidatePack()
     .filter(q => q.reviewStatus === 'approved-for-beta')
+    .filter(hasFourUniqueChoices);
+}
+
+export function buildCandidateQuizQuestions(): QuizQuestion[] {
+  return getAppReadyCandidateQuizQuestions()
     .map((q): QuizQuestion => {
       const choices = q.choices.slice(0, 4).map((choice, index) => ({
         id: CHOICE_IDS[index],
@@ -23,6 +35,5 @@ export function buildCandidateQuizQuestions(): QuizQuestion[] {
 }
 
 export function getCandidateQuizCounts(): { total: number } {
-  const approved = getQuizQuestionCandidatePack().filter(q => q.reviewStatus === 'approved-for-beta').length;
-  return { total: approved };
+  return { total: getAppReadyCandidateQuizQuestions().length };
 }

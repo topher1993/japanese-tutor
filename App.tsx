@@ -110,6 +110,7 @@ export default function App() {
   const shellMaxWidth = isTabletOrFoldable ? 480 : undefined;
   const requestedTab = getParam('tab') as AppTab | null;
   const onboardingStep = getParam('onboarding') as 'welcome' | 'language' | 'workplace-goal' | 'daily-habit' | null;
+  const reviewerMode = getParam('reviewer') === '1';
   const skipOnboarding = getParam('skipOnboarding') === '1';
 
   const [preferenceReady, setPreferenceReady] = useState(false);
@@ -120,7 +121,7 @@ export default function App() {
   const [showSources, setShowSources] = useState(getParam('screen') === 'sources');
   const [showSettings, setShowSettings] = useState(getParam('screen') === 'settings');
   const [showProfile, setShowProfile] = useState(getParam('screen') === 'profile');
-  const [showReview, setShowReview] = useState(getParam('screen') === 'review');
+  const [showReview, setShowReview] = useState(reviewerMode && getParam('screen') === 'review');
   const [showDailyRush, setShowDailyRush] = useState(getParam('screen') === 'daily-rush');
   // Phase 25 / P1-1: when Home's "Review N due cards now" CTA is pressed,
   // jump to Flashcards with this flag set. Flashcards uses it to pre-filter
@@ -263,7 +264,8 @@ export default function App() {
         <AppProviders>
           <SettingsScreen
                       onBack={() => setShowSettings(false)}
-                      onOpenReview={() => { setShowSettings(false); setShowReview(true); }}
+                      showReviewerTools={reviewerMode}
+                      onOpenReview={reviewerMode ? () => { setShowSettings(false); setShowReview(true); } : undefined}
                       onReset={async () => {
               // Clear onboarding preference via the same storage path the
               // app loads from. This forces a fresh onboarding + fresh

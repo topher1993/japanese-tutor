@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
@@ -11,12 +11,13 @@ import { ds } from '../theme/designSystem';
 import { getAllLessons } from '../services/lessonService';
 import { answerFlashcard, createFlashcardDeck } from '../services/flashcardService';
 import { buildCandidateFlashcardCards } from '../services/candidateFlashcardAdapter';
-import { answerDailyRushCard, buildDailyFlashcardRush, buildDailyRushProfilePatch, summarizeDailyRush, type DailyRushAnswerResult } from '../services/dailyFlashcardRushService';
+import { answerDailyRushCard, buildDailyFlashcardRush, buildDailyRushProfilePatch, summarizeDailyRush, timeOutDailyRushCard, type DailyRushAnswerResult } from '../services/dailyFlashcardRushService';
 import { useUserProfileContext } from '../services/userProfileContext';
 import type { LearnerLanguage } from '../types/onboarding';
 import type { FlashcardDeck } from '../types/flashcard';
 
 export const NEXT_CARD_DELAY_MS = 220;
+export const DAILY_RUSH_TIMER_SECONDS = 10;
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -27,9 +28,12 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
   const [cardIndex, setCardIndex] = useState(0);
   const [answers, setAnswers] = useState<DailyRushAnswerResult[]>([]);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState(DAILY_RUSH_TIMER_SECONDS);
   const [incomingDirection, setIncomingDirection] = useState<'left' | null>(null);
   const [completionSaved, setCompletionSaved] = useState(false);
   const [practiceOnlyRun, setPracticeOnlyRun] = useState(false);
+  const timerProgress = useRef(new Animated.Value(1)).current;
+  const recordedAnswerCardIds = useRef(new Set<string>());
   const { profile, updateProfile } = useUserProfileContext();
   const completedToday = profile?.dynamic.dailyRush.lastCompletedDate === date;
   const [deck, setDeck] = useState<FlashcardDeck | null>(null);
@@ -60,15 +64,58 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
     setCardIndex(0);
     setAnswers([]);
     setSelectedChoiceId(null);
+    setTimeLeft(DAILY_RUSH_TIMER_SECONDS);
     setCompletionSaved(false);
+    recordedAnswerCardIds.current.clear();
   }, [rush?.id]);
+
+  useEffect(() => {
+    setTimeLeft(DAILY_RUSH_TIMER_SECONDS);
+    timerProgress.setValue(1);
+    setSelectedChoiceId(null);
+  }, [current?.id, timerProgress]);
+
+  useEffect(() => {
+    timerProgress.stopAnimation();
+    if (!rush || !current || currentAnswer || cardIndex >= rush.cards.length) {
+      timerProgress.setValue(Math.max(0, timeLeft / DAILY_RUSH_TIMER_SECONDS));
+      return;
+    }
+    const animation = Animated.timing(timerProgress, {
+      toValue: 0,
+      duration: Math.max(0, timeLeft) * 1000,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [cardIndex, current, currentAnswer, rush, timeLeft, timerProgress]);
+
+  useEffect(() => {
+    if (!rush || currentAnswer || cardIndex >= rush.cards.length || timeLeft <= 0) return;
+    const interval = setInterval(() => {
+      setTimeLeft(seconds => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cardIndex, currentAnswer, rush, timeLeft]);
+
+  useEffect(() => {
+    if (!rush || !current || currentAnswer || !deck || timeLeft > 0 || cardIndex >= rush.cards.length) return;
+    if (recordedAnswerCardIds.current.has(current.card.id)) return;
+    const result = timeOutDailyRushCard(current);
+    recordedAnswerCardIds.current.add(current.card.id);
+    setSelectedChoiceId('timeout');
+    setAnswers(prev => [...prev, result]);
+    answerFlashcard(deck, current.card.id, result.label, date);
+    setTimeout(goNext, NEXT_CARD_DELAY_MS);
+  }, [cardIndex, current, currentAnswer, date, deck, rush, timeLeft]);
 
   useEffect(() => {
     if (answers.length === 0) setPracticeOnlyRun(completedToday === true);
   }, [answers.length, completedToday]);
 
   useEffect(() => {
-    if (!rush || completionSaved || !profile || cardIndex < rush.cards.length || answers.length === 0) return;
+    if (!rush || completionSaved || !profile || cardIndex < rush.cards.length) return;
     const finalSummary = summarizeDailyRush(answers);
     const profilePatch = buildDailyRushProfilePatch(profile, finalSummary, date);
     setCompletionSaved(true);
@@ -78,12 +125,15 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
   function goNext() {
     setIncomingDirection('left');
     setSelectedChoiceId(null);
+    setTimeLeft(DAILY_RUSH_TIMER_SECONDS);
     setCardIndex(index => Math.min(index + 1, rush?.cards.length ?? 0));
   }
 
   function choose(choiceId: string) {
     if (!current || !deck || currentAnswer) return;
+    if (recordedAnswerCardIds.current.has(current.card.id)) return;
     const result = answerDailyRushCard(current, choiceId);
+    recordedAnswerCardIds.current.add(current.card.id);
     setSelectedChoiceId(choiceId);
     setAnswers(prev => [...prev, result]);
     answerFlashcard(deck, current.card.id, result.label, date);
@@ -109,21 +159,36 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
           <Text style={styles.resultText}>{finalSummary.good} Good • {finalSummary.again} Again • +{practiceOnlyRun ? 0 : finalSummary.xpEarned} XP</Text>
           <Text style={styles.resultStatus}>{practiceOnlyRun ? 'Completed today — extra runs are practice only.' : 'Daily Rush saved to your profile.'}</Text>
         </Card>
-        <Button label="Do another rush" onPress={() => { setAnswers([]); setCardIndex(0); setSelectedChoiceId(null); setCompletionSaved(false); setPracticeOnlyRun(completedToday === true); }} iconRight="arrow-right" />
+        <Button label="Do another rush" onPress={() => { setAnswers([]); recordedAnswerCardIds.current.clear(); setCardIndex(0); setSelectedChoiceId(null); setTimeLeft(DAILY_RUSH_TIMER_SECONDS); setCompletionSaved(false); setPracticeOnlyRun(completedToday === true); }} iconRight="arrow-right" />
         <Button label="Back" onPress={onBack} variant="soft" icon="arrow-left" />
       </ScreenScaffold>
     );
   }
 
   const correctChoice = current.choices.find(choice => choice.correct);
+  const timerFillWidth = timerProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+  const timerFillColor = timeLeft <= 3 ? ds.colors.danger : timeLeft <= 5 ? ds.colors.warning : ds.colors.success;
 
   return (
     <ScreenScaffold>
-      <ScreenHeader title="Daily Flashcard Rush" subtitle={completedToday ? `${answers.length}/10 answered • Completed today` : `${answers.length}/10 answered • +${summary.xpEarned} XP`} onBack={onBack} />
+      <ScreenHeader title="Daily Flashcard Rush" subtitle={completedToday ? `${answers.length}/10 answered • 10s per card • Completed today` : `${answers.length}/10 answered • 10s per card • +${summary.xpEarned} XP`} onBack={onBack} />
       <View style={styles.progressRow}>
         <Chip label={`${current.position} of ${rush.cards.length}`} selected />
         <Chip label={`${summary.good} Good`} selected={summary.good > 0} />
         <Chip label={`${summary.again} Again`} selected={summary.again > 0} tone="warning" />
+        <Chip label={`⏱ ${timeLeft}s`} selected={timeLeft > 3} tone={timeLeft <= 3 ? 'warning' : 'default'} />
+      </View>
+      <View style={styles.timerMeter} testID="daily-rush-timer-animation">
+        <View style={styles.timerMeterHeader}>
+          <Text style={styles.timerMeterLabel}>Card timer</Text>
+          <Text style={[styles.timerMeterValue, timeLeft <= 3 && styles.timerMeterValueWarning]}>{timeLeft}s left</Text>
+        </View>
+        <View style={styles.timerTrack}>
+          <Animated.View style={[styles.timerFill, { width: timerFillWidth, backgroundColor: timerFillColor }]} />
+        </View>
       </View>
 
       <FlipCard
@@ -173,6 +238,21 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
 
 const styles = StyleSheet.create({
   progressRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.xs, marginBottom: ds.spacing.sm },
+  timerMeter: {
+    backgroundColor: ds.colors.surface,
+    borderRadius: ds.radius.md,
+    padding: ds.spacing.sm,
+    marginBottom: ds.spacing.md,
+    borderWidth: 1,
+    borderColor: ds.colors.border,
+    ...ds.shadow.card,
+  },
+  timerMeterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: ds.spacing.xs },
+  timerMeterLabel: { fontSize: ds.type.micro, fontWeight: '900', color: ds.colors.textMuted, textTransform: 'uppercase' },
+  timerMeterValue: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.text },
+  timerMeterValueWarning: { color: ds.colors.danger },
+  timerTrack: { height: 10, borderRadius: ds.radius.pill, overflow: 'hidden', backgroundColor: ds.colors.surfaceMuted },
+  timerFill: { height: '100%', borderRadius: ds.radius.pill },
   face: { alignItems: 'center', justifyContent: 'center', gap: ds.spacing.sm, padding: ds.spacing.md },
   promptLabel: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.primary, textTransform: 'uppercase' },
   japanese: { fontSize: ds.type.display, fontWeight: '900', color: ds.colors.text, textAlign: 'center', lineHeight: 40 },

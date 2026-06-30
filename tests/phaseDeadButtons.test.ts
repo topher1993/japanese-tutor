@@ -65,7 +65,9 @@ describe('Phase Fix-A — primary CTAs are no longer dead buttons', () => {
       // independently instead.
       expect(primaryButton![0]).toMatch(/setSelected\(dailyLesson\.lesson\.id\)/);
       expect(primaryButton![0]).not.toMatch(/=>\s*undefined/);
-      expect(primaryButton![0]).toContain('store.completeCurrentLesson');
+      // Phase 38: opening/continuing a lesson must not complete it.
+      // Completion is now explicit from the lesson detail screen after study.
+      expect(primaryButton![0]).not.toContain('store.completeCurrentLesson');
     });
 
     it('accepts a pendingLessonId prop and auto-opens that lesson', () => {
@@ -80,7 +82,7 @@ describe('Phase Fix-B — Example sentences are reachable from the UI', () => {
   it('ExampleSentencesScreen exists', () => {
     const src = readFile(join(SRC, 'screens', 'ExampleSentencesScreen.tsx'));
     expect(src).toContain('ExampleSentencesScreen');
-    expect(src).toContain('getExampleSentenceCandidatePack');
+    expect(src).toContain('getExampleSentencesForApp');
     expect(src).toContain('>Example sentences<');
   });
 

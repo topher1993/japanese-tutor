@@ -3,9 +3,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { getAllLessons, getDailyLesson } from '../services/lessonService';
 import { createLessonNavigator } from '../services/lessonNavigatorService';
 import { buildLessonProgression } from '../services/lessonProgressionService';
+import { buildLessonInteractionPath, type LessonPathItem } from '../services/lessonInteractionPathService';
 import { KanjiSectionPanel } from './KanjiSectionPanel';
 import { getAdditionalLessonCategoryContent, getLocalizedAdditionalLessonPhrase } from '../services/additionalLessonContentService';
-import { getSupportLanguageDisplayName } from '../services/supportLanguageService';
+import { getSupportLanguageDisplayName, getVisibleTranslations } from '../services/supportLanguageService';
 import { getLessonCategoryCards, type LessonCategoryCardId } from '../services/lessonCategoryService';
 import type { LearnerLanguage } from '../types/onboarding';
 import type { LearnerProgress } from '../types/progress';
@@ -36,12 +37,13 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
     const [selected, setSelected] = useState<string | undefined>(undefined);
     const [showExamples, setShowExamples] = useState(false);
     const nav = createLessonNavigator(lessons, selected);
-    const [progression] = useState(() => buildLessonProgression(dailyLesson.lesson.week));
+    const lessonPath = buildLessonInteractionPath(lessons, progress ?? { startedAt: '', completedLessonIds: [], quizScores: [], streak: { currentStreak: 0, longestStreak: 0 } });
+    const progression = buildLessonProgression(lessonPath.currentWeek.week);
     const [showKanji, setShowKanji] = useState(false);
     const [showMore, setShowMore] = useState(false);
     const currentWeek = progression.currentWeekDetails();
     const weekProgress = {
-      index: progression.currentWeek,
+      index: lessonPath.currentWeek.week,
       total: progression.weeks.length,
       minutes: currentWeek.recommendedMinutes,
     };
@@ -132,6 +134,7 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
 
   if (nav.selectedLesson) {
     const lesson = nav.selectedLesson;
+    const selectedLessonCompleted = (progress?.completedLessonIds ?? []).includes(lesson.id);
     return (
       <ScreenScaffold>
         <ScreenHeader title="Back" onBack={() => setSelected(undefined)} titleStyle={styles.backHeader} />
@@ -141,24 +144,32 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
           <Text style={styles.lessonObjective}>{lesson.objective}</Text>
         </Card>
         <Text style={styles.sectionTitle}>{lesson.items.length} phrases</Text>
-        {lesson.items.map((item, idx) => (
-          <Card key={item.id} shadow="card">
-            <View style={styles.itemHeaderRow}>
-              <Text style={styles.itemIndex}>Phrase {idx + 1}</Text>
-              <TranslationStatusBadge status={item.translationReviewStatus} supportLanguage={supportLanguage} />
-            </View>
-            <Text style={styles.jp}>{item.japanese}</Text>
-            <View style={styles.jpMetaRow}>
-              <Text style={styles.romaji}>{item.romaji}</Text>
-              <JishoLink japanese={item.japanese} />
-            </View>
-            <View style={styles.divider} />
-            <Text style={styles.translation}>EN: {item.english}</Text>
-            {item.vietnamese ? <Text style={styles.secondaryTranslation}>VI: {item.vietnamese}</Text> : null}
-            {item.filipino ? <Text style={styles.secondaryTranslation}>TL: {item.filipino}</Text> : null}
-          </Card>
-        ))}
-        {nav.nextLesson() ? (
+        {lesson.items.map((item, idx) => {
+          const translations = getVisibleTranslations(item, supportLanguage);
+          return (
+            <Card key={item.id} shadow="card">
+              <View style={styles.itemHeaderRow}>
+                <Text style={styles.itemIndex}>Phrase {idx + 1}</Text>
+                <TranslationStatusBadge status={item.translationReviewStatus} supportLanguage={supportLanguage} />
+              </View>
+              <Text style={styles.jp}>{item.japanese}</Text>
+              <View style={styles.jpMetaRow}>
+                <Text style={styles.romaji}>{item.romaji}</Text>
+                <JishoLink japanese={item.japanese} />
+              </View>
+              <View style={styles.divider} />
+              {translations.map(translation => (
+                <Text
+                  key={translation.label}
+                  style={translation.label === 'English' ? styles.translation : styles.secondaryTranslation}
+                >
+                  {translation.label}: {translation.text}
+                </Text>
+              ))}
+            </Card>
+          );
+        })}
+        {selectedLessonCompleted && nav.nextLesson() ? (
                   <Button
                     label={`Next: ${nav.nextLesson()!.title}`}
                     onPress={() => setSelected(nav.nextLesson()!.id)}
@@ -166,11 +177,12 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                     iconRight="arrow-right"
                   />
                 ) : null}
-                <Button
-                  label="Mark this lesson complete"
-                  variant="primary"
-                  iconRight="check"
-                  onPress={async () => {
+                {!selectedLessonCompleted ? (
+                  <Button
+                    label="Mark this lesson complete"
+                    variant="primary"
+                    iconRight="check"
+                    onPress={async () => {
                     if (ready && store) {
                       try {
                         await store.completeCurrentLesson(lesson.id, 100, new Date().toISOString().slice(0, 10));
@@ -200,8 +212,14 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                       }
                     }
                   }}
-                  testID="lesson-mark-complete-button"
-                />
+                    testID="lesson-mark-complete-button"
+                  />
+                ) : (
+                  <Card tone="success" shadow="none">
+                    <Text style={styles.completedDetailTitle}>Completed</Text>
+                    <Text style={styles.completedDetailBody}>This lesson is saved. Review it any time, or continue with the next unlocked lesson.</Text>
+                  </Card>
+                )}
               </ScreenScaffold>
             );
           }
@@ -268,6 +286,19 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                 </Text>
               </Card>
 
+        <Text style={styles.sectionTitle}>Lesson path</Text>
+        <Card shadow="card">
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.pathTitle}>Week {lessonPath.currentWeek.week}</Text>
+            <Text style={styles.pathMeta}>{lessonPath.currentWeek.completedCount} of {lessonPath.currentWeek.totalCount} done</Text>
+          </View>
+          <View style={styles.lessonPathList}>
+            {lessonPath.currentWeek.lessons.map(item => (
+              <LessonPathRow key={item.lesson.id} item={item} onOpen={() => item.state === 'locked' ? undefined : setSelected(item.lesson.id)} />
+            ))}
+          </View>
+        </Card>
+
         <View style={styles.ctaWrapper}>
                 <Button
                   label={
@@ -277,28 +308,7 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                         ? `Start Week ${weekProgress.index}`
                         : `Continue ${dailyLesson.lesson.title}`
                   }
-            onPress={async () => {
-                        if (ready && store) {
-                          try {
-                            await store.completeCurrentLesson(dailyLesson.lesson.id, 100, new Date().toISOString().slice(0, 10));
-                            // Re-read progress so the next render reflects the new
-                            // completion and (if applicable) advances to the next week.
-                            const refreshed = await store.getProgress();
-                            setProgress(refreshed);
-                            // Surface an in-app notification per the user's request.
-                            const done = refreshed.completedLessonIds.length;
-                            const total = lessons.length;
-                            const weeklyDone = dailyLesson.lessonsDoneThisWeek + 1;
-                            const weeklyTotal = dailyLesson.lessonsTotalThisWeek;
-                            const detail =
-                              weeklyDone >= weeklyTotal
-                                ? `Week ${dailyLesson.lesson.week} complete! ${done} of ${total} lessons done total.`
-                                : `${weeklyDone} of ${weeklyTotal} lessons done this week.`;
-                            notifyLessonCompleted({ message: `✓ ${dailyLesson.lesson.title}`, detail });
-                          } catch {
-                            /* best-effort */
-                          }
-                        }
+            onPress={() => {
                         setSelected(dailyLesson.lesson.id);
                       }}
             iconRight="arrow-right"
@@ -346,6 +356,30 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                 />
       </Disclosure>
     </ScreenScaffold>
+  );
+}
+
+function LessonPathRow({ item, onOpen }: { item: LessonPathItem; onOpen: () => void }) {
+  const stateLabel = item.state === 'completed' ? 'Completed' : item.state === 'current' ? 'Current' : 'Locked';
+  const statusIcon = item.state === 'completed' ? '✓' : item.state === 'current' ? '▶' : '🔒';
+  return (
+    <Pressable
+      onPress={item.state === 'locked' ? undefined : onOpen}
+      disabled={item.state === 'locked'}
+      style={({ pressed }) => [styles.lessonPathRow, item.state === 'current' && styles.lessonPathRowCurrent, { opacity: item.state === 'locked' ? 0.65 : pressed ? 0.85 : 1 }]}
+    >
+      <View style={[styles.lessonPathStatus, item.state === 'completed' && styles.lessonPathStatusDone, item.state === 'current' && styles.lessonPathStatusCurrent]}>
+        <Text style={styles.lessonPathStatusIcon}>{statusIcon}</Text>
+      </View>
+      <View style={styles.lessonPathText}>
+        <View style={styles.lessonPathTitleRow}>
+          <Text style={styles.lessonPathLessonTitle} numberOfLines={2}>{item.lesson.title}</Text>
+          <Text style={[styles.lessonPathState, item.state === 'completed' && styles.lessonPathStateDone]}>{stateLabel}</Text>
+        </View>
+        <Text style={styles.lessonPathHelper} numberOfLines={2}>{item.helperText}</Text>
+        <Text style={styles.lessonPathAction} numberOfLines={2}>{item.primaryActionLabel}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -399,6 +433,25 @@ const styles = StyleSheet.create({
     marginBottom: ds.spacing.xs,
   },
   itemHeaderSpacer: { flex: 1 },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ds.spacing.sm, marginBottom: ds.spacing.sm },
+  pathTitle: { fontSize: ds.type.body, fontWeight: '900', color: ds.colors.text },
+  pathMeta: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.primary },
+  lessonPathList: { gap: ds.spacing.sm },
+  lessonPathRow: { flexDirection: 'row', gap: ds.spacing.sm, alignItems: 'flex-start', padding: ds.spacing.sm, borderRadius: ds.radius.md, backgroundColor: ds.colors.surfaceAlt },
+  lessonPathRowCurrent: { backgroundColor: ds.colors.brandSoft },
+  lessonPathStatus: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: ds.colors.border },
+  lessonPathStatusDone: { backgroundColor: ds.colors.successSoft },
+  lessonPathStatusCurrent: { backgroundColor: ds.colors.brand },
+  lessonPathStatusIcon: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.text },
+  lessonPathText: { flex: 1, minWidth: 0 },
+  lessonPathTitleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: ds.spacing.sm },
+  lessonPathLessonTitle: { flex: 1, minWidth: 0, fontSize: ds.type.body, fontWeight: '900', color: ds.colors.text, lineHeight: 20 },
+  lessonPathState: { fontSize: ds.type.micro, fontWeight: '900', color: ds.colors.textMuted, textTransform: 'uppercase' },
+  lessonPathStateDone: { color: ds.colors.success },
+  lessonPathHelper: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.xs, lineHeight: 18 },
+  lessonPathAction: { fontSize: ds.type.caption, color: ds.colors.primary, fontWeight: '900', marginTop: ds.spacing.xs },
+  completedDetailTitle: { fontSize: ds.type.body, fontWeight: '900', color: ds.colors.success },
+  completedDetailBody: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.xs, lineHeight: 18 },
   toolRow: {
     flexDirection: 'row', alignItems: 'center', gap: ds.spacing.sm,
     backgroundColor: ds.colors.surface, padding: ds.spacing.sm,

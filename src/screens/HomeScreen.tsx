@@ -10,7 +10,7 @@ import { Mascot } from '../components/Mascot';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { StreakFlame } from '../components/StreakFlame';
-import { getDailyLesson } from '../services/lessonService';
+import { getAllLessons, getDailyLesson } from '../services/lessonService';
 import { getSupportLanguageDisplayName, getSupportTranslation } from '../services/supportLanguageService';
 import { useLearningContext } from '../services/learningContext';
 import type { LearnerLanguage } from '../types/onboarding';
@@ -45,6 +45,8 @@ export function HomeScreen({
   const lesson = getDailyLesson(progress ?? undefined);
   const phrase = lesson.lesson.items[0];
   const primaryTranslation = getSupportTranslation(phrase, supportLanguage);
+  const totalLessons = getAllLessons().length;
+  const completedLessons = progress?.completedLessonIds.length ?? 0;
     const [showPlacement, setShowPlacement] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
     // P0-02 + P0-03 fix: StreakFlame now reads from the persistent store, not a hardcoded 3.
@@ -61,6 +63,14 @@ export function HomeScreen({
         .catch(() => { if (!cancelled) { setStreak(0); setDueCount(0); } });
       return () => { cancelled = true; };
     }, [ready, store, srs]);
+  const nextActionLabel = dueCount > 0
+    ? `Review ${dueCount} due card${dueCount === 1 ? '' : 's'}`
+    : completedLessons === 0
+      ? "Start your first lesson"
+      : "Continue today's lesson";
+  const nextActionDetail = dueCount > 0
+    ? 'Clear due review first, then do your lesson or Daily Rush.'
+    : 'Finish one lesson, then use Daily Rush for quick recall.';
 
   if (showPlacement) {
     return (
@@ -86,6 +96,23 @@ export function HomeScreen({
         </View>
 
       <StreakFlame days={streak} />
+      <Card shadow="card" style={styles.todayFocusCard}>
+        <View style={styles.todayFocusHeader}>
+          <View style={styles.todayFocusIcon}>
+            <Icon name="learn" size={18} />
+          </View>
+          <View style={styles.todayFocusCopy}>
+            <Text style={styles.todayFocusLabel}>Today's focus</Text>
+            <Text style={styles.todayFocusTitle}>{nextActionLabel}</Text>
+            <Text style={styles.todayFocusDetail}>{nextActionDetail}</Text>
+          </View>
+        </View>
+        <View style={styles.todayStatsRow}>
+          <Text style={styles.todayStat}>{completedLessons}/{totalLessons} lessons</Text>
+          <Text style={styles.todayStat}>30 min plan</Text>
+          <Text style={styles.todayStat}>10-card Rush</Text>
+        </View>
+      </Card>
       {streak >= 3 ? (
         <View style={styles.streakCelebrate}>
           <Mascot expression="happy" size={56} />
@@ -185,6 +212,30 @@ const styles = StyleSheet.create({
     borderRadius: ds.radius.md,
   },
   streakCelebrateText: { fontSize: ds.type.body, fontWeight: '800', color: ds.colors.text, flexShrink: 1 },
+  todayFocusCard: { gap: ds.spacing.sm, borderLeftWidth: 4, borderLeftColor: ds.colors.primary },
+  todayFocusHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: ds.spacing.sm },
+  todayFocusIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: ds.colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  todayFocusCopy: { flex: 1, minWidth: 0 },
+  todayFocusLabel: { fontSize: ds.type.micro, fontWeight: '900', color: ds.colors.primary, textTransform: 'uppercase' },
+  todayFocusTitle: { fontSize: ds.type.heading, fontWeight: '900', color: ds.colors.text, marginTop: ds.spacing.xs },
+  todayFocusDetail: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.xs, lineHeight: 18 },
+  todayStatsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.xs, marginTop: ds.spacing.xs },
+  todayStat: {
+    fontSize: ds.type.micro,
+    fontWeight: '900',
+    color: ds.colors.text,
+    backgroundColor: ds.colors.surfaceMuted,
+    paddingHorizontal: ds.spacing.sm,
+    paddingVertical: ds.spacing.xs,
+    borderRadius: ds.radius.sm,
+  },
   lessonHero: { padding: ds.spacing.lg, gap: ds.spacing.sm },
   lessonLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: ds.spacing.xs },
   lessonLabel: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.brandInk, opacity: 0.85, textTransform: 'uppercase' },

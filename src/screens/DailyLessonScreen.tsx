@@ -7,6 +7,8 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { getDailyLesson } from '../services/lessonService';
 import { notifyLessonCompleted } from '../components/CompletionToast';
 import { useLearningContext } from '../services/learningContext';
+import { getVisibleTranslations } from '../services/supportLanguageService';
+import type { LearnerLanguage } from '../types/onboarding';
 import type { LearnerProgress } from '../types/progress';
 import { ds } from '../theme/designSystem';
 
@@ -23,7 +25,7 @@ import { ds } from '../theme/designSystem';
  * it is kept up-to-date so a future routing change can use it without
  * re-implementing the progress wiring.
  */
-export function DailyLessonScreen() {
+export function DailyLessonScreen({ supportLanguage = 'en' }: { supportLanguage?: LearnerLanguage }) {
   const { ready, store } = useLearningContext();
   const [progress, setProgress] = useState<LearnerProgress | null>(null);
   useEffect(() => {
@@ -55,17 +57,25 @@ export function DailyLessonScreen() {
             <Text style={styles.preview}>🎉 You finished every lesson in the course. Keep reviewing!</Text>
           ) : null}
         </Card>
-        {lesson.items.map(item => (
-          <Card key={item.id} shadow="card">
-            <Text style={styles.jp}>{item.japanese}</Text>
-            <Text style={styles.romaji}>{item.romaji}</Text>
-            <View style={styles.divider} />
-            <Text style={styles.translation}>EN: {item.english}</Text>
-            {item.vietnamese ? <Text style={styles.secondary}>VI: {item.vietnamese}</Text> : null}
-            {item.filipino ? <Text style={styles.secondary}>TL: {item.filipino}</Text> : null}
-            <Text style={styles.example}>{item.exampleJapanese} — {item.exampleEnglish}</Text>
-          </Card>
-        ))}
+        {lesson.items.map(item => {
+          const translations = getVisibleTranslations(item, supportLanguage);
+          return (
+            <Card key={item.id} shadow="card">
+              <Text style={styles.jp}>{item.japanese}</Text>
+              <Text style={styles.romaji}>{item.romaji}</Text>
+              <View style={styles.divider} />
+              {translations.map(translation => (
+                <Text
+                  key={translation.label}
+                  style={translation.label === 'English' ? styles.translation : styles.secondary}
+                >
+                  {translation.label}: {translation.text}
+                </Text>
+              ))}
+              <Text style={styles.example}>{item.exampleJapanese} — {item.exampleEnglish}</Text>
+            </Card>
+          );
+        })}
         <Button
           label={view.isCourseComplete ? 'Restart course' : `Mark "${lesson.title}" complete`}
           variant="primary"

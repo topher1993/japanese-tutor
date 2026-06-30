@@ -33,13 +33,28 @@ export function getSupportLanguageField(language: LearnerLanguage): TranslationF
   return languageConfig[language].field;
 }
 
+function hasRealTranslation(text: string): boolean {
+  return Boolean(text && text.trim().length > 0 && !/pending|review needed|todo|tbd|placeholder/i.test(text));
+}
+
 export function getSupportTranslation<T extends TranslatablePhrase>(phrase: T, language: LearnerLanguage): SupportTranslation {
   const config = languageConfig[language];
-  return { label: config.label, text: phrase[config.field] };
+  const text = phrase[config.field];
+  if (language !== 'en' && !hasRealTranslation(text)) {
+    return { label: 'English', text: phrase.english };
+  }
+  return { label: config.label, text };
 }
 
 export function getVisibleTranslations<T extends TranslatablePhrase>(phrase: T, language: LearnerLanguage): SupportTranslation[] {
-  return visibleTranslationOrder[language].map(candidate => getSupportTranslation(phrase, candidate));
+  const translations = visibleTranslationOrder[language].map(candidate => getSupportTranslation(phrase, candidate));
+  const seen = new Set<string>();
+  return translations.filter(translation => {
+    const key = `${translation.label}:${translation.text}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function getSecondaryTranslations<T extends TranslatablePhrase>(phrase: T, language: LearnerLanguage): SupportTranslation[] {

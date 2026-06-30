@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { getExampleSentenceCandidatePack, type ExampleSentenceCandidateEntry } from '../data/candidates/exampleSentenceCandidatePack';
+import { getExampleSentencesForApp, type ExampleSentenceCandidateEntry } from '../data/candidates/exampleSentenceCandidatePack';
 import { Badge } from '../components/Badge';
 import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
@@ -30,7 +30,7 @@ function categoryLabel(cat: string): string {
 }
 
 export function ExampleSentencesScreen() {
-  const all = useMemo(() => getExampleSentenceCandidatePack(), []);
+  const all = useMemo(() => getExampleSentencesForApp(), []);
   const categories = useMemo(() => {
     const set = new Set<string>();
     for (const s of all) set.add(s.category);
@@ -52,7 +52,7 @@ export function ExampleSentencesScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Example sentences</Text>
         <Text style={styles.subtitle}>
-          {all.length} curated sentences (Tatoeba). Browse by topic — these are reference examples, not yet connected to flashcards.
+          {all.length} curated and lesson-linked sentences. Browse by topic — lesson examples stay here, not in flashcards or Daily Rush.
         </Text>
       </View>
 
@@ -76,10 +76,10 @@ export function ExampleSentencesScreen() {
         <Card key={s.id} shadow="card">
           <View style={styles.cardHeader}>
             <Badge label={s.jlptLevel} tone="brand" />
-            <Badge label="Reference" tone="neutral" />
+            <Badge label={s.connectedToApp ? 'Lesson' : 'Reference'} tone="neutral" />
           </View>
           <Text style={styles.jp}>{s.japanese}</Text>
-          <Text style={styles.romaji}>{s.romaji}</Text>
+          {s.romaji ? <Text style={styles.romaji}>{s.romaji}</Text> : null}
           <View style={styles.divider} />
           <Text style={styles.english}>{s.english}</Text>
         </Card>

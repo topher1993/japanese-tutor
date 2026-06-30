@@ -11,6 +11,7 @@ export interface LessonItem {
   filipino: string;
   category: LessonCategory;
   exampleJapanese: string;
+  exampleRomaji?: string;
   exampleEnglish: string;
   translationReviewStatus: TranslationReviewStatus;
 }

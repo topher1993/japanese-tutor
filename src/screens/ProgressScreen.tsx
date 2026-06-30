@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { BadgeImage, type BadgeKey } from '../components/BadgeImage';
 import { Button } from '../components/Button';
@@ -12,58 +12,80 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { StreakFlame } from '../components/StreakFlame';
 import { getAllLessons } from '../services/lessonService';
 import { buildProgressDashboard, type ProgressDashboard } from '../services/progressDashboardService';
+import { buildProfileProgression } from '../services/profileProgressionService';
 import { createStudyPlanTracker, type StudyLevel } from '../services/studyPlanService';
 import { useLearningContext } from '../services/learningContext';
+import { useUserProfileContext } from '../services/userProfileContext';
 import { ds } from '../theme/designSystem';
+import type { LearnerProgress } from '../types/progress';
+import type { JlptTargetLevel } from '../types/userProfile';
 
-interface Achievement {
-  badge: BadgeKey;
-  title: string;
-  description: string;
-  earned: boolean;
+const EMPTY_PROGRESS: LearnerProgress = {
+  startedAt: '',
+  completedLessonIds: [],
+  quizScores: [],
+  streak: { currentStreak: 0, longestStreak: 0 },
+};
+
+const PROFILE_BADGE_TO_IMAGE: Record<string, BadgeKey> = {
+  'first-lesson': 'firstLesson',
+  'seven-day-streak': 'streak7',
+  'daily-rush-starter': 'levelUp',
+  'perfect-quiz': 'perfectQuiz',
+  'n4-unlocked': 'jlptN4',
+};
+
+const JLPT_LEVELS: StudyLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
+
+function toStudyLevel(level: JlptTargetLevel | null | undefined): StudyLevel {
+  return JLPT_LEVELS.includes(level as StudyLevel) ? (level as StudyLevel) : 'N5';
 }
-
-const ACHIEVEMENTS: Achievement[] = [
-  { badge: 'firstLesson', title: 'First Lesson', description: 'Complete your first lesson', earned: true },
-  { badge: 'firstKanji', title: 'First Kanji', description: 'Learn your first kanji character', earned: true },
-  { badge: 'streak7', title: '7-Day Streak', description: 'Practice 7 days in a row', earned: true },
-  { badge: 'streak30', title: '30-Day Streak', description: 'Practice 30 days in a row', earned: false },
-  { badge: 'vocab100', title: '100 Vocabulary', description: 'Learn 100 vocabulary words', earned: false },
-  { badge: 'levelUp', title: 'Level Up', description: 'Reach a new JLPT level', earned: false },
-  { badge: 'survivalComplete', title: 'Survival Pack', description: 'Complete the workplace survival pack', earned: false },
-  { badge: 'perfectQuiz', title: 'Perfect Quiz', description: 'Score 100% on a quiz', earned: false },
-];
-
-const JLPT_BADGES: { badge: BadgeKey; label: string; unlocked: boolean }[] = [
-  { badge: 'jlptN5', label: 'N5', unlocked: true },
-  { badge: 'jlptN4', label: 'N4', unlocked: false },
-];
 
 export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings, onOpenProfile }: { onOpenFeedback?: () => void; onOpenSources?: () => void; onOpenSettings?: () => void; onOpenProfile?: () => void }) {
   const { ready, store } = useLearningContext();
+  const { profile } = useUserProfileContext();
+  const lessons = useMemo(() => getAllLessons(), []);
   const [dashboard, setDashboard] = useState<ProgressDashboard | null>(null);
+  const [progress, setProgress] = useState<LearnerProgress | null>(null);
+  const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (!ready || !store) return;
     let cancelled = false;
-    store.getDashboard()
-      .then((d: ProgressDashboard) => { if (!cancelled) setDashboard(d); })
-      .catch(() => { if (!cancelled) setDashboard(null); });
+    Promise.all([store.getDashboard(), store.getProgress()])
+      .then(([d, p]: [ProgressDashboard, LearnerProgress]) => {
+        if (!cancelled) {
+          setDashboard(d);
+          setProgress(p);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDashboard(null);
+          setProgress(null);
+        }
+      });
     return () => { cancelled = true; };
   }, [ready, store]);
 
   // Fallback dashboard so the screen never renders empty before the store loads.
-  const view = dashboard ?? buildProgressDashboard(
-    { startedAt: '', completedLessonIds: [], quizScores: [], streak: { currentStreak: 0, longestStreak: 0 } },
-    getAllLessons(),
-  );
+  const safeProgress = progress ?? EMPTY_PROGRESS;
+  const view = dashboard ?? buildProgressDashboard(safeProgress, lessons);
+  const progression = buildProfileProgression(safeProgress, lessons, view, {
+    dailyRushRuns: profile?.dynamic.dailyRush.totalRuns ?? 0,
+    dailyRushGood: profile?.dynamic.dailyRush.totalGood ?? 0,
+  });
   const tracker = createStudyPlanTracker();
-  const dailyPlan = tracker.buildDailyPlan('N5');
-  const levels: StudyLevel[] = ['N5', 'N4', 'N3', 'N2'];
-  const [showMore, setShowMore] = useState(false);
-
-  const earnedCount = ACHIEVEMENTS.filter(a => a.earned).length;
+  const planLevel = toStudyLevel(profile?.static.jlptTarget);
+  const dailyPlan = tracker.buildDailyPlan(planLevel);
+  const achievements = progression.badges.map(badge => ({
+    ...badge,
+    badge: PROFILE_BADGE_TO_IMAGE[badge.id] ?? 'levelUp',
+  }));
+  const earnedCount = achievements.filter(a => a.earned).length;
   const hasAnyProgress = view.completedLessons > 0 || view.currentStreak > 0;
+  const n5Unlocked = true;
+  const n4Unlocked = achievements.some(a => a.id === 'n4-unlocked' && a.earned);
 
   return (
     <ScreenScaffold>
@@ -81,6 +103,17 @@ export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings, 
 
       <Card shadow="card">
         <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>Course progress</Text>
+          <Text style={styles.sectionMeta}>{view.completionPercent}%</Text>
+        </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${Math.min(100, Math.max(0, view.completionPercent))}%` }]} />
+        </View>
+        <Text style={styles.levelHint}>{view.nextRecommendedLesson ? `Next: ${view.nextRecommendedLesson.title}` : 'All bundled lessons complete.'}</Text>
+      </Card>
+
+      <Card shadow="card">
+        <View style={styles.sectionHeader}>
           <Text style={styles.sectionLabel}>Today's plan</Text>
           <Text style={styles.sectionMeta}>{dailyPlan.totalMinutes} min</Text>
         </View>
@@ -88,7 +121,7 @@ export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings, 
           {dailyPlan.tasks.map(task => (
             <View key={task.id} style={styles.taskRow}>
               <View style={styles.taskCheck}>
-                <Icon name="check" size={14} />
+                <Icon name="book" size={14} />
               </View>
               <Text style={styles.taskTitle}>{task.title}</Text>
               <Text style={styles.taskMeta}>{task.minutes} min</Text>
@@ -100,7 +133,7 @@ export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings, 
       <Card shadow="card">
         <Text style={styles.sectionLabel}>Your level</Text>
         <View style={styles.levelRow}>
-          {levels.map(level => (
+          {JLPT_LEVELS.map(level => (
             <Chip
               key={level}
               label={level}
@@ -108,19 +141,19 @@ export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings, 
             />
           ))}
         </View>
-        <Text style={styles.levelHint}>Currently studying {dailyPlan.level}</Text>
+        <Text style={styles.levelHint}>Currently studying {dailyPlan.level} • Level {progression.level} • {progression.nextMilestone.label}</Text>
       </Card>
 
       <Card shadow="card">
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionLabel}>Achievements</Text>
-          <Text style={styles.sectionMeta}>{earnedCount} of {ACHIEVEMENTS.length}</Text>
+          <Text style={styles.sectionMeta}>{earnedCount} of {achievements.length}</Text>
         </View>
         <View style={styles.badgeGrid}>
-          {ACHIEVEMENTS.map(a => (
-            <View key={a.badge} style={styles.badgeItem}>
+          {achievements.map(a => (
+            <View key={a.id} style={styles.badgeItem}>
               <BadgeImage badge={a.badge} size={56} earned={a.earned} />
-              <Text style={styles.badgeTitle} numberOfLines={2}>{a.title}</Text>
+              <Text style={styles.badgeTitle} numberOfLines={2}>{a.label}</Text>
               <Text style={styles.badgeDesc} numberOfLines={2}>{a.description}</Text>
             </View>
           ))}
@@ -130,12 +163,14 @@ export function ProgressScreen({ onOpenFeedback, onOpenSources, onOpenSettings, 
       <Card shadow="card">
         <Text style={styles.sectionLabel}>JLPT levels</Text>
         <View style={styles.jlptRow}>
-          {JLPT_BADGES.map(b => (
-            <View key={b.badge} style={styles.jlptItem}>
-              <BadgeImage badge={b.badge} size={64} earned={b.unlocked} />
-              <Text style={styles.jlptLabel}>{b.label}</Text>
-            </View>
-          ))}
+          <View style={styles.jlptItem}>
+            <BadgeImage badge="jlptN5" size={64} earned={n5Unlocked} />
+            <Text style={styles.jlptLabel}>N5</Text>
+          </View>
+          <View style={styles.jlptItem}>
+            <BadgeImage badge="jlptN4" size={64} earned={n4Unlocked} />
+            <Text style={styles.jlptLabel}>N4</Text>
+          </View>
         </View>
       </Card>
 
@@ -161,6 +196,8 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: ds.spacing.sm },
   sectionLabel: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.primary, textTransform: 'uppercase' },
   sectionMeta: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.textMuted },
+  progressTrack: { height: ds.spacing.sm, borderRadius: ds.radius.pill, backgroundColor: ds.colors.surfaceAlt, overflow: 'hidden', marginBottom: ds.spacing.sm },
+  progressFill: { height: '100%', borderRadius: ds.radius.pill, backgroundColor: ds.colors.success },
   taskList: { gap: ds.spacing.xs },
   taskRow: { flexDirection: 'row', alignItems: 'center', gap: ds.spacing.sm, paddingVertical: ds.spacing.sm, paddingHorizontal: ds.spacing.xs },
   taskCheck: {
@@ -169,7 +206,7 @@ const styles = StyleSheet.create({
   },
   taskTitle: { flex: 1, fontSize: ds.type.body, color: ds.colors.text, fontWeight: '700', flexShrink: 1 },
   taskMeta: { fontSize: ds.type.caption, color: ds.colors.primary, fontWeight: '900' },
-  levelRow: { flexDirection: 'row', gap: ds.spacing.xs, marginTop: ds.spacing.md, marginBottom: ds.spacing.sm },
+  levelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.xs, marginTop: ds.spacing.md, marginBottom: ds.spacing.sm },
   levelHint: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.xs },
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.md, marginTop: ds.spacing.sm },
   badgeItem: { width: '22%', minWidth: 70, alignItems: 'center', gap: ds.spacing.xs },

@@ -14,16 +14,15 @@ import { buildProgressDashboard } from '../src/services/progressDashboardService
  *   and grammar expansion (week 4), verb-form expansion (week 5), and
  *   daily-life expansion (week 6).
  *
- *   Per the user's choice, every N4 phrase ships with placeholder
- *   Vietnamese and Filipino translations ("(pending vi review)" /
- *   "(pending tl review)") so a real Sensei can audit them later. No
- *   fabricated translations.
+ *   Phase 33 replaced the temporary Vietnamese/Filipino placeholders with
+ *   learner-facing helper-language translations so N4 lessons work for all
+ *   configured helper languages.
  *
  * Tests assert:
  *   - mockSenseiLessons contains 18 N4 lessons.
  *   - Each N4 lesson has 3-6 items, every item has Japanese+romaji+
- *     English; VI/TL are pending placeholders.
- *   - Every N4 item carries translationReviewStatus 'draft' (not approved).
+ *     English; VI/TL are real helper-language strings.
+ *   - Every N4 item carries translationReviewStatus 'draft' until final native-speaker review.
  *   - Daily lesson advancement now reaches week 4 once weeks 1-3 are done.
  *   - The progression service accepts a week-4 starting week.
  *   - The buildProgressDashboard shows the N4 lessons are eligible for
@@ -56,15 +55,17 @@ describe('Phase 31 N4 lesson content', () => {
     }
   });
 
-  it('every N4 item has correct Japanese + romaji + English and pending VI/TL', () => {
-    const VI_TL_PENDING = /^\(pending (vi|tl) review\)$/;
+  it('every N4 item has correct Japanese + romaji + English and real VI/TL helper translations', () => {
+    const PLACEHOLDER = /pending|review needed|todo|tbd|placeholder/i;
     for (const lesson of N4_LESSONS) {
       for (const item of lesson.items) {
         expect(item.japanese.length, `${item.id}.japanese`).toBeGreaterThan(0);
         expect(item.romaji.length, `${item.id}.romaji`).toBeGreaterThan(0);
         expect(item.english.length, `${item.id}.english`).toBeGreaterThan(0);
-        expect(item.vietnamese, `${item.id}.vietnamese is a placeholder`).toMatch(VI_TL_PENDING);
-        expect(item.filipino, `${item.id}.filipino is a placeholder`).toMatch(VI_TL_PENDING);
+        expect(item.vietnamese.length, `${item.id}.vietnamese`).toBeGreaterThan(0);
+        expect(item.filipino.length, `${item.id}.filipino`).toBeGreaterThan(0);
+        expect(item.vietnamese, `${item.id}.vietnamese is not a placeholder`).not.toMatch(PLACEHOLDER);
+        expect(item.filipino, `${item.id}.filipino is not a placeholder`).not.toMatch(PLACEHOLDER);
         expect(item.exampleJapanese.length, `${item.id}.exampleJapanese`).toBeGreaterThan(0);
         expect(item.exampleEnglish.length, `${item.id}.exampleEnglish`).toBeGreaterThan(0);
       }

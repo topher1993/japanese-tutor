@@ -22,10 +22,12 @@ export function SettingsScreen({
   onBack,
   onReset,
   onOpenReview,
+  showReviewerTools = false,
 }: {
   onBack: () => void;
   onReset: () => Promise<void> | void;
   onOpenReview?: () => void;
+  showReviewerTools?: boolean;
 }) {
   const { ready, durable, resetAll } = useLearningContext();
   const { ready: profileReady, resetProfile } = useUserProfileContext();
@@ -76,20 +78,21 @@ export function SettingsScreen({
         <Text style={styles.meta}>Ready: {ready ? 'Yes' : 'Loading...'}</Text>
       </Card>
 
-      <Card shadow="card">
-        <Text style={styles.sectionLabel}>Reviewer tools</Text>
-        <Text style={styles.help}>
-          For Sensei or native-speaker reviewers: open the translation review queue, approve drafts, and edit EN / VI / TL translations. Decisions save locally on this device.
-        </Text>
-        <Button
-          label="Open translation review"
-          onPress={() => onOpenReview?.()}
-          disabled={!onOpenReview}
-          icon="check"
-          variant="secondary"
-          testID="settings-open-review-button"
-        />
-      </Card>
+      {showReviewerTools && onOpenReview ? (
+        <Card shadow="card">
+          <Text style={styles.sectionLabel}>Reviewer tools</Text>
+          <Text style={styles.help}>
+            Dev/native-speaker review only: open the translation review queue, approve drafts, and edit English plus helper-language translations. Decisions save locally on this device.
+          </Text>
+          <Button
+            label="Open translation review"
+            onPress={() => onOpenReview()}
+            icon="check"
+            variant="secondary"
+            testID="settings-open-review-button"
+          />
+        </Card>
+      ) : null}
 
       <Card shadow="card">
         <Text style={styles.sectionLabel}>Reset progress</Text>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getExampleSentenceCandidatePack } from '../src/data/candidates/exampleSentenceCandidatePack';
+import { getExampleSentenceCandidatePack, getExampleSentencesForApp, getLessonExampleSentencePack } from '../src/data/candidates/exampleSentenceCandidatePack';
 
 describe('Phase 18D-3 example sentence candidate pack', () => {
   it('contains at least 300 example sentence candidates', () => {
@@ -26,10 +26,25 @@ describe('Phase 18D-3 example sentence candidate pack', () => {
     }
   });
 
-  it('marks every entry as candidate-only (no live app use)', () => {
+  it('marks every candidate entry as candidate-only (lesson examples are added separately for the app screen)', () => {
     const pack = getExampleSentenceCandidatePack();
     for (const s of pack) {
       expect(s.connectedToApp).toBe(false);
     }
+  });
+
+  it('adds N4 lesson examples to the app-facing Example sentences source', () => {
+    const lessonExamples = getLessonExampleSentencePack();
+    const appExamples = getExampleSentencesForApp();
+    const n4LessonExamples = lessonExamples.filter(s => s.jlptLevel === 'N4');
+    const n4DailyLifeExamples = appExamples.filter(s => s.jlptLevel === 'N4' && s.category === 'daily-life');
+
+    expect(n4LessonExamples).toHaveLength(100);
+    expect(n4DailyLifeExamples.length).toBeGreaterThan(0);
+    expect(n4DailyLifeExamples.some(s => s.japanese === '毎朝六時に起きて、シャワーを浴びます。')).toBe(true);
+    const morningRoutine = n4DailyLifeExamples.find(s => s.japanese === '毎朝六時に起きて、シャワーを浴びます。');
+    expect(morningRoutine?.romaji).toBe('maiasa rokuji ni okite, shawaa o abimasu.');
+    expect(n4LessonExamples.every(s => s.romaji.trim().length > 0)).toBe(true);
+    expect(n4DailyLifeExamples.every(s => s.connectedToApp)).toBe(true);
   });
 });

@@ -29,8 +29,8 @@ describe('Phase 32 Daily Flashcard Rush', () => {
     }
   });
 
-  it('scores Daily Rush answers as Good for correct and Again for wrong with profile-ready result totals', async () => {
-    const { buildDailyFlashcardRush, answerDailyRushCard, summarizeDailyRush } = await import('../src/services/dailyFlashcardRushService');
+  it('scores Daily Rush answers as Good for correct, Again for wrong, and Again on timeout with profile-ready result totals', async () => {
+    const { buildDailyFlashcardRush, answerDailyRushCard, summarizeDailyRush, timeOutDailyRushCard } = await import('../src/services/dailyFlashcardRushService');
     const deck = createFlashcardDeck(getAllLessons());
     const rush = buildDailyFlashcardRush(deck, { date: '2026-06-29', supportLanguage: 'en' });
     const first = rush.cards[0];
@@ -39,6 +39,8 @@ describe('Phase 32 Daily Flashcard Rush', () => {
 
     expect(answerDailyRushCard(first, correct.id).label).toBe('good');
     expect(answerDailyRushCard(first, wrong.id).label).toBe('again');
+    expect(timeOutDailyRushCard(first).label).toBe('again');
+    expect(timeOutDailyRushCard(first).selectedChoiceId).toBe('timeout');
 
     const summary = summarizeDailyRush([
       answerDailyRushCard(first, correct.id),
@@ -47,6 +49,13 @@ describe('Phase 32 Daily Flashcard Rush', () => {
     expect(summary.good).toBe(1);
     expect(summary.again).toBe(1);
     expect(summary.xpEarned).toBeGreaterThan(0);
+
+    const timeout = timeOutDailyRushCard(rush.cards[2]);
+    const duplicateTimeoutSummary = summarizeDailyRush([timeout, timeout]);
+    expect(duplicateTimeoutSummary.total).toBe(1);
+    expect(duplicateTimeoutSummary.good).toBe(0);
+    expect(duplicateTimeoutSummary.again).toBe(1);
+    expect(duplicateTimeoutSummary.xpEarned).toBe(timeout.xpEarned);
   });
 
   it('builds a profile patch that records one XP-bearing Daily Rush completion per date', async () => {
@@ -87,9 +96,25 @@ describe('Phase 32 Daily Flashcard Rush', () => {
     expect(appSource).not.toContain("'DailyRush'");
   });
 
-  it('DailyRushScreen exposes answer choices, Good/Again labels, and faster seamless next-card timing', () => {
+  it('DailyRushScreen exposes answer choices, Good/Again labels, faster seamless next-card timing, and a 10-second per-card countdown', () => {
     const source = readFileSync('src/screens/DailyRushScreen.tsx', 'utf8');
     expect(source).toContain('NEXT_CARD_DELAY_MS = 220');
+    expect(source).toContain('DAILY_RUSH_TIMER_SECONDS = 10');
+    expect(source).toContain('setInterval');
+    expect(source).toContain('new Animated.Value(1)');
+    expect(source).toContain('Animated.timing(timerProgress');
+    expect(source).toContain('Easing.linear');
+    expect(source).toContain('testID="daily-rush-timer-animation"');
+    expect(source).toContain('timerProgress.interpolate');
+    expect(source).toContain('timerFillColor');
+    expect(source).toContain('setTimeLeft(seconds => Math.max(0, seconds - 1))');
+    expect(source).toContain('}, [current?.id, timerProgress]);');
+    expect(source).toContain('timeOutDailyRushCard(current)');
+    expect(source).toContain('recordedAnswerCardIds.current.has(current.card.id)');
+    expect(source).toContain('recordedAnswerCardIds.current.add(current.card.id)');
+    expect(source).toContain('setTimeLeft(DAILY_RUSH_TIMER_SECONDS);\n    setCardIndex(index => Math.min(index + 1, rush?.cards.length ?? 0));');
+    expect(source).toContain('`⏱ ${timeLeft}s`');
+    expect(source).toContain('10s per card');
     expect(source).toContain('Good');
     expect(source).toContain('Again');
     expect(source).toContain('answerDailyRushCard');
