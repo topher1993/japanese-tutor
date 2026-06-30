@@ -2,7 +2,7 @@ import type { PersistentLearningRepository } from '../repositories/sqliteLearnin
 import { getAllLessons } from './lessonService';
 import { buildProgressDashboard } from './progressDashboardService';
 import { getWeekPlan } from './weeklyPlansService';
-import { resolveCardPool } from './weeklyCardPoolService';
+import { resolveCardPool, resolveKanjiSet } from './weeklyCardPoolService';
 import { recomputeTodoStatesForWeek, type TodoPayload } from './weeklyTodoService';
 import type { TodoState, TodoEventCounts, WeekTodo } from '../types/weeklyTodo';
 
@@ -259,33 +259,33 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
       }
 
       // Compute per-flashcards-todo progress from the updated event log ∩ pool.
-            // recomputeTodoStatesForWeek (37b) only handles lesson-kind; we therefore
-            // compute the flashcards-kind progress ourselves and merge into seed.
-            // §11.2 default: target defaults to the pool size via resolveCardPool's
-            // `expectedTarget`. The author leaves `target` as 0 so the resolver
-            // owns the count — read expectedTarget when target is 0.
-            for (const todo of weekPlan.todos) {
-              if (todo.kind !== 'flashcards') continue;
-              const flashcardTodo = todo as WeekTodo;
-              const pool = resolveCardPool(flashcardTodo.pool, weekNumber);
-              const poolSet = new Set(pool.cardIds);
-              const reviewedInPool = nextReviewed.filter(id => poolSet.has(id));
-              const progressCount = reviewedInPool.length;
-              const prior = seed[todo.id];
-              const target = prior?.target && prior.target > 0
-                ? prior.target
-                : (flashcardTodo.target > 0 ? flashcardTodo.target : (pool.expectedTarget ?? flashcardTodo.target));
-              const clamped = Math.min(progressCount, target);
-              const reached = clamped >= target && target > 0;
-              seed[todo.id] = {
-                todoId: todo.id,
-                weekNumber,
-                progress: clamped,
-                target,
-                completedAt: reached ? (prior?.completedAt ?? Date.now()) : undefined,
-                skipped: prior?.skipped,
-              };
-            }
+      // recomputeTodoStatesForWeek (37b) only handles lesson-kind; we therefore
+      // compute the flashcards-kind progress ourselves and merge into seed.
+      // §11.2 default: target defaults to the pool size via resolveCardPool's
+      // `expectedTarget`. The author leaves `target` as 0 so the resolver
+      // owns the count — read expectedTarget when target is 0.
+      for (const todo of weekPlan.todos) {
+        if (todo.kind !== 'flashcards') continue;
+        const flashcardTodo = todo as WeekTodo;
+        const pool = resolveCardPool(flashcardTodo.pool, weekNumber);
+        const poolSet = new Set(pool.cardIds);
+        const reviewedInPool = nextReviewed.filter(id => poolSet.has(id));
+        const progressCount = reviewedInPool.length;
+        const prior = seed[todo.id];
+        const target = prior?.target && prior.target > 0
+          ? prior.target
+          : (flashcardTodo.target > 0 ? flashcardTodo.target : (pool.expectedTarget ?? flashcardTodo.target));
+        const clamped = Math.min(progressCount, target);
+        const reached = clamped >= target && target > 0;
+        seed[todo.id] = {
+          todoId: todo.id,
+          weekNumber,
+          progress: clamped,
+          target,
+          completedAt: reached ? (prior?.completedAt ?? Date.now()) : undefined,
+          skipped: prior?.skipped,
+        };
+      }
 
       const payload: TodoPayload = {
         todoStates: seed,
@@ -300,6 +300,132 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
       const nextTodoStates = { ...seed, ...recomputed };
 
       // Cast through unknown — same pattern recordDailyRushComplete uses (37d-1).
+      await repo.saveExtendedProgress({
+        ...updated,
+        todoStates: nextTodoStates,
+        weekTodosInitialized: payload.weekTodosInitialized,
+        todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
+      } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
+
+      return repo.getProgress();
+    },
+    /**
+     * Phase 37d-3 — record that a single kanji card was marked Good for
+     * `weekNumber`. Appends `kanjiCardId` to
+     * `todoEventCounts.kanjiGoodAnswers[weekNumber]` (de-duplicated so
+     * re-marking the same card Good does not bloat the log) and recomputes
+     * the `kanji`-kind todos for the week, persisting via saveExtendedProgress
+     * so the gate UI in 37c reads fresh state after a cold start.
+     *
+     * Per docs/phase-37-todo-gated-progression-proposal.md §5 row `kanji`:
+     * progress = |distinct kanjiCardIds in
+     * todoEventCounts.kanjiGoodAnswers[weekNumber] ∩ todo.kanjiSet|, clamped
+     * at target. completedAt is set on the first cross.
+     *
+     * Source for `kanjiSet` is the todo's own `kanjiSet` array (proposal
+     * §3.1, §11.2 default target = kanjiSet.length). The call site (currently
+     * FlashcardsScreen.markGoodAndAdvance) is responsible for filtering by
+     * `card.kind === 'kanji'` AND `answer === 'good'` — this store method
+     * trusts the caller and stores whatever kanjiCardId it receives, then
+     * intersects with the todo's kanjiSet to scope the count.
+     *
+     * No-op while todoFeatureEnabled is false (matches the
+     * recordFlashcardReview / recordDailyRushComplete / completeCurrentLesson
+     * pattern) so the gate stays invisible until 37g flips the flag. Returns
+     * the persisted LearnerProgress (mirrors the §5.1 contract).
+     */
+    async recordKanjiGood(weekNumber: number, kanjiCardId: string) {
+      if (!todoFeatureEnabled) return repo.getProgress();
+      if (typeof repo.saveExtendedProgress !== 'function') return repo.getProgress();
+
+      const weekPlan = getWeekPlan(weekNumber);
+      if (!weekPlan) return repo.getProgress();
+
+      const updated = await repo.getProgress();
+      const extended = updated as unknown as TodoPayload & {
+        todoStates: Record<string, TodoState>;
+        weekTodosInitialized: Record<number, boolean>;
+        todoEventCounts: TodoEventCounts;
+      };
+
+      // De-duped append of kanjiCardId into kanjiGoodAnswers[weekNumber].
+      const priorGood = extended.todoEventCounts?.kanjiGoodAnswers?.[weekNumber] ?? [];
+      const nextGood = priorGood.includes(kanjiCardId)
+        ? priorGood
+        : [...priorGood, kanjiCardId];
+      const nextEventCounts: TodoEventCounts = {
+        ...(extended.todoEventCounts ?? {
+          flashcardReviews: {},
+          quizAttempts: {},
+          dailyRushDates: {},
+          exampleSentencesViewed: {},
+          kanjiGoodAnswers: {},
+        }),
+        kanjiGoodAnswers: {
+          ...(extended.todoEventCounts?.kanjiGoodAnswers ?? {}),
+          [weekNumber]: nextGood,
+        },
+      };
+
+      // Seed any todo states that haven't been materialized yet for this week.
+      const existingStates = (extended.todoStates ?? {}) as Record<string, TodoState>;
+      const seed: Record<string, TodoState> = { ...existingStates };
+      if (!extended.weekTodosInitialized?.[weekNumber]) {
+        for (const todo of weekPlan.todos) {
+          if (!seed[todo.id]) {
+            seed[todo.id] = {
+              todoId: todo.id,
+              weekNumber,
+              progress: 0,
+              target: todo.target,
+            };
+          }
+        }
+      }
+
+      // Compute per-kanji-todo progress from the updated event log ∩ kanjiSet.
+      // recomputeTodoStatesForWeek (37b) only handles lesson-kind; we therefore
+      // compute the kanji-kind progress ourselves and merge into seed. The
+      // resolver (resolveKanjiSet) owns the kanjiSet → cardIds mapping and the
+      // expectedTarget fallback. Per §11.2 default: target defaults to
+      // kanjiSet.length via resolveKanjiSet's `expectedTarget`; the author
+      // can also set todo.target > 0 to override.
+      for (const todo of weekPlan.todos) {
+        if (todo.kind !== 'kanji') continue;
+        const kanjiTodo = todo as WeekTodo;
+        const kanjiSetResolution = resolveKanjiSet(kanjiTodo.kanjiSet);
+        const kanjiSet = new Set(kanjiSetResolution.cardIds);
+        const goodInSet = nextGood.filter(id => kanjiSet.has(id));
+        const progressCount = goodInSet.length;
+        const prior = seed[todo.id];
+        const target = prior?.target && prior.target > 0
+          ? prior.target
+          : (kanjiTodo.target > 0 ? kanjiTodo.target : (kanjiSetResolution.expectedTarget ?? kanjiTodo.target));
+        const clamped = Math.min(progressCount, target);
+        const reached = clamped >= target && target > 0;
+        seed[todo.id] = {
+          todoId: todo.id,
+          weekNumber,
+          progress: clamped,
+          target,
+          completedAt: reached ? (prior?.completedAt ?? Date.now()) : undefined,
+          skipped: prior?.skipped,
+        };
+      }
+
+      const payload: TodoPayload = {
+        todoStates: seed,
+        weekTodosInitialized: { ...(extended.weekTodosInitialized ?? {}), [weekNumber]: true },
+        todoEventCounts: nextEventCounts,
+        completedLessonIds: updated.completedLessonIds,
+      };
+
+      // recomputeTodoStatesForWeek preserves prior progress for non-lesson
+      // kinds, so the manual updates we just wrote to seed survive untouched.
+      const recomputed = recomputeTodoStatesForWeek(weekNumber, weekPlan, payload);
+      const nextTodoStates = { ...seed, ...recomputed };
+
+      // Cast through unknown — same pattern recordFlashcardReview uses (37d-2).
       await repo.saveExtendedProgress({
         ...updated,
         todoStates: nextTodoStates,

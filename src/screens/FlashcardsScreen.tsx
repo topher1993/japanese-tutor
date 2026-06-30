@@ -190,22 +190,33 @@ export function FlashcardsScreen({
       // isTodoFeatureEnabled() so the default behavior is unchanged for
       // non-37g builds. Uses the LearningRepositoryProvider's store.
       if (isTodoFeatureEnabled() && store) {
-        void (async () => {
-          try {
-            let weekNumber = 1;
-            try {
-              const progress = await store.getProgress();
-              weekNumber = deriveFlashcardWeekNumber(progress);
-            } catch {
-              // progress read failed — leave default weekNumber = 1
+              void (async () => {
+                try {
+                  let weekNumber = 1;
+                  try {
+                    const progress = await store.getProgress();
+                    weekNumber = deriveFlashcardWeekNumber(progress);
+                  } catch {
+                    // progress read failed — leave default weekNumber = 1
+                  }
+                  await store.recordFlashcardReview(weekNumber, card.id);
+                  // Phase 37d-3: ALSO record the kanji todo progress when this card
+                  // is tagged `kind === 'kanji'`. The store method de-dups by
+                  // cardId and intersects against each kanji-kind todo's
+                  // `kanjiSet`, so calling unconditionally is safe — non-kanji
+                  // cards simply have no `kanji` todo whose kanjiSet contains the
+                  // id and therefore never count. markGoodAndAdvance only fires
+                  // on `good`, so we don't filter by answer here. The flashcards
+                  // call above already happened; this is additive.
+                  if (card.kind === 'kanji') {
+                    await store.recordKanjiGood(weekNumber, card.id);
+                  }
+                } catch (err) {
+                  // eslint-disable-next-line no-console
+                  console.warn('[FlashcardsScreen] failed to record flashcard review', err);
+                }
+              })();
             }
-            await store.recordFlashcardReview(weekNumber, card.id);
-          } catch (err) {
-            // eslint-disable-next-line no-console
-            console.warn('[FlashcardsScreen] failed to record flashcard review', err);
-          }
-        })();
-      }
       setLastRating({ rating: 'good', cardId: card.id });
       showRandomCard(); // also sets incomingDirection = 'left' (new card from right)
     }
