@@ -11,13 +11,16 @@ import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ds } from '../theme/designSystem';
 import { getAllLessons } from '../services/lessonService';
+import { buildLessonInteractionPath } from '../services/lessonInteractionPathService';
 import { answerFlashcard, createFlashcardDeck } from '../services/flashcardService';
 import type { FlashcardDeck, FlashcardReviewCard } from '../types/flashcard';
 import { buildCandidateFlashcardCards, getCandidateCardCounts } from '../services/candidateFlashcardAdapter';
 import { createFlashcardNavigator, getNextRandomFlashcardIndex, getRandomFlashcardIndex } from '../services/flashcardNavigatorService';
 import { useLearningContext } from '../services/learningContext';
+import { isTodoFeatureEnabled } from '../services/practiceProgressStore';
 import { getSecondaryTranslations, getSupportTranslation } from '../services/supportLanguageService';
 import type { LearnerLanguage } from '../types/onboarding';
+import type { LearnerProgress } from '../types/progress';
 import type { ReviewCard } from '../services/spacedRepetitionService';
 
 export function FlashcardsScreen({
@@ -47,6 +50,23 @@ export function FlashcardsScreen({
   const { ready, store, srs } = useLearningContext();
 
   function todayIso(): string { return new Date().toISOString().slice(0, 10); }
+
+  /**
+   * Phase 37d-2: derive the active week for a flashcard review. Mirrors
+   * DailyRushScreen.deriveDailyRushWeekNumber — reads completedLessonIds from
+   * the persistence store and falls back to week 1 when the learner has not
+   * started.
+   */
+  function deriveFlashcardWeekNumber(progress: LearnerProgress | null | undefined): number {
+    const safeProgress: LearnerProgress = progress ?? {
+      startedAt: new Date().toISOString(),
+      completedLessonIds: [],
+      quizScores: [],
+      streak: { currentStreak: 0, longestStreak: 0 },
+    };
+    const path = buildLessonInteractionPath(getAllLessons(), safeProgress);
+    return path.currentLesson?.week ?? 1;
+  }
 
   useEffect(() => {
     if (!ready || !srs) return;
@@ -163,11 +183,32 @@ export function FlashcardsScreen({
     setCardIndex(index => createFlashcardNavigator(activeDeck!, index).previous().currentIndex);
   }
   function markGoodAndAdvance() {
-    setDeck(currentDeck => answerFlashcard(currentDeck!, card.id, 'good', todayIso()));
-    recordPractice();
-    setLastRating({ rating: 'good', cardId: card.id });
-    showRandomCard(); // also sets incomingDirection = 'left' (new card from right)
-  }
+      setDeck(currentDeck => answerFlashcard(currentDeck!, card.id, 'good', todayIso()));
+      recordPractice();
+      // Phase 37d-2: also notify the practiceProgressStore so the flashcards
+      // todo gate (UI wired in 37c) counts this review. Guarded behind
+      // isTodoFeatureEnabled() so the default behavior is unchanged for
+      // non-37g builds. Uses the LearningRepositoryProvider's store.
+      if (isTodoFeatureEnabled() && store) {
+        void (async () => {
+          try {
+            let weekNumber = 1;
+            try {
+              const progress = await store.getProgress();
+              weekNumber = deriveFlashcardWeekNumber(progress);
+            } catch {
+              // progress read failed — leave default weekNumber = 1
+            }
+            await store.recordFlashcardReview(weekNumber, card.id);
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.warn('[FlashcardsScreen] failed to record flashcard review', err);
+          }
+        })();
+      }
+      setLastRating({ rating: 'good', cardId: card.id });
+      showRandomCard(); // also sets incomingDirection = 'left' (new card from right)
+    }
   function rateCard(rating: Rating) {
     if (!srs) return;
     let cardId = srsCardIdByRefId[card.id];

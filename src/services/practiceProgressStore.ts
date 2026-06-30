@@ -2,8 +2,9 @@ import type { PersistentLearningRepository } from '../repositories/sqliteLearnin
 import { getAllLessons } from './lessonService';
 import { buildProgressDashboard } from './progressDashboardService';
 import { getWeekPlan } from './weeklyPlansService';
+import { resolveCardPool } from './weeklyCardPoolService';
 import { recomputeTodoStatesForWeek, type TodoPayload } from './weeklyTodoService';
-import type { TodoState, TodoEventCounts } from '../types/weeklyTodo';
+import type { TodoState, TodoEventCounts, WeekTodo } from '../types/weeklyTodo';
 
 export type PracticeProgressStore = ReturnType<typeof createPracticeProgressStore>;
 
@@ -181,6 +182,124 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
       const nextTodoStates = { ...seed, ...recomputed };
 
       // Cast through unknown — same pattern completeCurrentLesson uses (37b).
+      await repo.saveExtendedProgress({
+        ...updated,
+        todoStates: nextTodoStates,
+        weekTodosInitialized: payload.weekTodosInitialized,
+        todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
+      } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
+
+      return repo.getProgress();
+    },
+    /**
+     * Phase 37d-2 — record that a single flashcard was reviewed on this
+     * device for `weekNumber`. Appends `cardId` to
+     * `todoEventCounts.flashcardReviews[weekNumber]` (de-duplicated so
+     * re-reviewing the same card does not bloat the log) and recomputes the
+     * `flashcards`-kind todos for the week, persisting via saveExtendedProgress
+     * so the gate UI in 37c reads fresh state after a cold start.
+     *
+     * Per docs/phase-37-todo-gated-progression-proposal.md §5 row
+     * `flashcards`: progress = |distinct cardIds in
+     * todoEventCounts.flashcardReviews[weekNumber] ∩ resolved pool|,
+     * clamped at target. completedAt is set on the first cross.
+     *
+     * No-op while todoFeatureEnabled is false (matches the
+     * recordDailyRushComplete / completeCurrentLesson pattern) so the gate
+     * stays invisible until 37g flips the flag. Returns the persisted
+     * LearnerProgress (mirrors the §5.1 contract).
+     */
+    async recordFlashcardReview(weekNumber: number, cardId: string) {
+      if (!todoFeatureEnabled) return repo.getProgress();
+      if (typeof repo.saveExtendedProgress !== 'function') return repo.getProgress();
+
+      const weekPlan = getWeekPlan(weekNumber);
+      if (!weekPlan) return repo.getProgress();
+
+      const updated = await repo.getProgress();
+      const extended = updated as unknown as TodoPayload & {
+        todoStates: Record<string, TodoState>;
+        weekTodosInitialized: Record<number, boolean>;
+        todoEventCounts: TodoEventCounts;
+      };
+
+      // De-duped append of cardId into flashcardReviews[weekNumber].
+      const priorReviewed = extended.todoEventCounts?.flashcardReviews?.[weekNumber] ?? [];
+      const nextReviewed = priorReviewed.includes(cardId)
+        ? priorReviewed
+        : [...priorReviewed, cardId];
+      const nextEventCounts: TodoEventCounts = {
+        ...(extended.todoEventCounts ?? {
+          flashcardReviews: {},
+          quizAttempts: {},
+          dailyRushDates: {},
+          exampleSentencesViewed: {},
+          kanjiGoodAnswers: {},
+        }),
+        flashcardReviews: {
+          ...(extended.todoEventCounts?.flashcardReviews ?? {}),
+          [weekNumber]: nextReviewed,
+        },
+      };
+
+      // Seed any todo states that haven't been materialized yet for this week.
+      const existingStates = (extended.todoStates ?? {}) as Record<string, TodoState>;
+      const seed: Record<string, TodoState> = { ...existingStates };
+      if (!extended.weekTodosInitialized?.[weekNumber]) {
+        for (const todo of weekPlan.todos) {
+          if (!seed[todo.id]) {
+            seed[todo.id] = {
+              todoId: todo.id,
+              weekNumber,
+              progress: 0,
+              target: todo.target,
+            };
+          }
+        }
+      }
+
+      // Compute per-flashcards-todo progress from the updated event log ∩ pool.
+            // recomputeTodoStatesForWeek (37b) only handles lesson-kind; we therefore
+            // compute the flashcards-kind progress ourselves and merge into seed.
+            // §11.2 default: target defaults to the pool size via resolveCardPool's
+            // `expectedTarget`. The author leaves `target` as 0 so the resolver
+            // owns the count — read expectedTarget when target is 0.
+            for (const todo of weekPlan.todos) {
+              if (todo.kind !== 'flashcards') continue;
+              const flashcardTodo = todo as WeekTodo;
+              const pool = resolveCardPool(flashcardTodo.pool, weekNumber);
+              const poolSet = new Set(pool.cardIds);
+              const reviewedInPool = nextReviewed.filter(id => poolSet.has(id));
+              const progressCount = reviewedInPool.length;
+              const prior = seed[todo.id];
+              const target = prior?.target && prior.target > 0
+                ? prior.target
+                : (flashcardTodo.target > 0 ? flashcardTodo.target : (pool.expectedTarget ?? flashcardTodo.target));
+              const clamped = Math.min(progressCount, target);
+              const reached = clamped >= target && target > 0;
+              seed[todo.id] = {
+                todoId: todo.id,
+                weekNumber,
+                progress: clamped,
+                target,
+                completedAt: reached ? (prior?.completedAt ?? Date.now()) : undefined,
+                skipped: prior?.skipped,
+              };
+            }
+
+      const payload: TodoPayload = {
+        todoStates: seed,
+        weekTodosInitialized: { ...(extended.weekTodosInitialized ?? {}), [weekNumber]: true },
+        todoEventCounts: nextEventCounts,
+        completedLessonIds: updated.completedLessonIds,
+      };
+
+      // recomputeTodoStatesForWeek preserves prior progress for non-lesson
+      // kinds, so the manual updates we just wrote to seed survive untouched.
+      const recomputed = recomputeTodoStatesForWeek(weekNumber, weekPlan, payload);
+      const nextTodoStates = { ...seed, ...recomputed };
+
+      // Cast through unknown — same pattern recordDailyRushComplete uses (37d-1).
       await repo.saveExtendedProgress({
         ...updated,
         todoStates: nextTodoStates,

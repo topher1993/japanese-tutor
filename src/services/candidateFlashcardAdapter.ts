@@ -45,6 +45,10 @@ export async function buildCandidateFlashcardCards(): Promise<FlashcardReviewCar
       reviewCount: 0,
       nextReviewDate: today,
       translationReviewStatus: 'draft',
+      // Phase 37d-2: candidate packs are vocab until a future kind-tagged
+      // kanji source ships (37d-3). Default 'vocab' so the weekly-todo gate
+      // can count these toward a `flashcards` todo's pool size.
+      kind: 'vocab' as const,
     });
   }
 
@@ -61,6 +65,7 @@ export async function buildCandidateFlashcardCards(): Promise<FlashcardReviewCar
       reviewCount: 0,
       nextReviewDate: today,
       translationReviewStatus: 'draft',
+      kind: 'vocab' as const,
     });
   }
 

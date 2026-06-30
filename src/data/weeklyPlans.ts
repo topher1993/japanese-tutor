@@ -40,6 +40,24 @@ export const WEEKLY_PLANS: WeekPlan[] = [
         target: 1,
         unit: 'rush',
       },
+      // Phase 37d-2: a flashcards todo so the new `recordFlashcardReview`
+      // store method can be exercised end-to-end against a real plan
+      // (proposal §5 row 'flashcards', §11.2 default pool='week'). The
+      // resolver counts the size of `createFlashcardDeck(week-1 lessons)`
+      // and stores it as `target`. Inactive while todoFeatureEnabled is
+      // false (37g flip); the gate UI in 37c reads this alongside the
+      // lesson and daily-rush todos but learner-visible behavior is
+      // unchanged because canAdvance still requires every todo complete.
+      {
+        id: 'n5-w1-flashcards',
+        kind: 'flashcards',
+        title: 'Review every Week 1 flashcard',
+        pool: 'week',
+        // The resolver fills expectedTarget when the todo's own target is 0;
+        // we leave it at 0 so resolveCardPool drives the count.
+        target: 0,
+        unit: 'cards',
+      },
     ],
   },
 ];

@@ -94,17 +94,26 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
     const board = buildWeeklyTodoBoard(1, plan, partial, true, 'all');
     expect(board.isLegacyWeek).toBe(false);
     expect(board.completedCount).toBe(0); // lesson todo not yet complete
-    expect(board.totalCount).toBe(2);     // 1 lesson + 1 daily-rush
+    // Phase 37d-2: N5 W1 now has 3 todos (lesson + daily-rush + flashcards).
+    // Partial state leaves every todo incomplete, so allDone=false.
+    expect(board.totalCount).toBe(3);
     expect(board.allDone).toBe(false);
     expect(board.canAdvance).toBe(false);
   });
 
   it('4. buildWeeklyTodoBoard: complete state — all todos done → allDone true', () => {
-    // Phase 37d-1: complete state requires BOTH todos done, not just lesson.
+    // Phase 37d-2: complete state requires ALL 3 todos done (lesson +
+    // daily-rush + flashcards).
     const plan = n5w1Plan();
     const lessonTodo = plan.todos.find(t => t.kind === 'lesson')!;
     const rushTodo = plan.todos.find(t => t.kind === 'daily-rush')!;
+    const flashcardTodo = plan.todos.find(t => t.kind === 'flashcards')!;
     const ids = lessonTodo.lessonIds ?? [];
+    // Phase 37d-2: flashcards todo has target=0 in weeklyPlans (the resolver
+    // fills it at runtime). Look up the real pool size from the resolver so
+    // the "complete" state has a non-zero target for the flashcards kind.
+    const flashcardPool = resolveCardPool(flashcardTodo.pool ?? 'week', 1);
+    expect(flashcardPool.cardIds.length).toBeGreaterThan(0);
     const complete: Record<string, TodoState> = {
       [lessonTodo.id]: {
         todoId: lessonTodo.id,
@@ -120,10 +129,17 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
         target: 1,
         completedAt: Date.now(),
       },
+      [flashcardTodo.id]: {
+        todoId: flashcardTodo.id,
+        weekNumber: 1,
+        progress: flashcardPool.cardIds.length,
+        target: flashcardPool.cardIds.length,
+        completedAt: Date.now(),
+      },
     };
     const board = buildWeeklyTodoBoard(1, plan, complete, true, 'all');
-    expect(board.completedCount).toBe(2);
-    expect(board.totalCount).toBe(2);
+    expect(board.completedCount).toBe(3);
+    expect(board.totalCount).toBe(3);
     expect(board.allDone).toBe(true);
     expect(board.canAdvance).toBe(true);
   });
@@ -190,10 +206,12 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
       weekTodosInitialized: { 1: true },
     }, 'all')).toBe(false);
 
-    // Once week 1's lesson AND daily-rush todos are both complete, week 2
-    // unlocks. Phase 37d-1: the plan now has 2 todos; canAdvance=true under
-    // strategy='all' requires both. Board is built from todoStates (not
-    // completedLessonIds), so we seed the recomputed map for both todos.
+    // Once week 1's lesson, daily-rush, AND flashcards todos are all complete,
+    // week 2 unlocks. Phase 37d-2: the plan now has 3 todos; canAdvance=true
+    // under strategy='all' requires all 3. Board is built from todoStates (not
+    // completedLessonIds), so we seed the recomputed map for all three.
+    const flashcardTodo = plan.todos.find(t => t.kind === 'flashcards')!;
+    const flashcardPool = resolveCardPool(flashcardTodo.pool ?? 'week', 1);
     const fullPayload: TodoPayload = {
       ...makeEmptyPayload(),
       weekTodosInitialized: { 1: true },
@@ -218,6 +236,15 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
             completedAt: Date.now(),
           },
         } : {}),
+        // Phase 37d-2: same for the flashcards todo. target=0 in weeklyPlans
+        // so we use the resolver-computed pool size from flashcardPool above.
+        [flashcardTodo.id]: {
+          todoId: flashcardTodo.id,
+          weekNumber: 1,
+          progress: flashcardPool.cardIds.length,
+          target: flashcardPool.cardIds.length,
+          completedAt: Date.now(),
+        },
       },
     };
     const fullBoards = buildAllTodoBoards([plan], fullPayload, 'all');

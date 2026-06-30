@@ -139,6 +139,28 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
     setSelectedChoiceId('timeout');
     setAnswers(prev => [...prev, result]);
     answerFlashcard(deck, current.card.id, result.label, date);
+    // Phase 37d-2: also notify the practiceProgressStore so the flashcards
+    // todo gate (UI wired in 37c) counts this review. Guarded behind
+    // isTodoFeatureEnabled() so the default behavior is unchanged for
+    // non-37g builds. Uses the LearningRepositoryProvider's store (opened
+    // once at app boot) — do NOT open a fresh SQLite handle here.
+    if (isTodoFeatureEnabled() && practiceStore) {
+      void (async () => {
+        try {
+          let weekNumber = 1;
+          try {
+            const progress = await practiceStore.getProgress();
+            weekNumber = deriveDailyRushWeekNumber(progress);
+          } catch {
+            // progress read failed — leave default weekNumber = 1
+          }
+          await practiceStore.recordFlashcardReview(weekNumber, current.card.id);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn('[daily-rush] failed to record flashcard review', err);
+        }
+      })();
+    }
     setTimeout(goNext, NEXT_CARD_DELAY_MS);
   }, [cardIndex, current, currentAnswer, date, deck, rush, timeLeft]);
 
@@ -196,6 +218,26 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
     setSelectedChoiceId(choiceId);
     setAnswers(prev => [...prev, result]);
     answerFlashcard(deck, current.card.id, result.label, date);
+    // Phase 37d-2: also notify the practiceProgressStore so the flashcards
+    // todo gate counts this review. Guarded behind isTodoFeatureEnabled() so
+    // the default behavior is unchanged for non-37g builds.
+    if (isTodoFeatureEnabled() && practiceStore) {
+      void (async () => {
+        try {
+          let weekNumber = 1;
+          try {
+            const progress = await practiceStore.getProgress();
+            weekNumber = deriveDailyRushWeekNumber(progress);
+          } catch {
+            // progress read failed — leave default weekNumber = 1
+          }
+          await practiceStore.recordFlashcardReview(weekNumber, current.card.id);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn('[daily-rush] failed to record flashcard review', err);
+        }
+      })();
+    }
     setTimeout(goNext, NEXT_CARD_DELAY_MS);
   }
 

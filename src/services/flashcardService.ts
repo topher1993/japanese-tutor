@@ -13,8 +13,11 @@ function todayIso(): string { return new Date().toISOString().slice(0, 10); }
 
 export function createFlashcardDeck(lessons: SenseiLesson[]): FlashcardDeck {
   const today = todayIso();
-  const lessonCards: FlashcardReviewCard[] = lessons.flatMap(lesson => lesson.items.map(item => ({ id: `card-${item.id}`, lessonId: lesson.id, category: item.category, japanese: item.japanese, romaji: item.romaji, english: item.english, vietnamese: item.vietnamese, filipino: item.filipino, reviewCount: 0, nextReviewDate: today, translationReviewStatus: item.translationReviewStatus })));
-  const supplementalCards: FlashcardReviewCard[] = supplementalFlashcards.map(item => ({ id: `card-${item.id}`, lessonId: 'supplemental-flashcards', category: item.category, japanese: item.japanese, romaji: item.romaji, english: item.english, vietnamese: item.vietnamese, filipino: item.filipino, reviewCount: 0, nextReviewDate: today, translationReviewStatus: item.translationReviewStatus }));
+  // Phase 37d-2: backfill `kind: 'vocab'` for every card produced here so the
+  // weekly-todo gate (`flashcards` kind in proposal §5 row 'flashcards') can
+  // resolve a pool of distinct card ids. Kanji cards will arrive in 37d-3.
+  const lessonCards: FlashcardReviewCard[] = lessons.flatMap(lesson => lesson.items.map(item => ({ id: `card-${item.id}`, lessonId: lesson.id, category: item.category, japanese: item.japanese, romaji: item.romaji, english: item.english, vietnamese: item.vietnamese, filipino: item.filipino, reviewCount: 0, nextReviewDate: today, translationReviewStatus: item.translationReviewStatus, kind: 'vocab' as const })));
+  const supplementalCards: FlashcardReviewCard[] = supplementalFlashcards.map(item => ({ id: `card-${item.id}`, lessonId: 'supplemental-flashcards', category: item.category, japanese: item.japanese, romaji: item.romaji, english: item.english, vietnamese: item.vietnamese, filipino: item.filipino, reviewCount: 0, nextReviewDate: today, translationReviewStatus: item.translationReviewStatus, kind: 'vocab' as const }));
   return { id: 'deck-workplace-survival', title: 'Workplace Survival Flashcards', cards: [...lessonCards, ...supplementalCards] };
 }
 
