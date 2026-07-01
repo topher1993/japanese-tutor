@@ -47,6 +47,14 @@ export interface ExtendedLearnerProgress extends LearnerProgress {
 
 const SCHEMA_META_KEY_PROGRESS = 'progress';
 
+type ProgressSqlRow = Record<string, unknown>;
+
+const PROGRESS_TODO_COLUMNS = [
+  { name: 'todo_states', sql: "ALTER TABLE progress ADD COLUMN todo_states TEXT NOT NULL DEFAULT '{}'" },
+  { name: 'week_todos_initialized', sql: "ALTER TABLE progress ADD COLUMN week_todos_initialized TEXT NOT NULL DEFAULT '{}'" },
+  { name: 'todo_event_counts', sql: "ALTER TABLE progress ADD COLUMN todo_event_counts TEXT NOT NULL DEFAULT '{}'" },
+] as const;
+
 // Safe JSON parse: returns the provided fallback on any parse error and warns.
 // Per the Phase 37a work card P0-1, parse failures must NEVER throw — they
 // degrade to an empty object so the rest of the app keeps working.
@@ -112,12 +120,64 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
     await db.runAsync('INSERT OR REPLACE INTO schema_meta VALUES (?, ?)', tableKey, String(version));
   }
 
+  function hydrateProgressFromRows(rows: ProgressSqlRow[]): void {
+    if (rows.length === 0) return;
+    const completedLessonIds: string[] = [];
+    for (const row of rows) {
+      const isCompleted = Number(row.completed ?? 0) === 1;
+      const lessonId = (row.lesson_id ?? row.lessonId) as string | undefined;
+      if (isCompleted && lessonId && !completedLessonIds.includes(lessonId)) {
+        completedLessonIds.push(lessonId);
+      }
+    }
+    let lastRealRow: ProgressSqlRow | null = null;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (Number(rows[i].completed ?? 0) === 1) {
+        lastRealRow = rows[i];
+        break;
+      }
+    }
+    const row = lastRealRow ?? rows[rows.length - 1];
+    const newProgressCache = {
+      ...progressCache,
+      completedLessonIds,
+      todoStates: safeParseJson<TodoStateMap>(row.todo_states ?? row.todoStates, {}, 'progress.todo_states'),
+      weekTodosInitialized: safeParseJson<WeekTodosInitializedMap>(row.week_todos_initialized ?? row.weekTodosInitialized, {}, 'progress.week_todos_initialized'),
+      todoEventCounts: safeParseJson<TodoEventCountsMap>(row.todo_event_counts ?? row.todoEventCounts, {}, 'progress.todo_event_counts'),
+    };
+    if (lastRealRow !== null || completedLessonIds.length > 0) {
+      progressCache = newProgressCache;
+    }
+  }
+
+  async function migrateProgressTodoColumns(): Promise<void> {
+    if (memoryTables) return;
+    try {
+      const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(progress)');
+      const names = new Set(columns.map(column => column.name));
+      for (const column of PROGRESS_TODO_COLUMNS) {
+        if (!names.has(column.name)) {
+          await db.execAsync(column.sql);
+        }
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[sqliteLearningRepository] failed to migrate progress todo columns', err);
+    }
+  }
+
   return {
     async initialize() {
       for (const sql of createTablesSql) await db.execAsync(sql);
       if (memoryTables && !memoryTables.has('lessons')) memoryTables.set('lessons', []);
       if (memoryTables && !memoryTables.has('progress_events')) memoryTables.set('progress_events', []);
       if (memoryTables && !memoryTables.has('schema_meta')) memoryTables.set('schema_meta', []);
+
+      // Phase 40 native bugfix: existing phone installs can already have the
+      // legacy 5-column progress table. CREATE TABLE IF NOT EXISTS will not add
+      // Phase-37 todo columns, and the 8-value insert then fails inside
+      // NativeDatabase.prepareAsync. Explicitly ALTER missing columns first.
+      await migrateProgressTodoColumns();
 
       // Phase 37a migration: record CURRENT_SCHEMA_VERSION for the progress
       // table on first run. v1 rows already in the DB keep working because the
@@ -160,60 +220,20 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
       );
     },
     async getProgress() {
-          // If the test/host seeded progress through runAsync (e.g. the v1 5-tuple
-          // migration test), the memory mirror may carry todo column payloads that
-          // we want to surface as part of the returned object. JSON-parse failures
-          // are tolerated per the work card.
-          if (memoryTables?.has('progress')) {
-            const rows = memoryTables.get('progress') as Array<Record<string, unknown>> | undefined;
-            if (rows && rows.length > 0) {
-              // Phase 37g — on cold start we need to rebuild completedLessonIds
-              // from the persisted rows. Pre-37g the in-memory progressCache was
-              // reset to createInitialProgress() on app boot, so a learner who
-              // completed lessons before restart would lose their
-              // completedLessonIds even though the rows lived in the DB. Now we
-              // walk every persisted completion and synthesize the set. We must
-              // skip synthetic placeholder rows written by `saveExtendedProgress`
-              // (id = 'todo-snapshot', completed = 0) — those are todo-blob
-              // snapshots, not lesson completions, and they would otherwise
-              // clobber the in-memory completedLessonIds list to [].
-              const completedLessonIds: string[] = [];
-              for (const row of rows) {
-                const isCompleted = Number(row.completed ?? 0) === 1;
-                const lessonId = (row.lesson_id ?? row.lessonId) as string | undefined;
-                if (isCompleted && lessonId && !completedLessonIds.includes(lessonId)) {
-                  completedLessonIds.push(lessonId);
-                }
-              }
-              // Find the LAST row that actually completed a lesson (skip the
-              // synthetic placeholder) so we read the freshest todo-blob
-              // snapshot.
-              let lastRealRow: Record<string, unknown> | null = null;
-              for (let i = rows.length - 1; i >= 0; i--) {
-                if (Number(rows[i].completed ?? 0) === 1) {
-                  lastRealRow = rows[i];
-                  break;
-                }
-              }
-              const row = lastRealRow ?? rows[rows.length - 1];
-              const newProgressCache = {
-                ...progressCache,
-                completedLessonIds,
-                todoStates: safeParseJson<TodoStateMap>(row.todo_states ?? row.todoStates, {}, 'progress.todo_states'),
-                weekTodosInitialized: safeParseJson<WeekTodosInitializedMap>(row.week_todos_initialized ?? row.weekTodosInitialized, {}, 'progress.week_todos_initialized'),
-                todoEventCounts: safeParseJson<TodoEventCountsMap>(row.todo_event_counts ?? row.todoEventCounts, {}, 'progress.todo_event_counts'),
-              };
-              // Only commit if we have at least one real completion row. A pure
-              // placeholder snapshot shouldn't overwrite completedLessonIds —
-              // that would clobber the in-memory list the store has been
-              // building this session.
-              if (lastRealRow !== null || completedLessonIds.length > 0) {
-                progressCache = newProgressCache;
-              }
-            }
-          }
-          return progressCache;
-        },
+      // Phase 40 native parity: use the same persisted-row hydration for the
+      // in-memory test seam and native SQLite. Before this, native cold starts
+      // returned only the empty in-memory cache, while tests passed through
+      // `db.tables`.
+      if (memoryTables?.has('progress')) {
+        hydrateProgressFromRows((memoryTables.get('progress') as ProgressSqlRow[] | undefined) ?? []);
+      } else if (!memoryTables) {
+        const rows = await db.getAllAsync<ProgressSqlRow>(
+          'SELECT lesson_id, completed, completed_at, score, todo_states, week_todos_initialized, todo_event_counts FROM progress ORDER BY rowid ASC',
+        );
+        hydrateProgressFromRows(rows);
+      }
+      return progressCache;
+    },
     async deleteAllProgress() {
       // Native: DROP + recreate the progress table so indexes and FKs reset
       // cleanly. In-memory mirror is also wiped via createInitialProgress().
