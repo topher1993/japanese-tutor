@@ -8,12 +8,15 @@ import type { TodoState, TodoEventCounts, WeekTodo } from '../types/weeklyTodo';
 
 export type PracticeProgressStore = ReturnType<typeof createPracticeProgressStore>;
 
-// Phase 37a (P1-4 fix): the weekly-todo gate is OFF by default until phase
-// 37c wires the UI. Both `createPracticeProgressStore` and `LessonsScreen`
-// need to read this same flag, so it is exported as a named binding rather
-// than buried inside the factory closure. Mutate via setTodoFeatureEnabled()
-// — the store rebuilds its own derived state lazily on the next call.
-export let todoFeatureEnabled = false;
+// Phase 37g — the weekly-todo gate ships ON by default. Phase 37a–37h
+// landed behind a feature flag so each sub-phase could be QA'd in isolation;
+// 37g promotes the gate to default-on for all learners (existing learners
+// see the `isLegacyWeek` render rule for prior weeks — proposal §3.4 step 4).
+// `createPracticeProgressStore` and `LessonsScreen` both read this same flag
+// via the named binding, so the flip is a one-line constant change.
+// Mutate via setTodoFeatureEnabled() if a QA tester needs to disable the gate
+// in a specific session — the dev-menu toggle in SettingsScreen calls it.
+export let todoFeatureEnabled = true;
 export function setTodoFeatureEnabled(next: boolean): void {
   todoFeatureEnabled = next;
 }
@@ -32,7 +35,10 @@ async function getLessonCatalog(repo: PersistentLearningRepository) {
  * `getProgress()` only returns the canonical LearnerProgress. The store
  * maintains a single in-memory cache of the extended slice so screens that
  * gate UI on todo state can read it back synchronously after a
- * `completeCurrentLesson` / `record*` call. */
+ * `completeCurrentLesson` / `record*` call. Phase 37g adds eager hydration
+ * from disk on store construction so the cache reflects persisted state on
+ * app cold start; callers can await `ready()` to wait for hydration to
+ * finish. */
 type ExtendedProgressCache = {
   todoStates: Record<string, TodoState>;
   weekTodosInitialized: Record<number, boolean>;
@@ -53,10 +59,49 @@ function emptyExtendedProgressCache(): ExtendedProgressCache {
   };
 }
 
+function defaultEmptyEventCounts(): TodoEventCounts {
+  return {
+    flashcardReviews: {},
+    quizAttempts: {},
+    dailyRushDates: {},
+    exampleSentencesViewed: {},
+    kanjiGoodAnswers: {},
+  };
+}
+
 export function createPracticeProgressStore(repo: PersistentLearningRepository) {
   let extendedCache: ExtendedProgressCache = emptyExtendedProgressCache();
+  // Phase 37g — eager disk-hydration. The factory stays synchronous; the
+  // hydration promise is shared so all mutating methods and external awaiters
+  // see the same in-flight read. Mutations `await ensureHydrated()` so they
+  // always start from the freshest on-disk state.
+  let hydrationPromise: Promise<void> | null = null;
+  function ensureHydrated(): Promise<void> {
+    if (!hydrationPromise) {
+      hydrationPromise = (async () => {
+        try {
+          const persisted = await repo.getProgress();
+          const extended = persisted as unknown as Partial<ExtendedProgressCache> | null;
+          if (extended && typeof extended === 'object') {
+            extendedCache = {
+              todoStates: extended.todoStates ?? {},
+              weekTodosInitialized: extended.weekTodosInitialized ?? {},
+              todoEventCounts: extended.todoEventCounts ?? defaultEmptyEventCounts(),
+            };
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn('[practiceProgressStore] failed to hydrate extended cache from disk', err);
+        }
+      })();
+    }
+    return hydrationPromise;
+  }
+  // Fire-and-forget so the factory stays synchronous.
+  void ensureHydrated();
   return {
     async completeCurrentLesson(lessonId: string, score: number, date: string) {
+      await ensureHydrated();
       await repo.saveCompletedLesson(lessonId, score, date);
       // Phase 37b: when the todo gate is enabled and a WeekPlan exists for
       // the lesson's week, recompute todo states from the now-updated
@@ -65,80 +110,81 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
       // repo.saveExtendedProgress so it survives a cold start (otherwise the
       // gate UI in 37c would read stale state after every app reload).
       if (todoFeatureEnabled) {
-              const lessonWeek = getAllLessons().find(l => l.id === lessonId)?.week;
-              if (lessonWeek != null) {
-                const weekPlan = getWeekPlan(lessonWeek);
-                if (weekPlan && weekPlan.todos.length > 0) {
-                  const updated = await repo.getProgress();
-                  const extended = updated as unknown as TodoPayload & {
-                    todoStates: Record<string, TodoState>;
-                    weekTodosInitialized: Record<number, boolean>;
-                    todoEventCounts: TodoEventCounts;
+        const lessonWeek = getAllLessons().find(l => l.id === lessonId)?.week;
+        if (lessonWeek != null) {
+          const weekPlan = getWeekPlan(lessonWeek);
+          if (weekPlan && weekPlan.todos.length > 0) {
+            const updated = await repo.getProgress();
+            const extended = updated as unknown as TodoPayload;
+            const existing = (extended.todoStates ?? {}) as Record<string, TodoState>;
+            const seed: Record<string, TodoState> = { ...existing };
+            if (!extended.weekTodosInitialized?.[lessonWeek]) {
+              for (const todo of weekPlan.todos) {
+                if (!seed[todo.id]) {
+                  seed[todo.id] = {
+                    todoId: todo.id,
+                    weekNumber: lessonWeek,
+                    progress: 0,
+                    target: todo.target,
                   };
-                  const existing = (extended.todoStates ?? {}) as Record<string, TodoState>;
-                  const seed: Record<string, TodoState> = { ...existing };
-                  if (!extended.weekTodosInitialized?.[lessonWeek]) {
-                    for (const todo of weekPlan.todos) {
-                      if (!seed[todo.id]) {
-                        seed[todo.id] = {
-                          todoId: todo.id,
-                          weekNumber: lessonWeek,
-                          progress: 0,
-                          target: todo.target,
-                        };
-                      }
-                    }
-                  }
-                  const payload: TodoPayload = {
-                    todoStates: seed,
-                    weekTodosInitialized: { ...(extended.weekTodosInitialized ?? {}), [lessonWeek]: true },
-                    todoEventCounts: extended.todoEventCounts ?? {
-                      flashcardReviews: {},
-                      quizAttempts: {},
-                      dailyRushDates: {},
-                      exampleSentencesViewed: {},
-                      kanjiGoodAnswers: {},
-                    },
-                    completedLessonIds: updated.completedLessonIds,
-                  };
-                  const recomputed = recomputeTodoStatesForWeek(lessonWeek, weekPlan, payload);
-                  const nextTodoStates = { ...seed, ...recomputed };
-                  // Always mirror the freshly-computed slice into the in-memory
-                  // cache so screens that read extended progress through this
-                  // store (LessonsScreen, HomeScreen) see the live todoStates
-                  // immediately. The persistence side effect is best-effort and
-                  // only runs when the underlying repo supports it — the in-memory
-                  // repo used on web deliberately omits saveExtendedProgress.
-                  extendedCache = {
-                    todoStates: nextTodoStates,
-                    weekTodosInitialized: payload.weekTodosInitialized,
-                    todoEventCounts: payload.todoEventCounts,
-                  };
-                  // Cast through unknown so the two slightly-different TodoEventCounts
-                  // shapes (one keyed by string index in the repo's ExtendedLearnerProgress
-                  // view, one with named keys here) can converge for the persistence call.
-                  if (typeof repo.saveExtendedProgress === 'function') {
-                    await repo.saveExtendedProgress({
-                      ...updated,
-                      todoStates: nextTodoStates,
-                      weekTodosInitialized: payload.weekTodosInitialized,
-                      todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
-                    } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
-                  }
                 }
               }
             }
-          },
+            const payload: TodoPayload = {
+              todoStates: seed,
+              weekTodosInitialized: { ...(extended.weekTodosInitialized ?? {}), [lessonWeek]: true },
+              todoEventCounts: extended.todoEventCounts ?? defaultEmptyEventCounts(),
+              completedLessonIds: updated.completedLessonIds,
+            };
+            const recomputed = recomputeTodoStatesForWeek(lessonWeek, weekPlan, payload);
+            const nextTodoStates = { ...seed, ...recomputed };
+            // Always mirror the freshly-computed slice into the in-memory
+            // cache so screens that read extended progress through this
+            // store (LessonsScreen, HomeScreen) see the live todoStates
+            // immediately. The persistence side effect is best-effort and
+            // only runs when the underlying repo supports it — the in-memory
+            // repo used on web deliberately omits saveExtendedProgress.
+            extendedCache = {
+              todoStates: nextTodoStates,
+              weekTodosInitialized: payload.weekTodosInitialized,
+              todoEventCounts: payload.todoEventCounts,
+            };
+            // Cast through unknown so the two slightly-different TodoEventCounts
+            // shapes (one keyed by string index in the repo's ExtendedLearnerProgress
+            // view, one with named keys here) can converge for the persistence call.
+            if (typeof repo.saveExtendedProgress === 'function') {
+              await repo.saveExtendedProgress({
+                ...updated,
+                todoStates: nextTodoStates,
+                weekTodosInitialized: payload.weekTodosInitialized,
+                todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
+              } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
+            }
+          }
+        }
+      }
+    },
     async getDashboard() { return buildProgressDashboard(await repo.getProgress(), await getLessonCatalog(repo)); },
     /**
      * Phase 37b — return the in-memory extended-progress slice so screens
      * that gate UI on todo state (LessonsScreen, HomeScreen) can render the
      * real per-todo counts without falling back to the persisted
      * saveExtendedProgress path. The cache is updated by completeCurrentLesson
-     * and the record* methods.
+     * and the record* methods. Phase 37g adds eager hydration from disk on
+     * store construction so the cache reflects persisted state on app cold
+     * start; callers can await `ready()` to wait for hydration to finish.
      */
     getExtendedProgress(): ExtendedProgressCache {
       return extendedCache;
+    },
+    /**
+     * Phase 37g — await the disk-hydration of the extended cache. Screens
+     * that need to read fresh extended state on cold start can await this
+     * in a useEffect before rendering the gate. Idempotent — calling twice
+     * resolves on the same promise.
+     */
+    async ready(): Promise<void> {
+      await ensureHydrated();
     },
     /**
      * Phase 37d-1 — record that a Daily Rush was completed on `date` for
@@ -154,101 +200,92 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
      * Returns the persisted LearnerProgress (mirrors the §5.1 contract).
      */
     async recordDailyRushComplete(weekNumber: number, date: string) {
-          if (!todoFeatureEnabled) return repo.getProgress();
+      await ensureHydrated();
+      if (!todoFeatureEnabled) return repo.getProgress();
 
-          const weekPlan = getWeekPlan(weekNumber);
-          const updated = await repo.getProgress();
-          const extended = updated as unknown as TodoPayload & {
-            todoStates: Record<string, TodoState>;
-            weekTodosInitialized: Record<number, boolean>;
-            todoEventCounts: TodoEventCounts;
-          };
+      const weekPlan = getWeekPlan(weekNumber);
+      const updated = await repo.getProgress();
+      const extended = updated as unknown as TodoPayload;
 
-          // De-duped append of the date into dailyRushDates[weekNumber]. We never
-          // mutate the existing array — we spread into a fresh one to keep the
-          // recompute input immutable across concurrent calls.
-          const priorDates = extended.todoEventCounts?.dailyRushDates?.[weekNumber] ?? [];
-          const nextDates = priorDates.includes(date) ? priorDates : [...priorDates, date];
-          const nextEventCounts: TodoEventCounts = {
-            ...(extended.todoEventCounts ?? {
-              flashcardReviews: {},
-              quizAttempts: {},
-              dailyRushDates: {},
-              exampleSentencesViewed: {},
-              kanjiGoodAnswers: {},
-            }),
-            dailyRushDates: {
-              ...(extended.todoEventCounts?.dailyRushDates ?? {}),
-              [weekNumber]: nextDates,
-            },
-          };
+      // De-duped append of the date into dailyRushDates[weekNumber]. We never
+      // mutate the existing array — we spread into a fresh one to keep the
+      // recompute input immutable across concurrent calls.
+      const priorDates = extended.todoEventCounts?.dailyRushDates?.[weekNumber] ?? [];
+      const nextDates = priorDates.includes(date) ? priorDates : [...priorDates, date];
+      const nextEventCounts: TodoEventCounts = {
+        ...(extended.todoEventCounts ?? defaultEmptyEventCounts()),
+        dailyRushDates: {
+          ...(extended.todoEventCounts?.dailyRushDates ?? {}),
+          [weekNumber]: nextDates,
+        },
+      };
 
-          // Seed any todo states that haven't been materialized yet for this week.
-          // For `daily-rush` todos we compute the count directly from the updated
-          // dailyRushDates list (recomputeTodoStatesForWeek is lesson-only in 37b;
-          // 37d-1 owns the daily-rush progress rule per proposal §5).
-          const existingStates = (extended.todoStates ?? {}) as Record<string, TodoState>;
-          const seed: Record<string, TodoState> = { ...existingStates };
-          if (weekPlan && !extended.weekTodosInitialized?.[weekNumber]) {
-            for (const todo of weekPlan.todos) {
-              if (!seed[todo.id]) {
-                seed[todo.id] = {
-                  todoId: todo.id,
-                  weekNumber,
-                  progress: 0,
-                  target: todo.target,
-                };
-              }
-            }
+      // Seed any todo states that haven't been materialized yet for this week.
+      // For `daily-rush` todos we compute the count directly from the updated
+      // dailyRushDates list (recomputeTodoStatesForWeek is lesson-only in 37b;
+      // 37d-1 owns the daily-rush progress rule per proposal §5).
+      const existingStates = (extended.todoStates ?? {}) as Record<string, TodoState>;
+      const seed: Record<string, TodoState> = { ...existingStates };
+      if (weekPlan && !extended.weekTodosInitialized?.[weekNumber]) {
+        for (const todo of weekPlan.todos) {
+          if (!seed[todo.id]) {
+            seed[todo.id] = {
+              todoId: todo.id,
+              weekNumber,
+              progress: 0,
+              target: todo.target,
+            };
           }
-          if (weekPlan) {
-            for (const todo of weekPlan.todos) {
-              if (todo.kind !== 'daily-rush') continue;
-              const prior = seed[todo.id];
-              const reached = nextDates.length > 0;
-              const target = prior?.target ?? todo.target;
-              const progress = reached ? Math.min(1, target) : 0;
-              seed[todo.id] = {
-                todoId: todo.id,
-                weekNumber,
-                progress,
-                target,
-                completedAt: reached ? (prior?.completedAt ?? Date.now()) : undefined,
-                skipped: prior?.skipped,
-              };
-            }
-          }
-
-          const payload: TodoPayload = {
-            todoStates: seed,
-            weekTodosInitialized: { ...(extended.weekTodosInitialized ?? {}), [weekNumber]: true },
-            todoEventCounts: nextEventCounts,
-            completedLessonIds: updated.completedLessonIds,
+        }
+      }
+      if (weekPlan) {
+        for (const todo of weekPlan.todos) {
+          if (todo.kind !== 'daily-rush') continue;
+          const prior = seed[todo.id];
+          const reached = nextDates.length > 0;
+          const target = prior?.target ?? todo.target;
+          const progress = reached ? Math.min(1, target) : 0;
+          seed[todo.id] = {
+            todoId: todo.id,
+            weekNumber,
+            progress,
+            target,
+            completedAt: reached ? (prior?.completedAt ?? Date.now()) : undefined,
+            skipped: prior?.skipped,
           };
+        }
+      }
 
-          const recomputed = weekPlan
-            ? recomputeTodoStatesForWeek(weekNumber, weekPlan, payload)
-            : {};
-          const nextTodoStates = { ...seed, ...recomputed };
+      const payload: TodoPayload = {
+        todoStates: seed,
+        weekTodosInitialized: { ...(extended.weekTodosInitialized ?? {}), [weekNumber]: true },
+        todoEventCounts: nextEventCounts,
+        completedLessonIds: updated.completedLessonIds,
+      };
 
-          // Mirror the freshly-computed slice into the in-memory cache first so
-          // the UI sees the updated todoStates even when the underlying repo is
-          // the in-memory one used on web (no saveExtendedProgress).
-          extendedCache = {
-            todoStates: nextTodoStates,
-            weekTodosInitialized: payload.weekTodosInitialized,
-            todoEventCounts: payload.todoEventCounts,
-          };
+      const recomputed = weekPlan
+        ? recomputeTodoStatesForWeek(weekNumber, weekPlan, payload)
+        : {};
+      const nextTodoStates = { ...seed, ...recomputed };
 
-          // Cast through unknown — same pattern completeCurrentLesson uses (37b).
-          if (typeof repo.saveExtendedProgress === 'function') {
-            await repo.saveExtendedProgress({
-              ...updated,
-              todoStates: nextTodoStates,
-              weekTodosInitialized: payload.weekTodosInitialized,
-              todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
-            } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
-          }
+      // Mirror the freshly-computed slice into the in-memory cache first so
+      // the UI sees the updated todoStates even when the underlying repo is
+      // the in-memory one used on web (no saveExtendedProgress).
+      extendedCache = {
+        todoStates: nextTodoStates,
+        weekTodosInitialized: payload.weekTodosInitialized,
+        todoEventCounts: payload.todoEventCounts,
+      };
+
+      // Cast through unknown — same pattern completeCurrentLesson uses (37b).
+      if (typeof repo.saveExtendedProgress === 'function') {
+        await repo.saveExtendedProgress({
+          ...updated,
+          todoStates: nextTodoStates,
+          weekTodosInitialized: payload.weekTodosInitialized,
+          todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
+        } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
+      }
 
       return repo.getProgress();
     },
@@ -271,17 +308,14 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
      * LearnerProgress (mirrors the §5.1 contract).
      */
     async recordFlashcardReview(weekNumber: number, cardId: string) {
-          if (!todoFeatureEnabled) return repo.getProgress();
+      await ensureHydrated();
+      if (!todoFeatureEnabled) return repo.getProgress();
 
-          const weekPlan = getWeekPlan(weekNumber);
-          if (!weekPlan) return repo.getProgress();
+      const weekPlan = getWeekPlan(weekNumber);
+      if (!weekPlan) return repo.getProgress();
 
       const updated = await repo.getProgress();
-      const extended = updated as unknown as TodoPayload & {
-        todoStates: Record<string, TodoState>;
-        weekTodosInitialized: Record<number, boolean>;
-        todoEventCounts: TodoEventCounts;
-      };
+      const extended = updated as unknown as TodoPayload;
 
       // De-duped append of cardId into flashcardReviews[weekNumber].
       const priorReviewed = extended.todoEventCounts?.flashcardReviews?.[weekNumber] ?? [];
@@ -289,13 +323,7 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
         ? priorReviewed
         : [...priorReviewed, cardId];
       const nextEventCounts: TodoEventCounts = {
-        ...(extended.todoEventCounts ?? {
-          flashcardReviews: {},
-          quizAttempts: {},
-          dailyRushDates: {},
-          exampleSentencesViewed: {},
-          kanjiGoodAnswers: {},
-        }),
+        ...(extended.todoEventCounts ?? defaultEmptyEventCounts()),
         flashcardReviews: {
           ...(extended.todoEventCounts?.flashcardReviews ?? {}),
           [weekNumber]: nextReviewed,
@@ -355,33 +383,33 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
       };
 
       // recomputeTodoStatesForWeek preserves prior progress for non-lesson
-            // kinds, so the manual updates we just wrote to seed survive untouched.
-            const recomputed = recomputeTodoStatesForWeek(weekNumber, weekPlan, payload);
-            const nextTodoStates = { ...seed, ...recomputed };
+      // kinds, so the manual updates we just wrote to seed survive untouched.
+      const recomputed = recomputeTodoStatesForWeek(weekNumber, weekPlan, payload);
+      const nextTodoStates = { ...seed, ...recomputed };
 
-            // Mirror the freshly-computed slice into the in-memory cache first so
-            // the UI sees the updated todoStates even when the underlying repo is
-            // the in-memory one used on web (no saveExtendedProgress).
-            extendedCache = {
-              todoStates: nextTodoStates,
-              weekTodosInitialized: payload.weekTodosInitialized,
-              todoEventCounts: payload.todoEventCounts,
-            };
+      // Mirror the freshly-computed slice into the in-memory cache first so
+      // the UI sees the updated todoStates even when the underlying repo is
+      // the in-memory one used on web (no saveExtendedProgress).
+      extendedCache = {
+        todoStates: nextTodoStates,
+        weekTodosInitialized: payload.weekTodosInitialized,
+        todoEventCounts: payload.todoEventCounts,
+      };
 
-            // Cast through unknown — same pattern recordDailyRushComplete uses (37d-1).
-            if (typeof repo.saveExtendedProgress === 'function') {
-              await repo.saveExtendedProgress({
-                ...updated,
-                todoStates: nextTodoStates,
-                weekTodosInitialized: payload.weekTodosInitialized,
-                todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
-              } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
-            }
+      // Cast through unknown — same pattern recordDailyRushComplete uses (37d-1).
+      if (typeof repo.saveExtendedProgress === 'function') {
+        await repo.saveExtendedProgress({
+          ...updated,
+          todoStates: nextTodoStates,
+          weekTodosInitialized: payload.weekTodosInitialized,
+          todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
+        } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
+      }
 
-            return repo.getProgress();
-          },
-          /**
-           * Phase 37d-3 — record that a single kanji card was marked Good for
+      return repo.getProgress();
+    },
+    /**
+     * Phase 37d-3 — record that a single kanji card was marked Good for
      * `weekNumber`. Appends `kanjiCardId` to
      * `todoEventCounts.kanjiGoodAnswers[weekNumber]` (de-duplicated so
      * re-marking the same card Good does not bloat the log) and recomputes
@@ -406,17 +434,14 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
      * the persisted LearnerProgress (mirrors the §5.1 contract).
      */
     async recordKanjiGood(weekNumber: number, kanjiCardId: string) {
-          if (!todoFeatureEnabled) return repo.getProgress();
+      await ensureHydrated();
+      if (!todoFeatureEnabled) return repo.getProgress();
 
-          const weekPlan = getWeekPlan(weekNumber);
-          if (!weekPlan) return repo.getProgress();
+      const weekPlan = getWeekPlan(weekNumber);
+      if (!weekPlan) return repo.getProgress();
 
       const updated = await repo.getProgress();
-      const extended = updated as unknown as TodoPayload & {
-        todoStates: Record<string, TodoState>;
-        weekTodosInitialized: Record<number, boolean>;
-        todoEventCounts: TodoEventCounts;
-      };
+      const extended = updated as unknown as TodoPayload;
 
       // De-duped append of kanjiCardId into kanjiGoodAnswers[weekNumber].
       const priorGood = extended.todoEventCounts?.kanjiGoodAnswers?.[weekNumber] ?? [];
@@ -424,13 +449,7 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
         ? priorGood
         : [...priorGood, kanjiCardId];
       const nextEventCounts: TodoEventCounts = {
-        ...(extended.todoEventCounts ?? {
-          flashcardReviews: {},
-          quizAttempts: {},
-          dailyRushDates: {},
-          exampleSentencesViewed: {},
-          kanjiGoodAnswers: {},
-        }),
+        ...(extended.todoEventCounts ?? defaultEmptyEventCounts()),
         kanjiGoodAnswers: {
           ...(extended.todoEventCounts?.kanjiGoodAnswers ?? {}),
           [weekNumber]: nextGood,
@@ -491,31 +510,31 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
       };
 
       // recomputeTodoStatesForWeek preserves prior progress for non-lesson
-            // kinds, so the manual updates we just wrote to seed survive untouched.
-            const recomputed = recomputeTodoStatesForWeek(weekNumber, weekPlan, payload);
-            const nextTodoStates = { ...seed, ...recomputed };
+      // kinds, so the manual updates we just wrote to seed survive untouched.
+      const recomputed = recomputeTodoStatesForWeek(weekNumber, weekPlan, payload);
+      const nextTodoStates = { ...seed, ...recomputed };
 
-            // Mirror the freshly-computed slice into the in-memory cache first so
-            // the UI sees the updated todoStates even when the underlying repo is
-            // the in-memory one used on web (no saveExtendedProgress).
-            extendedCache = {
-              todoStates: nextTodoStates,
-              weekTodosInitialized: payload.weekTodosInitialized,
-              todoEventCounts: payload.todoEventCounts,
-            };
+      // Mirror the freshly-computed slice into the in-memory cache first so
+      // the UI sees the updated todoStates even when the underlying repo is
+      // the in-memory one used on web (no saveExtendedProgress).
+      extendedCache = {
+        todoStates: nextTodoStates,
+        weekTodosInitialized: payload.weekTodosInitialized,
+        todoEventCounts: payload.todoEventCounts,
+      };
 
-            // Cast through unknown — same pattern recordFlashcardReview uses (37d-2).
-            if (typeof repo.saveExtendedProgress === 'function') {
-              await repo.saveExtendedProgress({
-                ...updated,
-                todoStates: nextTodoStates,
-                weekTodosInitialized: payload.weekTodosInitialized,
-                todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
-              } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
-            }
+      // Cast through unknown — same pattern recordFlashcardReview uses (37d-2).
+      if (typeof repo.saveExtendedProgress === 'function') {
+        await repo.saveExtendedProgress({
+          ...updated,
+          todoStates: nextTodoStates,
+          weekTodosInitialized: payload.weekTodosInitialized,
+          todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
+        } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
+      }
 
-            return repo.getProgress();
-          },
+      return repo.getProgress();
+    },
     /**
      * Phase 37d-4 — record a quiz attempt with score `score` (0..100) for
      * `weekNumber`. Updates `todoEventCounts.quizAttempts[weekNumber]` to
@@ -544,17 +563,14 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
      * (mirrors the §5.1 contract).
      */
     async recordQuizAttempt(weekNumber: number, score: number) {
-          if (!todoFeatureEnabled) return repo.getProgress();
+      await ensureHydrated();
+      if (!todoFeatureEnabled) return repo.getProgress();
 
-          const weekPlan = getWeekPlan(weekNumber);
-          if (!weekPlan) return repo.getProgress();
+      const weekPlan = getWeekPlan(weekNumber);
+      if (!weekPlan) return repo.getProgress();
 
       const updated = await repo.getProgress();
-      const extended = updated as unknown as TodoPayload & {
-        todoStates: Record<string, TodoState>;
-        weekTodosInitialized: Record<number, boolean>;
-        todoEventCounts: TodoEventCounts;
-      };
+      const extended = updated as unknown as TodoPayload;
 
       // Best-score semantics: todoEventCounts.quizAttempts[weekNumber] is
       // the maximum of the prior score and the new attempt. §5 row 'quiz':
@@ -562,13 +578,7 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
       const priorBest = extended.todoEventCounts?.quizAttempts?.[weekNumber] ?? 0;
       const nextBest = Math.max(priorBest, score);
       const nextEventCounts: TodoEventCounts = {
-        ...(extended.todoEventCounts ?? {
-          flashcardReviews: {},
-          quizAttempts: {},
-          dailyRushDates: {},
-          exampleSentencesViewed: {},
-          kanjiGoodAnswers: {},
-        }),
+        ...(extended.todoEventCounts ?? defaultEmptyEventCounts()),
         quizAttempts: {
           ...(extended.todoEventCounts?.quizAttempts ?? {}),
           [weekNumber]: nextBest,
@@ -621,31 +631,31 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
       };
 
       // recomputeTodoStatesForWeek preserves prior progress for non-lesson
-            // kinds, so the manual updates we just wrote to seed survive untouched.
-            const recomputed = recomputeTodoStatesForWeek(weekNumber, weekPlan, payload);
-            const nextTodoStates = { ...seed, ...recomputed };
+      // kinds, so the manual updates we just wrote to seed survive untouched.
+      const recomputed = recomputeTodoStatesForWeek(weekNumber, weekPlan, payload);
+      const nextTodoStates = { ...seed, ...recomputed };
 
-            // Mirror the freshly-computed slice into the in-memory cache first so
-            // the UI sees the updated todoStates even when the underlying repo is
-            // the in-memory one used on web (no saveExtendedProgress).
-            extendedCache = {
-              todoStates: nextTodoStates,
-              weekTodosInitialized: payload.weekTodosInitialized,
-              todoEventCounts: payload.todoEventCounts,
-            };
+      // Mirror the freshly-computed slice into the in-memory cache first so
+      // the UI sees the updated todoStates even when the underlying repo is
+      // the in-memory one used on web (no saveExtendedProgress).
+      extendedCache = {
+        todoStates: nextTodoStates,
+        weekTodosInitialized: payload.weekTodosInitialized,
+        todoEventCounts: payload.todoEventCounts,
+      };
 
-            // Cast through unknown — same pattern recordKanjiGood uses (37d-3).
-            if (typeof repo.saveExtendedProgress === 'function') {
-              await repo.saveExtendedProgress({
-                ...updated,
-                todoStates: nextTodoStates,
-                weekTodosInitialized: payload.weekTodosInitialized,
-                todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
-              } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
-            }
+      // Cast through unknown — same pattern recordKanjiGood uses (37d-3).
+      if (typeof repo.saveExtendedProgress === 'function') {
+        await repo.saveExtendedProgress({
+          ...updated,
+          todoStates: nextTodoStates,
+          weekTodosInitialized: payload.weekTodosInitialized,
+          todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
+        } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
+      }
 
-            return repo.getProgress();
-          },
+      return repo.getProgress();
+    },
     /**
      * Phase 37d-5 — record that an example sentence was viewed on screen
      * for `weekNumber`. Appends `sentenceId` to
@@ -675,17 +685,14 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
      * persisted LearnerProgress (mirrors the §5.1 contract).
      */
     async markExampleViewed(weekNumber: number, sentenceId: string) {
-          if (!todoFeatureEnabled) return repo.getProgress();
+      await ensureHydrated();
+      if (!todoFeatureEnabled) return repo.getProgress();
 
-          const weekPlan = getWeekPlan(weekNumber);
-          if (!weekPlan) return repo.getProgress();
+      const weekPlan = getWeekPlan(weekNumber);
+      if (!weekPlan) return repo.getProgress();
 
       const updated = await repo.getProgress();
-      const extended = updated as unknown as TodoPayload & {
-        todoStates: Record<string, TodoState>;
-        weekTodosInitialized: Record<number, boolean>;
-        todoEventCounts: TodoEventCounts;
-      };
+      const extended = updated as unknown as TodoPayload;
 
       // De-duped append of sentenceId into exampleSentencesViewed[weekNumber].
       const priorViewed = extended.todoEventCounts?.exampleSentencesViewed?.[weekNumber] ?? [];
@@ -693,13 +700,7 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
         ? priorViewed
         : [...priorViewed, sentenceId];
       const nextEventCounts: TodoEventCounts = {
-        ...(extended.todoEventCounts ?? {
-          flashcardReviews: {},
-          quizAttempts: {},
-          dailyRushDates: {},
-          exampleSentencesViewed: {},
-          kanjiGoodAnswers: {},
-        }),
+        ...(extended.todoEventCounts ?? defaultEmptyEventCounts()),
         exampleSentencesViewed: {
           ...(extended.todoEventCounts?.exampleSentencesViewed ?? {}),
           [weekNumber]: nextViewed,
@@ -756,31 +757,31 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
       };
 
       // recomputeTodoStatesForWeek preserves prior progress for non-lesson
-            // kinds, so the manual updates we just wrote to seed survive untouched.
-            const recomputed = recomputeTodoStatesForWeek(weekNumber, weekPlan, payload);
-            const nextTodoStates = { ...seed, ...recomputed };
+      // kinds, so the manual updates we just wrote to seed survive untouched.
+      const recomputed = recomputeTodoStatesForWeek(weekNumber, weekPlan, payload);
+      const nextTodoStates = { ...seed, ...recomputed };
 
-            // Mirror the freshly-computed slice into the in-memory cache first so
-            // the UI sees the updated todoStates even when the underlying repo is
-            // the in-memory one used on web (no saveExtendedProgress).
-            extendedCache = {
-              todoStates: nextTodoStates,
-              weekTodosInitialized: payload.weekTodosInitialized,
-              todoEventCounts: payload.todoEventCounts,
-            };
+      // Mirror the freshly-computed slice into the in-memory cache first so
+      // the UI sees the updated todoStates even when the underlying repo is
+      // the in-memory one used on web (no saveExtendedProgress).
+      extendedCache = {
+        todoStates: nextTodoStates,
+        weekTodosInitialized: payload.weekTodosInitialized,
+        todoEventCounts: payload.todoEventCounts,
+      };
 
-            // Cast through unknown — same pattern recordQuizAttempt uses (37d-4).
-            if (typeof repo.saveExtendedProgress === 'function') {
-              await repo.saveExtendedProgress({
-                ...updated,
-                todoStates: nextTodoStates,
-                weekTodosInitialized: payload.weekTodosInitialized,
-                todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
-              } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
-            }
+      // Cast through unknown — same pattern recordQuizAttempt uses (37d-4).
+      if (typeof repo.saveExtendedProgress === 'function') {
+        await repo.saveExtendedProgress({
+          ...updated,
+          todoStates: nextTodoStates,
+          weekTodosInitialized: payload.weekTodosInitialized,
+          todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
+        } as unknown as Parameters<NonNullable<typeof repo.saveExtendedProgress>>[0]);
+      }
 
-            return repo.getProgress();
-          },
+      return repo.getProgress();
+    },
     /**
      * Phase 30 — expose the raw learner progress so screens (e.g. the
      * Lessons screen) can show weekly progress ("3 of 5 done this week")
@@ -788,10 +789,18 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
      */
     async getProgress() { return repo.getProgress(); },
     /** Phase 25 / P0-2: wipe all persisted progress + reset in-memory cache. */
-    async reset() {
-      extendedCache = emptyExtendedProgressCache();
-      await repo.deleteAllProgress();
-    },
+        async reset() {
+          await ensureHydrated();
+          extendedCache = emptyExtendedProgressCache();
+          hydrationPromise = null;
+          await repo.deleteAllProgress();
+          // Intentionally do NOT re-hydrate after reset. The SQLite repo's
+          // getProgress() reads the last progress row from the in-memory mirror
+          // map, which deleteAllProgress doesn't clear, so re-hydrating here
+          // would resurrect stale todoStates from before the reset. An empty
+          // cache is the correct post-reset state; subsequent mutating calls
+          // will rebuild it from scratch via their own hydration.
+        },
 
     // -------------------------------------------------------------------
     // Phase 37a stubs. These are no-ops while todoFeatureEnabled is false.

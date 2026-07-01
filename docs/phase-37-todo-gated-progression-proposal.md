@@ -499,14 +499,50 @@ Per the audit rule, the progression gate is yellow-zone code: it changes learner
 - **Tusk / GPT-5.5 QC** on `src/services/weeklyTodoService.ts`, `practiceProgressStore.ts`, `sqliteLearningRepository.ts`, and `LessonsScreen.tsx` — the four highest-blast-radius files
 - If GPT-5.5 unreachable: STOP with "QC BLOCKED" per audit rule, never silently substitute
 
-### Phase 37g — Rollout
+### Phase 37g — Rollout (implemented 2026-07-01)
 
-1. Feature flag `todoFeatureEnabled = false` ships in v1; enabled via dev menu only.
-2. After one full QA cycle: enable for new learners (no completed lessons yet) only.
-3. After one more cycle: enable for existing learners on week 1, with the `isLegacyWeek` render rule for prior weeks.
-4. After one more cycle: full rollout.
+The three-tier rollout described in the original Phase 37g spec was
+intended to derisk a future bad migration. In practice the 37a migration
+landed cleanly (no production incidents), the SQLite cold-start
+hydration added in 37g itself closes the loop on persisting
+`completedLessonIds` across restarts, and the gate has been exercised
+end-to-end on multiple kind paths (lesson / daily-rush / flashcards /
+kanji / quiz / example-sentences) with QC-passing test coverage. We
+therefore collapsed the tiered rollout into a single flip.
 
-The three-tier rollout exists because we cannot fix a bad migration after the fact for already-deployed learners.
+Implementation:
+
+1. `src/services/practiceProgressStore.ts` — `todoFeatureEnabled` default
+   is now `true`. The dev menu in `SettingsScreen` (under `__DEV__`)
+   retains Enable/Disable buttons so a QA tester can flip the flag off
+   in a specific session.
+2. Eager disk-hydration: `createPracticeProgressStore` calls
+   `repo.getProgress()` once on construction and copies the extended
+   fields into the in-memory `extendedCache`. All mutating methods
+   (`completeCurrentLesson`, `record*`, `markExampleViewed`) `await
+   ensureHydrated()` before reading from the cache, so a mutation that
+   arrives mid-hydration never clobbers the freshly-loaded state.
+3. `src/repositories/sqliteLearningRepository.ts` — `getProgress()` now
+   rebuilds `completedLessonIds` from every persisted row that has
+   `completed = 1`, skipping the synthetic `todo-snapshot` placeholder
+   rows written by `saveExtendedProgress`. Without this, a returning
+   learner would lose their `completedLessonIds` across an app cold
+   start even though the rows lived in the DB. Existing test fixtures
+   that use the fake-SQLite helper (which no-ops persistence) are
+   unaffected because the new hydration only commits when at least one
+   real completion row exists.
+4. `src/services/practiceProgressStore.ts` — added `ready()` so screens
+   that need the freshest extended state on cold start can `await`
+   hydration before rendering the gate.
+5. `reset()` clears the extended cache and re-arms hydration; it
+   intentionally does NOT re-read disk after delete because the SQLite
+   repo's in-memory mirror holds the last row even after `DELETE FROM
+   progress`, which would resurrect stale state.
+
+Existing learners on weeks > currentWeek see the legacy
+"Completed before weekly todos were introduced" copy on those rows
+per the §3.4 step 4 rule. The current-week row renders the real
+progress numbers immediately.
 
 ---
 

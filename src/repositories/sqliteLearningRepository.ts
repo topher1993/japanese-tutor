@@ -160,24 +160,60 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
       );
     },
     async getProgress() {
-      // If the test/host seeded progress through runAsync (e.g. the v1 5-tuple
-      // migration test), the memory mirror may carry todo column payloads that
-      // we want to surface as part of the returned object. JSON-parse failures
-      // are tolerated per the work card.
-      if (memoryTables?.has('progress')) {
-        const rows = memoryTables.get('progress') as Array<Record<string, unknown>> | undefined;
-        if (rows && rows.length > 0) {
-          const row = rows[rows.length - 1];
-          progressCache = {
-            ...progressCache,
-            todoStates: safeParseJson<TodoStateMap>(row.todo_states ?? row.todoStates, {}, 'progress.todo_states'),
-            weekTodosInitialized: safeParseJson<WeekTodosInitializedMap>(row.week_todos_initialized ?? row.weekTodosInitialized, {}, 'progress.week_todos_initialized'),
-            todoEventCounts: safeParseJson<TodoEventCountsMap>(row.todo_event_counts ?? row.todoEventCounts, {}, 'progress.todo_event_counts'),
-          };
-        }
-      }
-      return progressCache;
-    },
+          // If the test/host seeded progress through runAsync (e.g. the v1 5-tuple
+          // migration test), the memory mirror may carry todo column payloads that
+          // we want to surface as part of the returned object. JSON-parse failures
+          // are tolerated per the work card.
+          if (memoryTables?.has('progress')) {
+            const rows = memoryTables.get('progress') as Array<Record<string, unknown>> | undefined;
+            if (rows && rows.length > 0) {
+              // Phase 37g — on cold start we need to rebuild completedLessonIds
+              // from the persisted rows. Pre-37g the in-memory progressCache was
+              // reset to createInitialProgress() on app boot, so a learner who
+              // completed lessons before restart would lose their
+              // completedLessonIds even though the rows lived in the DB. Now we
+              // walk every persisted completion and synthesize the set. We must
+              // skip synthetic placeholder rows written by `saveExtendedProgress`
+              // (id = 'todo-snapshot', completed = 0) — those are todo-blob
+              // snapshots, not lesson completions, and they would otherwise
+              // clobber the in-memory completedLessonIds list to [].
+              const completedLessonIds: string[] = [];
+              for (const row of rows) {
+                const isCompleted = Number(row.completed ?? 0) === 1;
+                const lessonId = (row.lesson_id ?? row.lessonId) as string | undefined;
+                if (isCompleted && lessonId && !completedLessonIds.includes(lessonId)) {
+                  completedLessonIds.push(lessonId);
+                }
+              }
+              // Find the LAST row that actually completed a lesson (skip the
+              // synthetic placeholder) so we read the freshest todo-blob
+              // snapshot.
+              let lastRealRow: Record<string, unknown> | null = null;
+              for (let i = rows.length - 1; i >= 0; i--) {
+                if (Number(rows[i].completed ?? 0) === 1) {
+                  lastRealRow = rows[i];
+                  break;
+                }
+              }
+              const row = lastRealRow ?? rows[rows.length - 1];
+              const newProgressCache = {
+                ...progressCache,
+                completedLessonIds,
+                todoStates: safeParseJson<TodoStateMap>(row.todo_states ?? row.todoStates, {}, 'progress.todo_states'),
+                weekTodosInitialized: safeParseJson<WeekTodosInitializedMap>(row.week_todos_initialized ?? row.weekTodosInitialized, {}, 'progress.week_todos_initialized'),
+                todoEventCounts: safeParseJson<TodoEventCountsMap>(row.todo_event_counts ?? row.todoEventCounts, {}, 'progress.todo_event_counts'),
+              };
+              // Only commit if we have at least one real completion row. A pure
+              // placeholder snapshot shouldn't overwrite completedLessonIds —
+              // that would clobber the in-memory list the store has been
+              // building this session.
+              if (lastRealRow !== null || completedLessonIds.length > 0) {
+                progressCache = newProgressCache;
+              }
+            }
+          }
+          return progressCache;
+        },
     async deleteAllProgress() {
       // Native: DROP + recreate the progress table so indexes and FKs reset
       // cleanly. In-memory mirror is also wiped via createInitialProgress().
