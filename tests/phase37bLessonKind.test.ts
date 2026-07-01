@@ -68,8 +68,22 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
 
   it('2. buildWeeklyTodoBoard: empty state — totalCount > 0, completedCount 0, allDone false', () => {
     const plan = n5w1Plan();
-    const board = buildWeeklyTodoBoard(1, plan, {}, false, 'all');
-    // Not yet initialized → render as legacy (proposal §3.4 step 4).
+    // The current week (or any week == currentWeek) is never legacy even if
+    // not yet initialized. Proposal §11.5: legacy render applies to prior
+    // weeks that were completed before the feature shipped, not to the
+    // learner's current in-progress week.
+    const board = buildWeeklyTodoBoard(1, plan, {}, false, 'all', 1);
+    expect(board.isLegacyWeek).toBe(false);
+    expect(board.allDone).toBe(false);
+    expect(board.canAdvance).toBe(false);
+    expect(board.totalCount).toBe(3);
+  });
+
+  it('2b. buildWeeklyTodoBoard: prior week that is not initialized renders as legacy', () => {
+    const plan = n5w1Plan();
+    // A week older than the current week, never initialized under the new
+    // todo system, is "legacy" (proposal §3.4 step 4).
+    const board = buildWeeklyTodoBoard(1, plan, {}, false, 'all', 2);
     expect(board.isLegacyWeek).toBe(true);
     expect(board.allDone).toBe(true);
     expect(board.canAdvance).toBe(true);

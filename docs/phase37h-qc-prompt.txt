@@ -1,0 +1,95 @@
+You are Tusk, QC Division. Quality-control the Phase 37h fix for the bug
+"when accessed the week1 lesson thru todo I can't mark the lesson complete".
+
+Repo: C:/Users/tophe/japanese-tutor-mobile-app
+
+## What the user reported
+User says: "there is an issue on the todo feature, when accessed the week1
+lesson thru todo i cant mark the lesson complete". The weekly-todo board
+renders on the Home and Lessons screens (gated behind a dev-only flag)
+and shows lesson/flashcard/daily-rush todos per week. When a learner
+taps the "Open" CTA on the lesson todo, the lesson detail view opens.
+Tapping "Mark this lesson complete" advances the lesson, but the
+on-screen todo board does NOT update — it stays at "0 / 5 lessons".
+This is the visible symptom the user described as "I can't mark the
+lesson complete".
+
+## What the fix did
+Two bugs:
+
+1. weeklyTodoService.statusForTodo derived `isLegacyWeek` purely from
+   `!isInitialized`, so even the current week showed "Completed before
+   weekly todos were introduced" on every todo row. Now it threads
+   `currentWeek` through and only treats the row as legacy when
+   `weekNumber < currentWeek && !isInitialized`.
+
+2. The store's completeCurrentLesson only persisted todoStates via
+   saveExtendedProgress. On the web runtime path, the repo is the
+   in-memory learning repo which deliberately omits
+   saveExtendedProgress, so the cache update was skipped entirely.
+   The in-memory `progress` state in LessonsScreen/HomeScreen never
+   reflected the recomputed todoStates, so the on-screen todo board
+   always rendered with the empty initial payload. Now all five
+   record* methods always update the in-memory `extendedCache`
+   (visible via `store.getExtendedProgress()`), and only the disk
+   persistence is gated on `typeof repo.saveExtendedProgress ===
+   'function'`. Both LessonsScreen and HomeScreen now read
+   `store.getExtendedProgress()` and feed the result into
+   `todoPayload`, so the memoized payload reflects fresh state after
+   the mark-complete handler's `setProgress(refreshed)`.
+
+## Files modified
+- src/services/weeklyTodoService.ts (statusForTodo signature now takes
+  currentWeek)
+- src/services/practiceProgressStore.ts
+  - completeCurrentLesson: dropped `&& typeof repo.saveExtendedProgress
+    === 'function'` from the gate. Cache update is unconditional.
+    Persistence is best-effort.
+  - recordDailyRushComplete, recordFlashcardReview, recordKanjiGood,
+    recordQuizAttempt, markExampleViewed: same pattern applied.
+  - Added getExtendedProgress() method that returns the in-memory cache.
+  - reset() now also wipes the cache.
+- src/screens/LessonsScreen.tsx: todoPayload now reads
+  store.getExtendedProgress() instead of hardcoded empty maps.
+- src/screens/HomeScreen.tsx: same.
+- tests/phase37hLessonMarkCompleteTodoFlow.test.ts: 7 regression tests.
+
+## Verification already done
+- npm run typecheck → PASS
+- npm test → 91 files / 665 tests, all green (was 664, added 1 test
+  for the in-memory-repo path)
+- Live bundle served by Expo tunnel
+  (https://zujugea-anonymous-8081.exp.direct) contains the fix.
+- Browser smoke: enabled dev flag, navigated Home → tap lesson todo
+  Open → lesson detail → Mark complete → returned to lessons list;
+  the todo board now shows "1 / 5 lessons" (was stuck at "0 / 5"
+  before the fix).
+
+## What to check
+Read the files listed above and verify:
+
+1. The current-week rule for the per-todo helper text is correct
+   (should NOT show "Completed before weekly todos were introduced"
+   on the current week, even when uninitialized).
+2. The cache update in completeCurrentLesson is genuinely
+   unconditional and idempotent.
+3. The same pattern is correctly applied to all 5 record* methods.
+4. The screen-side memo correctly re-runs after a lesson completion
+   (depends on progress?.completedLessonIds and store reference).
+5. No silent fallback to a weaker model, no fabricated data, no
+   skipped evidence in the regression tests.
+6. No new lint/typecheck/test failures.
+
+## Required output
+Markdown with:
+1. Verdict (PASS / BLOCKED / NEEDS WORK)
+2. Findings by severity (P0, P1, P2, P3)
+3. Specific evidence per finding (file:line + the actual code)
+4. Final recommendation
+
+This is a small, focused fix. Stay strictly on the lesson-mark-complete
+path and the helper-language fallback. Do not preemptively review
+unrelated code.
+
+Save your report to C:/Users/tophe/japanese-tutor-mobile-app/docs/phase37h-qc.md
+and return the markdown body.

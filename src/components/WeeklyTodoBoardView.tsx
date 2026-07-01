@@ -29,8 +29,8 @@ export function WeeklyTodoBoardView({ board, onTodoPress }: WeeklyTodoBoardViewP
   return (
     <Card shadow="card">
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Week {board.weekNumber} todos</Text>
-        <Text style={styles.progress}>{progressLabel}</Text>
+        <Text style={styles.title} numberOfLines={1}>Week {board.weekNumber} todos</Text>
+        <Text style={styles.progress} numberOfLines={1}>{progressLabel}</Text>
       </View>
       {isLegacy ? (
         <Text style={styles.legacyHelper}>{LEGACY_HELPER}</Text>
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     marginBottom: ds.spacing.sm,
   },
   title: { fontSize: ds.type.body, fontWeight: '900', color: ds.colors.text, flexShrink: 1 },
-  progress: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.primary },
+  progress: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.primary, flexShrink: 1, maxWidth: '60%', textAlign: 'right' },
   legacyHelper: { fontSize: ds.type.caption, color: ds.colors.textMuted, lineHeight: 18 },
   emptyHelper: { fontSize: ds.type.caption, color: ds.colors.textMuted, lineHeight: 18 },
   list: { gap: ds.spacing.sm },

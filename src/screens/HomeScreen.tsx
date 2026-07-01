@@ -101,15 +101,22 @@ export function HomeScreen({
   );
   const progression = buildLessonProgression(lessonPath.currentWeek.week);
   const currentWeekIndex = progression.currentWeekDetails().weekNumber;
-  const todoPayload = useMemo<TodoPayload>(() => ({
-    todoStates: {},
-    weekTodosInitialized: {},
-    todoEventCounts: emptyTodoEventCounts(),
-    completedLessonIds: homeProgress.completedLessonIds,
-  }), [homeProgress.completedLessonIds]);
+  const todoPayload = useMemo<TodoPayload>(() => {
+    const extended = store?.getExtendedProgress() ?? {
+      todoStates: {},
+      weekTodosInitialized: {},
+      todoEventCounts: emptyTodoEventCounts(),
+    };
+    return {
+      todoStates: extended.todoStates,
+      weekTodosInitialized: extended.weekTodosInitialized,
+      todoEventCounts: extended.todoEventCounts,
+      completedLessonIds: homeProgress.completedLessonIds,
+    };
+  }, [homeProgress.completedLessonIds, store]);
   const todoBoards = useMemo(
-    () => buildAllTodoBoards(getAllWeekPlans(), todoPayload),
-    [todoPayload],
+    () => buildAllTodoBoards(getAllWeekPlans(), todoPayload, 'all', currentWeekIndex),
+    [todoPayload, currentWeekIndex],
   );
   const homeTodoBoard = todoBoards[currentWeekIndex];
   const homeTodosEnabled = isTodoFeatureEnabled();

@@ -95,11 +95,17 @@ function statusForTodo(
   todo: WeekTodo,
   todoState: TodoState | undefined,
   isInitialized: boolean,
+  currentWeek: number = Number.POSITIVE_INFINITY,
 ): WeeklyTodoStatus {
   const progress = todoState?.progress ?? 0;
   const target = todoState?.target ?? todo.target;
   const completed = isInitialized && progress >= target && target > 0;
-  const isLegacyWeek = !isInitialized;
+  // Same rule as buildWeeklyTodoBoard: legacy copy only applies to prior
+  // weeks (weekNumber < currentWeek) that were never initialized under the
+  // new todo system. A current week that is not yet initialized is just
+  // "not started" — render the real progress/target so the learner sees
+  // what they need to do.
+  const isLegacyWeek = !isInitialized && weekNumber < currentWeek;
   return {
     todo,
     progress,
@@ -126,23 +132,31 @@ export function buildWeeklyTodoBoard(
   todoStates: Record<string, TodoState>,
   isInitialized: boolean,
   strategy: 'all' | 'majority' = 'all',
+  currentWeek: number = Number.POSITIVE_INFINITY,
 ): WeeklyTodoBoard {
   if (!weekPlan || weekPlan.todos.length === 0) {
+    // No plan authored: this is only "legacy" if it is a prior week that was
+    // completed before the feature shipped. The current week (or any week
+    // without a plan) renders the empty-helper branch instead.
+    const isLegacyWeek = !isInitialized && weekNumber < currentWeek;
     return {
       weekNumber,
       todos: [],
       completedCount: 0,
       totalCount: 0,
-      allDone: true,
-      canAdvance: true,
-      isLegacyWeek: !isInitialized,
+      allDone: !isLegacyWeek,
+      canAdvance: !isLegacyWeek,
+      isLegacyWeek,
     };
   }
   const statuses = weekPlan.todos.map(todo =>
-    statusForTodo(weekNumber, todo, todoStates[todo.id], isInitialized),
+    statusForTodo(weekNumber, todo, todoStates[todo.id], isInitialized, currentWeek),
   );
-  // Legacy-week rule: rendered as "completed under old rules".
-  if (!isInitialized) {
+  // Legacy-week rule: only prior weeks (weekNumber < currentWeek) that were
+  // never initialized under the new todo system. A current week that has not
+  // yet been initialized is "not started", not "legacy" — the user must see
+  // the real todo rows so they know what to do.
+  if (!isInitialized && weekNumber < currentWeek) {
     return {
       weekNumber,
       todos: statuses,
@@ -170,6 +184,7 @@ export function buildAllTodoBoards(
   weekPlans: WeekPlan[],
   progress: TodoPayload,
   strategy: 'all' | 'majority' = 'all',
+  currentWeek: number = Number.POSITIVE_INFINITY,
 ): Record<number, WeeklyTodoBoard> {
   const result: Record<number, WeeklyTodoBoard> = {};
   for (const plan of weekPlans) {
@@ -179,6 +194,7 @@ export function buildAllTodoBoards(
       progress.todoStates,
       Boolean(progress.weekTodosInitialized[plan.weekNumber]),
       strategy,
+      currentWeek,
     );
   }
   return result;

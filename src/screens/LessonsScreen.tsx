@@ -62,15 +62,22 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                 // stays false by default in 37c, so the block below is invisible to
                 // learners. 37g flips the flag for the rollout. Boards are recomputed
                 // whenever persisted progress changes so completed counts stay fresh.
-                const todoPayload = React.useMemo<TodoPayload>(() => ({
-                                  todoStates: {},
-                                  weekTodosInitialized: {},
-                                  todoEventCounts: emptyTodoEventCounts(),
-                                  completedLessonIds: progress?.completedLessonIds ?? [],
-                                }), [progress?.completedLessonIds]);
+                const todoPayload = React.useMemo<TodoPayload>(() => {
+                                  const extended = store?.getExtendedProgress() ?? {
+                                    todoStates: {},
+                                    weekTodosInitialized: {},
+                                    todoEventCounts: emptyTodoEventCounts(),
+                                  };
+                                  return {
+                                    todoStates: extended.todoStates,
+                                    weekTodosInitialized: extended.weekTodosInitialized,
+                                    todoEventCounts: extended.todoEventCounts,
+                                    completedLessonIds: progress?.completedLessonIds ?? [],
+                                  };
+                                }, [progress?.completedLessonIds, store]);
                 const todoBoards = React.useMemo(
-                  () => buildAllTodoBoards(getAllWeekPlans(), todoPayload),
-                  [todoPayload],
+                  () => buildAllTodoBoards(getAllWeekPlans(), todoPayload, 'all', weekProgress.index),
+                  [todoPayload, weekProgress.index],
                 );
                 const todoBoard = todoBoards[weekProgress.index];
                 const nextWeekNumber = weekProgress.index + 1;
