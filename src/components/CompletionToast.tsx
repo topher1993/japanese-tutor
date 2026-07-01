@@ -16,6 +16,7 @@ import { ds } from '../theme/designSystem';
  *      button's onPress.
  */
 const listeners = new Set<(payload: ToastPayload) => void>();
+const errorListeners = new Set<(payload: LessonErrorPayload) => void>();
 
 export interface ToastPayload {
   message: string;
@@ -25,6 +26,41 @@ export interface ToastPayload {
 
 export function notifyLessonCompleted(payload: ToastPayload): void {
   for (const listener of listeners) listener(payload);
+}
+
+// Phase 39 (Igris mark-complete fix) — structured error channel mirrored
+// from notifyLessonCompleted. Two error kinds:
+//
+//   - 'store-unavailable': the handler was reached before the practice
+//     progress store had resolved. Should be rare because the Button is
+//     disabled while !store, but a hot-reload could land a tap in this
+//     window. Surface it so the user knows the tap didn't land silently.
+//
+//   - 'completion-failed': the store call (completeCurrentLesson) threw.
+//     The pre-fix handler swallowed this in `catch {}`. The toast now
+//     shows the error so the user can retry or report it.
+export type LessonErrorPayload =
+  | { kind: 'store-unavailable'; lessonId: string }
+  | { kind: 'completion-failed'; lessonId: string; error: string };
+
+export function notifyLessonError(payload: LessonErrorPayload): void {
+  for (const listener of errorListeners) listener(payload);
+}
+
+// Optional user-facing label helpers. Kept here so all error presentation
+// lives next to the bus definition.
+function errorToMessage(payload: LessonErrorPayload): string {
+  if (payload.kind === 'store-unavailable') {
+    return 'Could not mark lesson complete';
+  }
+  return 'Could not mark lesson complete';
+}
+
+function errorToDetail(payload: LessonErrorPayload): string {
+  if (payload.kind === 'store-unavailable') {
+    return 'Storage is still loading. Please retry in a moment.';
+  }
+  return payload.error;
 }
 
 export function CompletionToast() {
@@ -79,6 +115,59 @@ export function CompletionToast() {
   );
 }
 
+// Phase 39 (Igris mark-complete fix) — error counterpart to
+// CompletionToast. Subscribes to notifyLessonError via the same
+// subscribe-and-publish pattern (with its own listener set so a
+// success toast cannot suppress an error toast and vice versa).
+// Auto-dismisses after ~3s. Returns null when no error is in flight.
+export function LessonErrorToast() {
+  const [payload, setPayload] = useState<LessonErrorPayload | null>(null);
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(-12)).current;
+
+  useEffect(() => {
+    const onPayload = (next: LessonErrorPayload) => {
+      setPayload(next);
+      opacity.setValue(0);
+      translateY.setValue(-12);
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 0, duration: 220, useNativeDriver: true }),
+      ]).start();
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+          Animated.timing(translateY, { toValue: -12, duration: 220, useNativeDriver: true }),
+        ]).start(() => setPayload(null));
+      }, 3000);
+    };
+    errorListeners.add(onPayload);
+    return () => { errorListeners.delete(onPayload); };
+  }, [opacity, translateY]);
+
+  if (!payload) return null;
+  const message = errorToMessage(payload);
+  const detail = errorToDetail(payload);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.wrap,
+        styles.error,
+        { opacity, transform: [{ translateY }] },
+      ]}
+    >
+      <View style={styles.row}>
+        <Text style={styles.icon}>!</Text>
+        <View style={styles.textWrap}>
+          <Text style={styles.message} numberOfLines={2}>{message}</Text>
+          <Text style={styles.detail} numberOfLines={2}>{detail}</Text>
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
@@ -97,6 +186,7 @@ const styles = StyleSheet.create({
   },
   success: { backgroundColor: ds.colors.successSoft ?? ds.colors.surface },
   info: { backgroundColor: ds.colors.brandSoft ?? ds.colors.surface },
+  error: { backgroundColor: ds.colors.dangerSoft ?? '#fde2e2' },
   row: { flexDirection: 'row', alignItems: 'center', gap: ds.spacing.sm },
   icon: { fontSize: ds.type.heading, fontWeight: '900', color: ds.colors.primary },
   textWrap: { flex: 1, minWidth: 0 },

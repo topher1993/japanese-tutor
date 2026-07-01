@@ -113,7 +113,7 @@ describe('Phase 37g — cold-start hydration of extended-progress cache', () => 
     // should pick that up so the lesson todo reads 1/5 on first read.
     const db2 = createInMemoryDb();
     // Replay the rows that session 1 wrote into db2 so they live in memory.
-    db2.tables.set('progress', db1.tables.get('progress') ?? []);
+    db2.tables!.set('progress', db1.tables!.get('progress') ?? []);
     const repo2 = createSqliteLearningRepository(db2);
     const store2 = createPracticeProgressStore(repo2);
 
@@ -157,7 +157,7 @@ describe('Phase 37g — cold-start hydration of extended-progress cache', () => 
 
     // ---- Session 2: cold-start, then complete lesson 2. ----
     const db2 = createInMemoryDb();
-    db2.tables.set('progress', db1.tables.get('progress') ?? []);
+    db2.tables!.set('progress', db1.tables!.get('progress') ?? []);
     const repo2 = createSqliteLearningRepository(db2);
     const store2 = createPracticeProgressStore(repo2);
     await store2.ready();

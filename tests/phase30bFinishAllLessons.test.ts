@@ -97,12 +97,15 @@ describe('Phase 30b finishing the last lesson', () => {
     // re-read progress, independent of whether nav.nextLesson() is null.
     const markComplete = src.match(/<Button[\s\S]*?label="Mark this lesson complete"[\s\S]*?\/>/);
     expect(markComplete, 'Mark-complete button missing').not.toBeNull();
-    // The onPress handler must call completeCurrentLesson.
-    expect(markComplete![0]).toContain('completeCurrentLesson');
-    // It must NOT be a single-line arrow whose only behavior is
-    // `if (next) setSelected(next.id)`.
-    const handler = markComplete![0].match(/onPress=\{async\s*\(\)\s*=>\s*\{([\s\S]*?)\}\s*\}/);
-    expect(handler, 'Mark-complete handler not found or not async arrow').not.toBeNull();
-    expect(handler![1]).toContain('store.completeCurrentLesson');
+    // The button's onPress must reference the named handler (Phase 39:
+    // hoisted out of the JSX so the handler hook can sit at the top
+    // of the component). The handler itself must call the store.
+    expect(markComplete![0]).toContain('onPress={handleMarkComplete}');
+    // Anchored on the deps array to grab the full useCallback body.
+    const handler = src.match(
+      /handleMarkComplete\s*=\s*React\.useCallback\([\s\S]*?\},\s*\[selectedLesson\s*,\s*store\]\)/,
+    );
+    expect(handler, 'handleMarkComplete useCallback body not found').not.toBeNull();
+    expect(handler![0]).toContain('store.completeCurrentLesson');
   });
 });

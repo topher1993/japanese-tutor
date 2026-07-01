@@ -15,7 +15,7 @@ import { ExampleSentencesScreen } from './ExampleSentencesScreen';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
-import { notifyLessonCompleted } from '../components/CompletionToast';
+import { notifyLessonCompleted, notifyLessonError } from '../components/CompletionToast';
 import { Disclosure } from '../components/Disclosure';
 import { EmptyStateArt } from '../components/EmptyStateArt';
 import { Icon, type IconName } from '../components/Icon';
@@ -50,6 +50,12 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
     const progression = buildLessonProgression(lessonPath.currentWeek.week);
     const [showKanji, setShowKanji] = useState(false);
     const [showMore, setShowMore] = useState(false);
+    // Phase 39 (Igris mark-complete fix) — local in-flight flag so we
+    // disable the button + drop the right-edge check icon while the
+    // completeCurrentLesson promise is settling. Stored separately from
+    // any global ready flag because cold-start ready===true can co-exist
+    // with the store still being null on the very first render pass.
+    const [markInFlight, setMarkInFlight] = useState(false);
     const currentWeek = progression.currentWeekDetails();
         const weekProgress = {
           index: lessonPath.currentWeek.week,
@@ -103,6 +109,85 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
       setShowMore(false);
     }
   }, [pendingLessonId]);
+
+  // Phase 39 (Igris mark-complete fix) — derive the selected lesson
+  // UNCONDITIONALLY so the handler hook can sit at the top of the
+  // component (matching Rules of Hooks). When no lesson is selected
+  // the handler is a defensive no-op; the render branch below only
+  // attaches it to the button when `selectedLesson` exists.
+  const selectedLesson = nav.selectedLesson;
+
+  // Phase 39 (Igris mark-complete fix) — explicit, named handler so the
+  // failure surfaces reach the user instead of being eaten by a silent
+  // catch. Defends against BOTH root-cause candidates:
+  //
+  //   (A) ready===true but store===null on first paint → handler bails
+  //       early and calls notifyLessonError('store-unavailable'). The
+  //       button is rendered `disabled` while !store so this path is
+  //       a defensive fallback for synchronous taps that slip past
+  //       the disable gate.
+  //
+  //   (B) completeCurrentLesson throws (e.g. inside the
+  //       saveExtendedProgress cast on cold-start repo shapes) →
+  //       catch block now re-raises by emitting a structured error
+  //       toast rather than swallowing.
+  const handleMarkComplete = React.useCallback(async () => {
+    const lesson = selectedLesson;
+    if (!lesson) return;
+    if (!store) {
+      // Defensive: the Button is disabled when !store, but keep this
+      // branch so a synchronous tap during a hot reload still surfaces.
+      notifyLessonError({ kind: 'store-unavailable', lessonId: lesson.id });
+      return;
+    }
+    setMarkInFlight(true);
+    try {
+      await store.completeCurrentLesson(
+        lesson.id,
+        100,
+        new Date().toISOString().slice(0, 10),
+      );
+      // Phase 30b: always re-read progress and fire the completion toast,
+      // even when there is no next lesson. The previous shape
+      // `if (next) setSelected(next.id)` silently did nothing on the
+      // last lesson, leaving the user staring at the same screen with
+      // no signal that anything happened.
+      const refreshed = await store.getProgress();
+      setProgress(refreshed);
+      notifyLessonCompleted({
+        message: `✓ ${lesson.title}`,
+        detail: `${refreshed.completedLessonIds.length} of ${lessons.length} lessons done total.`,
+      });
+      // Use a fresh navigator closure over the freshly-set `selected`
+      // to avoid capturing a stale snapshot.
+      const freshNav = createLessonNavigator(lessons, lesson.id);
+      const next = freshNav.nextLesson();
+      if (next) {
+        setSelected(next.id);
+      } else {
+        // Course complete — bounce back to the lessons list so the
+        // user sees the celebration state instead of being stuck on
+        // this detail view.
+        setSelected(undefined);
+      }
+    } catch (err) {
+      // Phase 39: never swallow. Emit a structured error so
+      // LessonErrorToast (and any other subscriber) can show the
+      // user what went wrong. The toast fires for both code paths
+      // (cold-start race + repo.cast throw) without further work.
+      notifyLessonError({
+        kind: 'completion-failed',
+        lessonId: lesson.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setMarkInFlight(false);
+    }
+    // Phase 39: deps tracked for selectedLesson + store so the handler
+    // sees fresh values; other closures (`lessons`, `setProgress`,
+    // `setSelected`) are stable or derived inside the closure body.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLesson, store]);
 
   if (showExamples) {
     return (
@@ -216,37 +301,20 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                   <Button
                     label="Mark this lesson complete"
                     variant="primary"
-                    iconRight="check"
-                    onPress={async () => {
-                    if (ready && store) {
-                      try {
-                        await store.completeCurrentLesson(lesson.id, 100, new Date().toISOString().slice(0, 10));
-                        // Phase 30b: always re-read progress and fire the
-                        // completion toast, even when there is no next lesson.
-                        // The previous shape `if (next) setSelected(next.id)`
-                        // silently did nothing on the last lesson, leaving the
-                        // user staring at the same screen with no signal that
-                        // anything happened.
-                        const refreshed = await store.getProgress();
-                        setProgress(refreshed);
-                        notifyLessonCompleted({
-                          message: `✓ ${lesson.title}`,
-                          detail: `${refreshed.completedLessonIds.length} of ${lessons.length} lessons done total.`,
-                        });
-                        const next = nav.nextLesson();
-                        if (next) {
-                          setSelected(next.id);
-                        } else {
-                          // Course complete — bounce back to the lessons list
-                          // so the user sees the celebration state instead of
-                          // being stuck on this detail view.
-                          setSelected(undefined);
-                        }
-                      } catch {
-                        /* best-effort */
-                      }
-                    }
-                  }}
+                    // Phase 39: drop the right-edge check icon while the
+                    // request is in flight so the user has a visual cue
+                    // that the tap landed even before the success/error
+                    // toast appears.
+                    iconRight={markInFlight ? undefined : "check"}
+                    onPress={handleMarkComplete}
+                    // Phase 39: disable when the store isn't ready OR
+                    // while a completion is mid-flight. The underlying
+                    // Pressable respects `disabled`, so this addresses
+                    // candidate (A) directly — a tap before provider
+                    // resolution can no longer reach a synchronous
+                    // try/catch with a null store. The handler also
+                    // re-checks `store` as a belt-and-braces defense.
+                    disabled={!store || markInFlight}
                     testID="lesson-mark-complete-button"
                   />
                 ) : (
