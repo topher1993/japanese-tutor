@@ -112,9 +112,10 @@ describe('UX-0/1/2/3/4 simplification — non-technical user friendly', () => {
   describe('LessonsScreen simplified — one primary action, hidden categories', () => {
     it('primary action reflects progress ("Continue <lesson>" / "Start Week N" / "Review lessons 🎉")', () => {
       const src = readScreen('LessonsScreen.tsx');
-      // Phase 30b: the label is now a 3-way ternary — course complete,
-      // week preview, or mid-week. Assert on the structural shape.
-      expect(src).toMatch(/label=\{\s*dailyLesson\.isCourseComplete/);
+      // Phase 40: the todo-gate blocker became the outer branch, then
+      // the old course-complete / week-preview / mid-week choices remain.
+      expect(src).toMatch(/label=\{\s*todoGateBlocksCurrentLessonWeek/);
+      expect(src).toMatch(/dailyLesson\.isCourseComplete/);
       expect(src).toMatch(/dailyLesson\.lesson\.title/);
     });
 

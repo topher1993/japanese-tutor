@@ -76,7 +76,9 @@ describe('Phase 38 Lessons interaction path', () => {
     expect(lessonsSource).toContain('buildLessonInteractionPath');
     expect(lessonsSource).toContain('Lesson path');
     expect(lessonsSource).toContain('item.primaryActionLabel');
-    expect(lessonsSource).toContain('selectedLessonCompleted && nav.nextLesson()');
+    expect(lessonsSource).toContain('selectedLessonCompleted && nextLesson && nextLessonUnlockedByTodos');
+    expect(lessonsSource).toContain('selectedLessonLockedByTodos');
+    expect(lessonsSource).toContain('Finish this week’s todos first');
     expect(lessonsSource).toContain('Completed');
     expect(lessonsSource).toContain('item.state === \'locked\'');
   });

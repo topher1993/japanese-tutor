@@ -56,8 +56,10 @@ describe('Phase Fix-A — primary CTAs are no longer dead buttons', () => {
       // `dailyLesson.isCourseComplete` so we only match the primary CTA.
       // Phase 30b added the course-complete branch (`isCourseComplete ?
       // 'Review lessons 🎉' : isWeekPreview ? ...`).
+      // Phase 40: the label first handles the todo-gate blocker, then
+      // falls through to the prior Phase 30b three-way ternary.
       const primaryButton = src.match(
-        /<Button\b[^>]*?\blabel=\{\s*dailyLesson\.isCourseComplete[^]*?\/>/,
+        /<Button\b[^>]*?\blabel=\{\s*todoGateBlocksCurrentLessonWeek[^]*?testID="learn-continue-button"[^]*?\/>/,
       );
       expect(primaryButton, 'primary CTA button missing').not.toBeNull();
       // The onPress handler is an async multi-line arrow function, so a

@@ -12,6 +12,8 @@ import type { LearnerProgress } from '../types/progress';
 import { getAllLessons } from '../services/lessonService';
 import { buildLessonInteractionPath } from '../services/lessonInteractionPathService';
 import { pickReportableSentenceIds } from './exampleSentencesViewTracking';
+import { getVisibleOptionalTranslations } from '../services/supportLanguageService';
+import type { LearnerLanguage } from '../types/onboarding';
 
 const CATEGORY_LABELS: Record<string, string> = {
   greetings: 'Greetings',
@@ -54,7 +56,7 @@ function deriveExampleWeekNumber(progress: LearnerProgress | null | undefined): 
   return path.currentLesson?.week ?? 1;
 }
 
-export function ExampleSentencesScreen() {
+export function ExampleSentencesScreen({ supportLanguage = 'en' }: { supportLanguage?: LearnerLanguage } = {}) {
   const all = useMemo(() => getExampleSentencesForApp(), []);
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -149,18 +151,28 @@ export function ExampleSentencesScreen() {
 
       <Text style={styles.count}>{filtered.length} sentences</Text>
 
-      {filtered.map((s: ExampleSentenceCandidateEntry) => (
-        <Card key={s.id} shadow="card">
-          <View style={styles.cardHeader}>
-            <Badge label={s.jlptLevel} tone="brand" />
-            <Badge label={s.connectedToApp ? 'Lesson' : 'Reference'} tone="neutral" />
-          </View>
-          <Text style={styles.jp}>{s.japanese}</Text>
-          {s.romaji ? <Text style={styles.romaji}>{s.romaji}</Text> : null}
-          <View style={styles.divider} />
-          <Text style={styles.english}>{s.english}</Text>
-        </Card>
-      ))}
+      {filtered.map((s: ExampleSentenceCandidateEntry) => {
+        const translations = getVisibleOptionalTranslations(s, supportLanguage);
+        return (
+          <Card key={s.id} shadow="card">
+            <View style={styles.cardHeader}>
+              <Badge label={s.jlptLevel} tone="brand" />
+              <Badge label={s.connectedToApp ? 'Lesson' : 'Reference'} tone="neutral" />
+            </View>
+            <Text style={styles.jp}>{s.japanese}</Text>
+            {s.romaji ? <Text style={styles.romaji}>{s.romaji}</Text> : null}
+            <View style={styles.divider} />
+            {translations.map((translation, i) => (
+              <Text
+                key={`${translation.label}-${i}`}
+                style={translation.label === 'English' ? styles.english : styles.secondaryTranslation}
+              >
+                {translation.label}: {translation.text}
+              </Text>
+            ))}
+          </Card>
+        );
+      })}
     </ScreenScaffold>
   );
 }
@@ -177,4 +189,5 @@ const styles = StyleSheet.create({
   romaji: { fontSize: ds.type.body, color: ds.colors.primary, fontWeight: '800', marginTop: ds.spacing.xs, flexShrink: 1 },
   divider: { height: 1, backgroundColor: ds.colors.divider, marginVertical: ds.spacing.sm },
   english: { fontSize: ds.type.body, color: ds.colors.textMuted, flexShrink: 1 },
+  secondaryTranslation: { fontSize: ds.type.body, color: ds.colors.text, fontWeight: '600', marginTop: ds.spacing.xs, flexShrink: 1 },
 });

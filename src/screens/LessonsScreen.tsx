@@ -47,7 +47,7 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
     const [showExamples, setShowExamples] = useState(false);
     const nav = createLessonNavigator(lessons, selected);
     const lessonPath = buildLessonInteractionPath(lessons, progress ?? { startedAt: '', completedLessonIds: [], quizScores: [], streak: { currentStreak: 0, longestStreak: 0 } });
-    const progression = buildLessonProgression(lessonPath.currentWeek.week);
+    let progression = buildLessonProgression(lessonPath.currentWeek.week);
     const [showKanji, setShowKanji] = useState(false);
     const [showMore, setShowMore] = useState(false);
     // Phase 39 (Igris mark-complete fix) — local in-flight flag so we
@@ -56,8 +56,8 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
     // any global ready flag because cold-start ready===true can co-exist
     // with the store still being null on the very first render pass.
     const [markInFlight, setMarkInFlight] = useState(false);
-    const currentWeek = progression.currentWeekDetails();
-        const weekProgress = {
+    let currentWeek = progression.currentWeekDetails();
+        let weekProgress = {
           index: lessonPath.currentWeek.week,
           total: progression.weeks.length,
           minutes: currentWeek.recommendedMinutes,
@@ -85,9 +85,28 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                   () => buildAllTodoBoards(getAllWeekPlans(), todoPayload, 'all', weekProgress.index),
                   [todoPayload, weekProgress.index],
                 );
-                const todoBoard = todoBoards[weekProgress.index];
-                const nextWeekNumber = weekProgress.index + 1;
-                const nextWeekUnlocked = isWeekUnlocked(nextWeekNumber, todoBoards, todoPayload);
+                let todoBoard = todoBoards[weekProgress.index];
+                let nextWeekNumber = weekProgress.index + 1;
+                let nextWeekUnlocked = isWeekUnlocked(nextWeekNumber, todoBoards, todoPayload);
+                const todoGateBlocksCurrentLessonWeek = isTodoFeatureEnabled()
+                  && lessonPath.currentWeek.week > 1
+                  && !isWeekUnlocked(lessonPath.currentWeek.week, todoBoards, todoPayload);
+                const displayLessonPathWeek = todoGateBlocksCurrentLessonWeek
+                  ? (lessonPath.weeks.find(week => week.week === lessonPath.currentWeek.week - 1) ?? lessonPath.currentWeek)
+                  : lessonPath.currentWeek;
+                if (todoGateBlocksCurrentLessonWeek) {
+                  const blockingWeek = lessonPath.currentWeek.week - 1;
+                  progression = buildLessonProgression(blockingWeek);
+                  currentWeek = progression.currentWeekDetails();
+                  weekProgress = {
+                    index: blockingWeek,
+                    total: progression.weeks.length,
+                    minutes: currentWeek.recommendedMinutes,
+                  };
+                  todoBoard = todoBoards[blockingWeek];
+                  nextWeekNumber = lessonPath.currentWeek.week;
+                  nextWeekUnlocked = false;
+                }
 
     // Phase 30: re-read the raw learner progress on mount so the daily
     // lesson label and weekly progress copy reflect the learner's actual
@@ -163,7 +182,26 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
       const freshNav = createLessonNavigator(lessons, lesson.id);
       const next = freshNav.nextLesson();
       if (next) {
-        setSelected(next.id);
+        const nextExtended = store.getExtendedProgress();
+        const nextTodoPayload: TodoPayload = {
+          todoStates: nextExtended.todoStates,
+          weekTodosInitialized: nextExtended.weekTodosInitialized,
+          todoEventCounts: nextExtended.todoEventCounts,
+          completedLessonIds: refreshed.completedLessonIds,
+        };
+        const nextTodoBoards = buildAllTodoBoards(getAllWeekPlans(), nextTodoPayload, 'all', next.week);
+        const nextLessonUnlockedByTodos = !isTodoFeatureEnabled()
+          || next.week === lesson.week
+          || isWeekUnlocked(next.week, nextTodoBoards, nextTodoPayload);
+        if (nextLessonUnlockedByTodos) {
+          setSelected(next.id);
+        } else {
+          // Preview-but-locked strategy: finishing the last lesson in a week
+          // must NOT auto-jump into the next week's completion flow while
+          // prior-week todos are still unfinished. Return to the list so the
+          // learner sees the blocking WeeklyTodoBoard instead.
+          setSelected(undefined);
+        }
       } else {
         // Course complete — bounce back to the lessons list so the
         // user sees the celebration state instead of being stuck on
@@ -255,6 +293,15 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
   if (nav.selectedLesson) {
     const lesson = nav.selectedLesson;
     const selectedLessonCompleted = (progress?.completedLessonIds ?? []).includes(lesson.id);
+    const selectedLessonUnlockedByTodos = !isTodoFeatureEnabled()
+      || selectedLessonCompleted
+      || isWeekUnlocked(lesson.week, todoBoards, todoPayload);
+    const selectedLessonLockedByTodos = !selectedLessonCompleted && !selectedLessonUnlockedByTodos;
+    const nextLesson = nav.nextLesson();
+    const nextLessonUnlockedByTodos = !nextLesson
+      || !isTodoFeatureEnabled()
+      || nextLesson.week === lesson.week
+      || isWeekUnlocked(nextLesson.week, todoBoards, todoPayload);
     return (
       <ScreenScaffold>
         <ScreenHeader title="Back" onBack={() => setSelected(undefined)} titleStyle={styles.backHeader} />
@@ -289,15 +336,23 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
             </Card>
           );
         })}
-        {selectedLessonCompleted && nav.nextLesson() ? (
+        {selectedLessonCompleted && nextLesson && nextLessonUnlockedByTodos ? (
                   <Button
-                    label={`Next: ${nav.nextLesson()!.title}`}
-                    onPress={() => setSelected(nav.nextLesson()!.id)}
+                    label={`Next: ${nextLesson.title}`}
+                    onPress={() => setSelected(nextLesson.id)}
                     variant="secondary"
                     iconRight="arrow-right"
                   />
                 ) : null}
-                {!selectedLessonCompleted ? (
+                {selectedLessonLockedByTodos ? (
+                  <Card tone="warm" shadow="none" style={styles.todoLockedCard}>
+                    <Text style={styles.todoLockedTitle}>Finish this week’s todos first</Text>
+                    <Text style={styles.completedDetailBody}>
+                      Week {lesson.week} is open for preview, but completion is locked until the previous week’s todos are done.
+                    </Text>
+                  </Card>
+                ) : null}
+                {!selectedLessonCompleted && !selectedLessonLockedByTodos ? (
                   <Button
                     label="Mark this lesson complete"
                     variant="primary"
@@ -353,11 +408,13 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                   <View style={styles.heroTextWrap}>
                     <View style={styles.heroBadge}>
                       <Text style={styles.heroBadgeText}>
-                        {dailyLesson.isCourseComplete
-                          ? 'Course complete 🎉'
-                          : dailyLesson.isWeekPreview
-                            ? 'New week unlocked!'
-                            : `Week ${weekProgress.index}`}
+                        {todoGateBlocksCurrentLessonWeek
+                          ? `Week ${weekProgress.index}`
+                          : dailyLesson.isCourseComplete
+                            ? 'Course complete 🎉'
+                            : dailyLesson.isWeekPreview
+                              ? 'New week unlocked!'
+                              : `Week ${weekProgress.index}`}
                       </Text>
                     </View>
                     <Text style={styles.heroTitle}>
@@ -373,7 +430,12 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                     {dailyLesson.lessonsDoneThisWeek} of {dailyLesson.lessonsTotalThisWeek} lessons done. Keep reviewing!
                   </Text>
                 ) : null}
-                {dailyLesson.isWeekPreview ? (
+                {todoGateBlocksCurrentLessonWeek ? (
+                  <Text style={styles.heroMeta}>
+                    Finish Week {weekProgress.index}'s todos to unlock Week {nextWeekNumber}.
+                  </Text>
+                ) : null}
+                {dailyLesson.isWeekPreview && !todoGateBlocksCurrentLessonWeek ? (
                   <Text style={styles.heroMeta}>
                     You finished Week {weekProgress.index - 1}. Tap below to start Week {weekProgress.index}.
                   </Text>
@@ -415,11 +477,11 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                 <Text style={styles.sectionTitle}>Lesson path</Text>
                 <Card shadow="card">
                   <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.pathTitle}>Week {lessonPath.currentWeek.week}</Text>
-                    <Text style={styles.pathMeta}>{lessonPath.currentWeek.completedCount} of {lessonPath.currentWeek.totalCount} done</Text>
+                    <Text style={styles.pathTitle}>Week {displayLessonPathWeek.week}</Text>
+                    <Text style={styles.pathMeta}>{displayLessonPathWeek.completedCount} of {displayLessonPathWeek.totalCount} done</Text>
                   </View>
                   <View style={styles.lessonPathList}>
-                    {lessonPath.currentWeek.lessons.map(item => (
+                    {displayLessonPathWeek.lessons.map(item => (
                       <LessonPathRow key={item.lesson.id} item={item} onOpen={() => item.state === 'locked' ? undefined : setSelected(item.lesson.id)} />
                     ))}
                   </View>
@@ -428,16 +490,20 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                 <View style={styles.ctaWrapper}>
                         <Button
                           label={
-                            dailyLesson.isCourseComplete
-                              ? 'Review lessons 🎉'
-                              : dailyLesson.isWeekPreview
-                                ? `Start Week ${weekProgress.index}`
-                                : `Continue ${dailyLesson.lesson.title}`
+                            todoGateBlocksCurrentLessonWeek
+                              ? `Finish Week ${weekProgress.index}'s todos to unlock Week ${nextWeekNumber}`
+                              : dailyLesson.isCourseComplete
+                                ? 'Review lessons 🎉'
+                                : dailyLesson.isWeekPreview
+                                  ? `Start Week ${weekProgress.index}`
+                                  : `Continue ${dailyLesson.lesson.title}`
                           }
                     onPress={() => {
+                                if (todoGateBlocksCurrentLessonWeek) return;
                                 setSelected(dailyLesson.lesson.id);
                               }}
-                    iconRight="arrow-right"
+                    disabled={todoGateBlocksCurrentLessonWeek}
+                    iconRight={todoGateBlocksCurrentLessonWeek ? undefined : 'arrow-right'}
                     variant="secondary"
                     testID="learn-continue-button"
                   />
@@ -605,6 +671,8 @@ const styles = StyleSheet.create({
   lessonPathAction: { fontSize: ds.type.caption, color: ds.colors.primary, fontWeight: '900', marginTop: ds.spacing.xs },
   completedDetailTitle: { fontSize: ds.type.body, fontWeight: '900', color: ds.colors.success },
   completedDetailBody: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.xs, lineHeight: 18 },
+  todoLockedCard: { gap: ds.spacing.xs },
+  todoLockedTitle: { fontSize: ds.type.body, fontWeight: '900', color: ds.colors.warmInkStrong },
   toolRow: {
     flexDirection: 'row', alignItems: 'center', gap: ds.spacing.sm,
     backgroundColor: ds.colors.surface, padding: ds.spacing.sm,

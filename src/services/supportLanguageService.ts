@@ -8,6 +8,12 @@ export interface TranslatablePhrase {
   filipino: string;
 }
 
+export interface OptionalTranslatablePhrase {
+  english: string;
+  vietnamese?: string;
+  filipino?: string;
+}
+
 export interface SupportTranslation {
   label: string;
   text: string;
@@ -55,6 +61,14 @@ export function getVisibleTranslations<T extends TranslatablePhrase>(phrase: T, 
     seen.add(key);
     return true;
   });
+}
+
+export function getVisibleOptionalTranslations<T extends OptionalTranslatablePhrase>(phrase: T, language: LearnerLanguage): SupportTranslation[] {
+  return getVisibleTranslations({
+    english: phrase.english,
+    vietnamese: phrase.vietnamese ?? '',
+    filipino: phrase.filipino ?? '',
+  }, language);
 }
 
 export function getSecondaryTranslations<T extends TranslatablePhrase>(phrase: T, language: LearnerLanguage): SupportTranslation[] {
