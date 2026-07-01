@@ -15,7 +15,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { DailyRushScreen } from './src/screens/DailyRushScreen';
 import { SenseiReviewScreen } from './src/screens/SenseiReviewScreen';
 import { TabBar } from './src/components/TabBar';
-import { CompletionToast } from './src/components/CompletionToast';
+import { CompletionToast, LessonErrorToast } from './src/components/CompletionToast';
 import { ds } from './src/theme/designSystem';
 import type { AppTab } from './src/types/navigation';
 import type { LearnerLanguage } from './src/types/onboarding';
@@ -325,6 +325,7 @@ export default function App() {
           <View style={styles.body}>{render(tab, supportLanguage, () => setShowFeedback(true), () => setShowSources(true), () => setShowSettings(true), () => setShowProfile(true), () => setTab('Lessons'), onReviewDue, () => setShowDailyRush(true), dueReviewMode)}</View>
           <TabBar items={bottomTabs} activeId={tab} onSelect={onTabChange} />
           <CompletionToast />
+          <LessonErrorToast />
         </AppProviders>
       </AppShell>
     );

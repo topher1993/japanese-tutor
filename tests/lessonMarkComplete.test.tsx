@@ -34,8 +34,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..');
+const APP_PATH = join(ROOT, 'App.tsx');
 const SCREEN_PATH = join(ROOT, 'src', 'screens', 'LessonsScreen.tsx');
 const TOAST_PATH = join(ROOT, 'src', 'components', 'CompletionToast.tsx');
+
+function loadAppSource(): string {
+  return readFileSync(APP_PATH, 'utf8');
+}
 
 function loadScreenSource(): string {
   return readFileSync(SCREEN_PATH, 'utf8');
@@ -52,7 +57,7 @@ describe('phase 39 — LessonsScreen mark-complete button (source contract)', ()
       // Pin the button label text in source — guarantees the incomplete
       // branch is still being rendered (as opposed to being swapped for
       // a "Lesson complete ✓" terminal state).
-      expect(src).toContain('label="Mark this lesson complete"');
+      expect(src).toContain('"Mark this lesson complete"');
       // Locate the Button block and assert its onPress routes to the
       // phase-39 named handler. Using a non-greedy match anchored on
       // the testID so we don't accidentally match a different button
@@ -72,13 +77,27 @@ describe('phase 39 — LessonsScreen mark-complete button (source contract)', ()
       // notifyLessonError('store-unavailable') before returning.
       expect(src).toMatch(/if\s*\(\s*!store\s*\)/);
       expect(src).toContain("notifyLessonError({ kind: 'store-unavailable'");
-      // And the button must be visually gated while !store so the user
-      // can rarely reach that branch via the UI.
+      // And the button must NOT be disabled only because !store. If the
+      // store is unavailable, the tap must reach handleMarkComplete so
+      // notifyLessonError can tell the user what happened instead of the
+      // CTA looking dead.
       const buttonBlock = src.match(
         /<Button\b[\s\S]*?testID="lesson-mark-complete-button"[\s\S]*?\/>/,
       );
       expect(buttonBlock, 'mark-complete Button block missing').not.toBeNull();
-      expect(buttonBlock![0]).toMatch(/disabled=\{!store\s*\|\|\s*markInFlight\}/);
+      expect(buttonBlock![0]).toMatch(/disabled=\{markInFlight\}/);
+      expect(buttonBlock![0]).not.toMatch(/disabled=\{!store\s*\|\|\s*markInFlight\}/);
+    });
+
+    it('does not show a green check icon on the incomplete-state CTA', () => {
+      const src = loadScreenSource();
+      const buttonBlock = src.match(
+        /<Button\b[\s\S]*?testID="lesson-mark-complete-button"[\s\S]*?\/>/,
+      );
+      expect(buttonBlock, 'mark-complete Button block missing').not.toBeNull();
+      expect(buttonBlock![0]).not.toContain('iconRight="check"');
+      expect(buttonBlock![0]).not.toContain('iconRight={markInFlight ? undefined : "check"}');
+      expect(buttonBlock![0]).toContain('Saving lesson...');
     });
   });
 
@@ -181,5 +200,12 @@ describe('phase 39 — CompletionToast error channel', () => {
     // future refactor that only handles store-unavailable.
     expect(src).toMatch(/kind:\s*['"]store-unavailable['"]/);
     expect(src).toMatch(/kind:\s*['"]completion-failed['"]/);
+  });
+
+  it('mounts LessonErrorToast in App so notifyLessonError reaches the user', () => {
+    const src = loadAppSource();
+    expect(src).toContain("import { CompletionToast, LessonErrorToast } from './src/components/CompletionToast';");
+    expect(src).toContain('<CompletionToast />');
+    expect(src).toContain('<LessonErrorToast />');
   });
 });

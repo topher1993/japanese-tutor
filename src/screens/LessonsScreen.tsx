@@ -142,9 +142,8 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
   //
   //   (A) ready===true but store===null on first paint → handler bails
   //       early and calls notifyLessonError('store-unavailable'). The
-  //       button is rendered `disabled` while !store so this path is
-  //       a defensive fallback for synchronous taps that slip past
-  //       the disable gate.
+  //       button stays tappable so this path actually reaches the
+  //       user-facing error toast instead of looking like a dead CTA.
   //
   //   (B) completeCurrentLesson throws (e.g. inside the
   //       saveExtendedProgress cast on cold-start repo shapes) →
@@ -354,22 +353,21 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                 ) : null}
                 {!selectedLessonCompleted && !selectedLessonLockedByTodos ? (
                   <Button
-                    label="Mark this lesson complete"
+                    label={markInFlight ? "Saving lesson..." : "Mark this lesson complete"}
                     variant="primary"
-                    // Phase 39: drop the right-edge check icon while the
-                    // request is in flight so the user has a visual cue
-                    // that the tap landed even before the success/error
-                    // toast appears.
-                    iconRight={markInFlight ? undefined : "check"}
+                    // Phase 40: do NOT show the green check on the
+                    // incomplete-state CTA. The check glyph made the
+                    // button look completed while still saying "Mark
+                    // this lesson complete", which masked whether a
+                    // tap had landed. The completed branch below owns
+                    // the success/check state.
                     onPress={handleMarkComplete}
-                    // Phase 39: disable when the store isn't ready OR
-                    // while a completion is mid-flight. The underlying
-                    // Pressable respects `disabled`, so this addresses
-                    // candidate (A) directly — a tap before provider
-                    // resolution can no longer reach a synchronous
-                    // try/catch with a null store. The handler also
-                    // re-checks `store` as a belt-and-braces defense.
-                    disabled={!store || markInFlight}
+                    // Phase 40: only disable while the completion
+                    // request is actually in flight. If `store` is not
+                    // ready, keep the CTA tappable so handleMarkComplete
+                    // can surface `store-unavailable` via LessonErrorToast
+                    // instead of becoming a silent disabled button.
+                    disabled={markInFlight}
                     testID="lesson-mark-complete-button"
                   />
                 ) : (

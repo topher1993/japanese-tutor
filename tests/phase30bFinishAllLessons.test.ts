@@ -95,7 +95,7 @@ describe('Phase 30b finishing the last lesson', () => {
     const src = readFileSync(join(process.cwd(), 'src/screens/LessonsScreen.tsx'), 'utf8');
     // The Mark-complete button's onPress must invoke the store AND
     // re-read progress, independent of whether nav.nextLesson() is null.
-    const markComplete = src.match(/<Button[\s\S]*?label="Mark this lesson complete"[\s\S]*?\/>/);
+    const markComplete = src.match(/<Button[\s\S]*?"Mark this lesson complete"[\s\S]*?\/>/);
     expect(markComplete, 'Mark-complete button missing').not.toBeNull();
     // The button's onPress must reference the named handler (Phase 39:
     // hoisted out of the JSX so the handler hook can sit at the top
