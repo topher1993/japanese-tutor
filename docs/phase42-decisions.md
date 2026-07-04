@@ -72,10 +72,11 @@
 | Cold-start new-install test | ✅ Shipped (`a7dcd73`) |
 | Tusk QC addendum | ✅ Shipped (`c4140f5`) |
 | Production log guard | ✅ Shipped (`2b77cd3`) |
+| Log guard test extension to App.tsx + 4 patches | ✅ Shipped (`8667204`) |
 | Stale deps bump (RN/React patch) | ✅ Shipped (`049eb20`) |
 | `.npmrc` + `graphify-out` gitignore | ✅ Shipped (`9ae0e63`) |
+| Todo blob schema-version envelope (P1-5) | ✅ Shipped (`206206a`) |
+| App.tsx split (P1-1) | 🚫 **DEFERRED** — see `.hermes/work-cards/phase42-p1-1-app-split-deferred.md` |
 | Vietnamese content quality review | 🟡 Subagent running |
-| `ux-simplification` parked card refresh | ✅ On disk |
-| P1-6 todo gate UX (false positive) | ✅ Already shipped; documented |
 
-**5 commits ahead of Phase 41 close-out. 696 tests pass.**
+**6+ commits ahead of Phase 41 close-out. 700 tests pass.**
