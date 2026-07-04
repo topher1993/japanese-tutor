@@ -6,7 +6,17 @@ import { buildLessonInteractionPath } from '../src/services/lessonInteractionPat
 import { completeLesson, createInitialProgress } from '../src/services/progressService';
 import type { LearnerProgress } from '../src/types/progress';
 
+/**
+ * Phase 43 — LessonsScreen refactor: the `LessonPathRow` sub-component
+ * (which uses `item.primaryActionLabel`) was extracted from
+ * `src/screens/LessonsScreen.tsx` to `src/screens/lessons/LessonPathRow.tsx`.
+ * The 'Lessons screen renders the current-week path' test now scans both
+ * files. A regression guard is added so LessonsScreen.tsx doesn't re-inline
+ * the LessonPathRow JSX in the future.
+ */
 const lessonsSource = readFileSync('src/screens/LessonsScreen.tsx', 'utf8');
+const lessonPathRowSource = readFileSync('src/screens/lessons/LessonPathRow.tsx', 'utf8');
+const lessonsScreenShell = lessonsSource + '\n\n' + lessonPathRowSource;
 const lessons = getAllLessons();
 const weekOne = lessons.filter(lesson => lesson.week === 1);
 
@@ -73,13 +83,17 @@ describe('Phase 38 Lessons interaction path', () => {
   });
 
   it('Lessons screen renders the current-week path and uses state-driven review/lock labels', () => {
-    expect(lessonsSource).toContain('buildLessonInteractionPath');
-    expect(lessonsSource).toContain('Lesson path');
-    expect(lessonsSource).toContain('item.primaryActionLabel');
-    expect(lessonsSource).toContain('selectedLessonCompleted && nextLesson && nextLessonUnlockedByTodos');
-    expect(lessonsSource).toContain('selectedLessonLockedByTodos');
-    expect(lessonsSource).toContain('Finish this week’s todos first');
-    expect(lessonsSource).toContain('Completed');
-    expect(lessonsSource).toContain('item.state === \'locked\'');
+    // Phase 43: 'item.primaryActionLabel' moved to src/screens/lessons/LessonPathRow.tsx
+    expect(lessonsScreenShell).toContain('buildLessonInteractionPath');
+    expect(lessonsScreenShell).toContain('Lesson path');
+    expect(lessonsScreenShell).toContain('item.primaryActionLabel');
+    expect(lessonsScreenShell).toContain('selectedLessonCompleted && nextLesson && nextLessonUnlockedByTodos');
+    expect(lessonsScreenShell).toContain('selectedLessonLockedByTodos');
+    expect(lessonsScreenShell).toContain('Finish this week’s todos first');
+    expect(lessonsScreenShell).toContain('Completed');
+    expect(lessonsScreenShell).toContain('item.state === \'locked\'');
+    // Regression guard: LessonsScreen.tsx must NOT contain the inline
+    // LessonPathRow JSX (it lives in src/screens/lessons/LessonPathRow.tsx now).
+    expect(lessonsSource).not.toContain('item.primaryActionLabel');
   });
 });
