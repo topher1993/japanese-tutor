@@ -47,6 +47,7 @@ Thumbs.db
 *.tgz
 .env
 .env.*
+!.env.example
 
 # ---- Local Hermes / agent runtime scratch --------------------------------
 .hermes/runs/
