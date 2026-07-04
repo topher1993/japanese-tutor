@@ -27,6 +27,7 @@ import { JishoLink } from '../components/JishoLink';
 import { WeeklyTodoBoardView } from '../components/WeeklyTodoBoardView';
 import { LessonPathRow } from './lessons/LessonPathRow';
 import { ToolRow } from './lessons/ToolRow';
+import { useMarkComplete } from './lessons/useMarkComplete';
 import { useLearningContext } from '../services/learningContext';
 import { isTodoFeatureEnabled } from '../services/practiceProgressStore';
 import { getAllWeekPlans } from '../services/weeklyPlansService';
@@ -52,12 +53,7 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
     let progression = buildLessonProgression(lessonPath.currentWeek.week);
     const [showKanji, setShowKanji] = useState(false);
     const [showMore, setShowMore] = useState(false);
-    // Phase 39 (Igris mark-complete fix) — local in-flight flag so we
-    // disable the button + drop the right-edge check icon while the
-    // completeCurrentLesson promise is settling. Stored separately from
-    // any global ready flag because cold-start ready===true can co-exist
-    // with the store still being null on the very first render pass.
-    const [markInFlight, setMarkInFlight] = useState(false);
+    // Phase 43: markInFlight state moved into useMarkComplete hook.
     let currentWeek = progression.currentWeekDetails();
         let weekProgress = {
           index: lessonPath.currentWeek.week,
@@ -138,95 +134,14 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
   // attaches it to the button when `selectedLesson` exists.
   const selectedLesson = nav.selectedLesson;
 
-  // Phase 39 (Igris mark-complete fix) — explicit, named handler so the
-  // failure surfaces reach the user instead of being eaten by a silent
-  // catch. Defends against BOTH root-cause candidates:
-  //
-  //   (A) ready===true but store===null on first paint → handler bails
-  //       early and calls notifyLessonError('store-unavailable'). The
-  //       button stays tappable so this path actually reaches the
-  //       user-facing error toast instead of looking like a dead CTA.
-  //
-  //   (B) completeCurrentLesson throws (e.g. inside the
-  //       saveExtendedProgress cast on cold-start repo shapes) →
-  //       catch block now re-raises by emitting a structured error
-  //       toast rather than swallowing.
-  const handleMarkComplete = React.useCallback(async () => {
-    const lesson = selectedLesson;
-    if (!lesson) return;
-    if (!store) {
-      // Defensive: the Button is disabled when !store, but keep this
-      // branch so a synchronous tap during a hot reload still surfaces.
-      notifyLessonError({ kind: 'store-unavailable', lessonId: lesson.id });
-      return;
-    }
-    setMarkInFlight(true);
-    try {
-      await store.completeCurrentLesson(
-        lesson.id,
-        100,
-        new Date().toISOString().slice(0, 10),
-      );
-      // Phase 30b: always re-read progress and fire the completion toast,
-      // even when there is no next lesson. The previous shape
-      // `if (next) setSelected(next.id)` silently did nothing on the
-      // last lesson, leaving the user staring at the same screen with
-      // no signal that anything happened.
-      const refreshed = await store.getProgress();
-      setProgress(refreshed);
-      notifyLessonCompleted({
-        message: `✓ ${lesson.title}`,
-        detail: `${refreshed.completedLessonIds.length} of ${lessons.length} lessons done total.`,
-      });
-      // Use a fresh navigator closure over the freshly-set `selected`
-      // to avoid capturing a stale snapshot.
-      const freshNav = createLessonNavigator(lessons, lesson.id);
-      const next = freshNav.nextLesson();
-      if (next) {
-        const nextExtended = store.getExtendedProgress();
-        const nextTodoPayload: TodoPayload = {
-          todoStates: nextExtended.todoStates,
-          weekTodosInitialized: nextExtended.weekTodosInitialized,
-          todoEventCounts: nextExtended.todoEventCounts,
-          completedLessonIds: refreshed.completedLessonIds,
-        };
-        const nextTodoBoards = buildAllTodoBoards(getAllWeekPlans(), nextTodoPayload, 'all', next.week);
-        const nextLessonUnlockedByTodos = !isTodoFeatureEnabled()
-          || next.week === lesson.week
-          || isWeekUnlocked(next.week, nextTodoBoards, nextTodoPayload);
-        if (nextLessonUnlockedByTodos) {
-          setSelected(next.id);
-        } else {
-          // Preview-but-locked strategy: finishing the last lesson in a week
-          // must NOT auto-jump into the next week's completion flow while
-          // prior-week todos are still unfinished. Return to the list so the
-          // learner sees the blocking WeeklyTodoBoard instead.
-          setSelected(undefined);
-        }
-      } else {
-        // Course complete — bounce back to the lessons list so the
-        // user sees the celebration state instead of being stuck on
-        // this detail view.
-        setSelected(undefined);
-      }
-    } catch (err) {
-      // Phase 39: never swallow. Emit a structured error so
-      // LessonErrorToast (and any other subscriber) can show the
-      // user what went wrong. The toast fires for both code paths
-      // (cold-start race + repo.cast throw) without further work.
-      notifyLessonError({
-        kind: 'completion-failed',
-        lessonId: lesson.id,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    } finally {
-      setMarkInFlight(false);
-    }
-    // Phase 39: deps tracked for selectedLesson + store so the handler
-    // sees fresh values; other closures (`lessons`, `setProgress`,
-    // `setSelected`) are stable or derived inside the closure body.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLesson, store]);
+  // Phase 43: handleMarkComplete moved to useMarkComplete hook.
+  const { markComplete: handleMarkComplete, markInFlight } = useMarkComplete({
+    selectedLesson,
+    store,
+    lessons,
+    setProgress,
+    setSelected,
+  });
 
   if (showExamples) {
     return (

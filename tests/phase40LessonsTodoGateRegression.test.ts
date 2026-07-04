@@ -55,21 +55,25 @@ describe('phase 40 — Lessons tab todo-gate regression', () => {
   });
 
   it('completion handler gates cross-week auto-advance through isWeekUnlocked', () => {
-    const src = loadLessonsScreen();
-    const handler = src.match(
-      /handleMarkComplete\s*=\s*React\.useCallback\([\s\S]*?\},\s*\[selectedLesson\s*,\s*store\]\)/,
-    );
-    expect(handler, 'handleMarkComplete useCallback body not found').not.toBeNull();
-    const body = handler![0];
+      // Phase 43: handleMarkComplete body moved to src/screens/lessons/useMarkComplete.ts.
+      const hookSrc = readFileSync(join(ROOT, 'src', 'screens', 'lessons', 'useMarkComplete.ts'), 'utf8');
+      const handler = hookSrc.match(
+        /markComplete\s*=\s*useCallback\([\s\S]*?\}\s*,\s*\[selectedLesson\s*,\s*store[\s\S]*?\]\)/,
+      );
+      expect(handler, 'markComplete useCallback body not found').not.toBeNull();
+      const body = handler![0];
 
-    expect(body).toContain('const nextTodoPayload: TodoPayload');
-    expect(body).toContain('const nextTodoBoards = buildAllTodoBoards');
-    expect(body).toContain('const nextLessonUnlockedByTodos');
-    expect(body).toContain('next.week === lesson.week');
-    expect(body).toContain('isWeekUnlocked(next.week, nextTodoBoards, nextTodoPayload)');
-    expect(body).toMatch(/if\s*\(\s*nextLessonUnlockedByTodos\s*\)\s*\{[\s\S]*?setSelected\(next\.id\)/);
-    expect(body).toMatch(/else\s*\{[\s\S]*?setSelected\(undefined\)/);
-  });
+      expect(body).toContain('const nextTodoPayload: TodoPayload');
+      expect(body).toContain('const nextTodoBoards = buildAllTodoBoards');
+      expect(body).toContain('const nextLessonUnlockedByTodos');
+      expect(body).toContain('next.week === lesson.week');
+      expect(body).toContain('isWeekUnlocked(next.week, nextTodoBoards, nextTodoPayload)');
+      expect(body).toMatch(/if\s*\(\s*nextLessonUnlockedByTodos\s*\)\s*\{[\s\S]*?setSelected\(next\.id\)/);
+      expect(body).toMatch(/else\s*\{[\s\S]*?setSelected\(undefined\)/);
+      // Regression guard: the inline useCallback must NOT be re-added to LessonsScreen.tsx
+      const screenSrc = readFileSync(LESSONS_SCREEN, 'utf8');
+      expect(screenSrc).not.toMatch(/handleMarkComplete\s*=\s*React\.useCallback\(/);
+    });
 
   it('next-week preview detail is read-only until prior-week todos unlock it', () => {
     const src = loadLessonsScreen();

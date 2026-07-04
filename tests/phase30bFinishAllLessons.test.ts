@@ -102,10 +102,16 @@ describe('Phase 30b finishing the last lesson', () => {
     // of the component). The handler itself must call the store.
     expect(markComplete![0]).toContain('onPress={handleMarkComplete}');
     // Anchored on the deps array to grab the full useCallback body.
-    const handler = src.match(
-      /handleMarkComplete\s*=\s*React\.useCallback\([\s\S]*?\},\s*\[selectedLesson\s*,\s*store\]\)/,
-    );
-    expect(handler, 'handleMarkComplete useCallback body not found').not.toBeNull();
-    expect(handler![0]).toContain('store.completeCurrentLesson');
-  });
+        // Phase 43: handleMarkComplete moved to src/screens/lessons/useMarkComplete.ts.
+        // Scan both files. The button is still in LessonsScreen.tsx (the JSX wiring);
+        // the handler body is now in useMarkComplete.ts.
+        const hookSrc = readFileSync(join(process.cwd(), 'src/screens/lessons/useMarkComplete.ts'), 'utf8');
+        const handler = hookSrc.match(
+          /markComplete\s*=\s*useCallback\([\s\S]*?\}\s*,\s*\[selectedLesson\s*,\s*store[\s\S]*?\]\)/,
+        );
+        expect(handler, 'markComplete useCallback body not found').not.toBeNull();
+        expect(handler![0]).toContain('store.completeCurrentLesson');
+        // Regression guard: the useCallback body must NOT be re-inlined in LessonsScreen.tsx
+        expect(src).not.toMatch(/handleMarkComplete\s*=\s*React\.useCallback\(/);
+      });
 });
