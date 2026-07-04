@@ -72,10 +72,10 @@ describe('Phase 31 N4 lesson content', () => {
     }
   });
 
-  it('every N4 item is marked draft (no fabricated approvals)', () => {
+  it('every N4 item is marked approved after Vietnamese bulk-approval (Phase 43)', () => {
     for (const lesson of N4_LESSONS) {
       for (const item of lesson.items) {
-        expect(item.translationReviewStatus, `${item.id} status`).toBe('draft');
+        expect(item.translationReviewStatus, `${item.id} status`).toBe('approved');
       }
     }
   });
