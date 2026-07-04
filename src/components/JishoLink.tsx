@@ -34,8 +34,7 @@ export function JishoLink({ japanese, variant = 'compact', testID }: JishoLinkPr
       }
       await Linking.openURL(url);
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('[JishoLink] failed to open URL', err);
+      if (__DEV__) console.warn('[JishoLink] failed to open URL', err);
       Alert.alert('Cannot open browser', `Jisho link: ${url}`);
     }
   }

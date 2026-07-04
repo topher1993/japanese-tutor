@@ -98,10 +98,7 @@ export function createOnboardingPreferenceStore(storage: OnboardingStorageAdapte
         if (!raw) return getDefaultOnboardingPreference();
         return normalizePreference(JSON.parse(raw));
       } catch (err) {
-        if (typeof __DEV__ === 'undefined' || __DEV__) {
-          // eslint-disable-next-line no-console
-          console.warn('[onboarding] failed to load preference, using default', err);
-        }
+        if (__DEV__) console.warn('[onboarding] failed to load preference, using default', err);
         return getDefaultOnboardingPreference();
       }
     },
@@ -111,10 +108,7 @@ export function createOnboardingPreferenceStore(storage: OnboardingStorageAdapte
         try {
           await storage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(normalized));
         } catch (err) {
-          if (typeof __DEV__ === 'undefined' || __DEV__) {
-                    // eslint-disable-next-line no-console
-                    console.warn('[onboarding] failed to save preference', err);
-                  }
+          if (__DEV__) console.warn('[onboarding] failed to save preference', err);
         }
       }
       return normalized;

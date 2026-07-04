@@ -119,8 +119,7 @@ export function ExampleSentencesScreen({ supportLanguage = 'en' }: { supportLang
         try {
           await practiceStore.markExampleViewed(weekNumber, sentenceId);
         } catch (err) {
-          // eslint-disable-next-line no-console
-          console.warn('[example-sentences] failed to record view', err);
+          if (__DEV__) console.warn('[example-sentences] failed to record view', err);
         }
       }
     })();

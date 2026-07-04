@@ -74,8 +74,7 @@ export function QuizScreen({ supportLanguage = 'en' }: { supportLanguage?: Learn
         }
         await practiceStore.recordQuizAttempt(weekNumber, score);
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('[quiz] failed to record todo completion', err);
+        if (__DEV__) console.warn('[quiz] failed to record todo completion', err);
       }
     })();
   }, [result, practiceStore, quizRecordedFingerprint]);

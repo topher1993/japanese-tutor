@@ -6,6 +6,10 @@ import { createSqliteLearningRepository, type PersistentLearningRepository, type
 import { createTablesSql } from '../db/schema';
 import { createPersistentSrsStore, createInMemorySrsStore, type PersistentSpacedRepetitionScheduler } from './persistentSrsStore';
 
+// React Native injects `__DEV__` at runtime; declare it for TS so we don't
+// get an implicit-any error when guarding console.warn calls.
+declare const __DEV__: boolean | undefined;
+
 interface LearningContextValue {
   /** True once the underlying repository is open and ready. */
   ready: boolean;
@@ -88,8 +92,7 @@ export function LearningRepositoryProvider({ children }: { children: React.React
         if (cancelled) return;
         setValue({ ready: true, durable: true, store, srs, repo, resetAll: makeResetAll(store, srs) });
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('[learning] repo open failed; falling back to in-memory', err);
+        if (__DEV__) console.warn('[learning] repo open failed; falling back to in-memory', err);
         const repo = createInMemoryLearningRepository();
         const store = createPracticeProgressStore(toPersistentShape(repo));
         const srs = createInMemorySrsStore();

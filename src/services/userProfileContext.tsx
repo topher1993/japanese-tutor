@@ -7,6 +7,10 @@ import { createInMemoryUserProfileRepository, createSqliteUserProfileRepository,
 import type { SqliteLikeDatabase } from '../repositories/sqliteLearningRepository';
 import type { UserProfile, UserProfilePatch } from '../types/userProfile';
 
+// React Native injects `__DEV__` at runtime; declare it for TS so we don't
+// get an implicit-any error when guarding console.warn calls.
+declare const __DEV__: boolean | undefined;
+
 interface UserProfileContextValue {
   ready: boolean;
   durable: boolean;
@@ -79,8 +83,7 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
         if (cancelled) return;
         setValue(makeContextValue(service, profile, Platform.OS !== 'web'));
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('[profile] open failed; falling back to in-memory', err);
+        if (__DEV__) console.warn('[profile] open failed; falling back to in-memory', err);
         const service = createUserProfileService(createInMemoryUserProfileRepository(), createInMemoryKeyValueStorage());
         const profile = await service.load();
         if (cancelled) return;

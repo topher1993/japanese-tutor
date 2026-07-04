@@ -6,6 +6,10 @@ import { resolveCardPool, resolveKanjiSet } from './weeklyCardPoolService';
 import { recomputeTodoStatesForWeek, type TodoPayload } from './weeklyTodoService';
 import type { TodoState, TodoEventCounts, WeekTodo } from '../types/weeklyTodo';
 
+// React Native injects `__DEV__` at runtime; declare it for TS so we don't
+// get an implicit-any error when guarding console.warn calls.
+declare const __DEV__: boolean | undefined;
+
 export type PracticeProgressStore = ReturnType<typeof createPracticeProgressStore>;
 
 // Phase 37g — the weekly-todo gate ships ON by default. Phase 37a–37h
@@ -90,8 +94,7 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
             };
           }
         } catch (err) {
-          // eslint-disable-next-line no-console
-          console.warn('[practiceProgressStore] failed to hydrate extended cache from disk', err);
+          if (__DEV__) console.warn('[practiceProgressStore] failed to hydrate extended cache from disk', err);
         }
       })();
     }

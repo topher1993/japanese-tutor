@@ -21,8 +21,7 @@ import {
 
 function safeToggle(next: boolean): boolean {
   if (typeof setTodoFeatureEnabled !== 'function') {
-    // eslint-disable-next-line no-console
-    console.warn(
+    if (__DEV__) console.warn(
       '[dev-menu] setTodoFeatureEnabled is unavailable — no-op. ' +
         'Are you running outside the app context?',
     );
@@ -36,8 +35,7 @@ function safeToggle(next: boolean): boolean {
 export function enableWeeklyTodos(): boolean {
   const ok = safeToggle(true);
   if (ok) {
-    // eslint-disable-next-line no-console
-    console.warn('[dev-menu] enabled weekly todos');
+    if (__DEV__) console.warn('[dev-menu] enabled weekly todos');
   }
   return ok;
 }
@@ -46,8 +44,7 @@ export function enableWeeklyTodos(): boolean {
 export function disableWeeklyTodos(): boolean {
   const ok = safeToggle(false);
   if (ok) {
-    // eslint-disable-next-line no-console
-    console.warn('[dev-menu] disabled weekly todos');
+    if (__DEV__) console.warn('[dev-menu] disabled weekly todos');
   }
   return ok;
 }

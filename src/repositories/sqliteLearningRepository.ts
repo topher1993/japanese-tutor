@@ -65,8 +65,7 @@ function safeParseJson<T>(raw: unknown, fallback: T, warnContext: string): T {
     const parsed = JSON.parse(raw) as T;
     return parsed == null ? fallback : parsed;
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.warn(`[phase37a] failed to parse ${warnContext}; falling back to ${JSON.stringify(fallback)}`, error);
+    if (__DEV__) console.warn(`[phase37a] failed to parse ${warnContext}; falling back to ${JSON.stringify(fallback)}`, error);
     return fallback;
   }
 }
@@ -161,8 +160,7 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
         }
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('[sqliteLearningRepository] failed to migrate progress todo columns', err);
+      if (__DEV__) console.warn('[sqliteLearningRepository] failed to migrate progress todo columns', err);
     }
   }
 

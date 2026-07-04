@@ -156,8 +156,7 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
           }
           await practiceStore.recordFlashcardReview(weekNumber, current.card.id);
         } catch (err) {
-          // eslint-disable-next-line no-console
-          console.warn('[daily-rush] failed to record flashcard review', err);
+          if (__DEV__) console.warn('[daily-rush] failed to record flashcard review', err);
         }
       })();
     }
@@ -196,8 +195,7 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
           }
           await practiceStore.recordDailyRushComplete(weekNumber, date);
         } catch (err) {
-          // eslint-disable-next-line no-console
-          console.warn('[daily-rush] failed to record todo completion', err);
+          if (__DEV__) console.warn('[daily-rush] failed to record todo completion', err);
         }
       })();
     }
@@ -233,8 +231,7 @@ export function DailyRushScreen({ supportLanguage = 'en', onBack }: { supportLan
           }
           await practiceStore.recordFlashcardReview(weekNumber, current.card.id);
         } catch (err) {
-          // eslint-disable-next-line no-console
-          console.warn('[daily-rush] failed to record flashcard review', err);
+          if (__DEV__) console.warn('[daily-rush] failed to record flashcard review', err);
         }
       })();
     }

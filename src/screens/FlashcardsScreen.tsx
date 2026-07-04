@@ -212,8 +212,7 @@ export function FlashcardsScreen({
                     await store.recordKanjiGood(weekNumber, card.id);
                   }
                 } catch (err) {
-                  // eslint-disable-next-line no-console
-                  console.warn('[FlashcardsScreen] failed to record flashcard review', err);
+                  if (__DEV__) console.warn('[FlashcardsScreen] failed to record flashcard review', err);
                 }
               })();
             }
@@ -233,8 +232,7 @@ export function FlashcardsScreen({
           // cases) crash the screen — surface them through the feedback path
           // instead. The persistent store hydrates from SQLite on its own;
           // this catch is the last-resort net.
-          // eslint-disable-next-line no-console
-          console.warn('[FlashcardsScreen] srs.review failed', err);
+          if (__DEV__) console.warn('[FlashcardsScreen] srs.review failed', err);
         });
         recordPractice();
     setLastRating({ rating, cardId: card.id });
