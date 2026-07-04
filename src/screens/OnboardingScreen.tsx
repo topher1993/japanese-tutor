@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { advanceOnboarding, getCurrentOnboardingStep, getDefaultOnboardingState, selectLearnerLanguage } from '../services/onboardingService';
+// Phase 44.4: per-step view events power the PostHog onboarding funnel.
+// Each step transition fires `onboarding_step_viewed` so we can
+// measure drop-off at each step (welcome → language → workplace-goal
+// → daily-habit). No PII in the payload — step is a typed enum.
+import { track } from '../services/analyticsService';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
@@ -31,6 +36,18 @@ export function OnboardingScreen({ onDone, initialStepId }: { onDone: (language:
   const step = getCurrentOnboardingStep(state);
   const visual = STEP_VISUALS[step.id as OnboardingStepId];
   const illustrationScene = STEP_ILLUSTRATION[step.id as OnboardingStepId];
+
+  // Phase 44.4: fire onboarding_step_viewed when the user arrives at
+  // a step. Keyed on step.id so each step fires exactly once per
+  // visit (no re-fires on re-render). The funnel in PostHog uses
+  // these events to compute drop-off per step.
+  useEffect(() => {
+    track('onboarding_step_viewed', { step: step.id });
+    // We intentionally depend only on step.id — track() is no-op in
+    // test mode and the dep on step.id is enough to catch every
+    // step transition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step.id]);
 
   function next() {
     const advanced = advanceOnboarding(state);

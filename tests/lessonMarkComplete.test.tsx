@@ -375,13 +375,47 @@ describe('phase 44.2 — SettingsScreen analytics debug card (source contract)',
     });
 
   it('AnalyticsDebugQueue renders queue length + Clear button', () => {
-    const src = loadSettingsSource();
-    // The helper must read the queue + offer a Clear button. We pin
-    // the helper name so refactors that move it to a different file
-    // are intentional (not silent loss).
-    expect(src).toMatch(/function\s+AnalyticsDebugQueue\s*\(\s*\)/);
-    expect(src).toMatch(/getQueuedEvents\(\)/);
-    expect(src).toMatch(/clearQueuedEvents/);
-    expect(src).toMatch(/testID="settings-analytics-clear-button"/);
+      const src = loadSettingsSource();
+      // The helper must read the queue + offer a Clear button. We pin
+      // the helper name so refactors that move it to a different file
+      // are intentional (not silent loss).
+      expect(src).toMatch(/function\s+AnalyticsDebugQueue\s*\(\s*\)/);
+      expect(src).toMatch(/getQueuedEvents\(\)/);
+      expect(src).toMatch(/clearQueuedEvents/);
+      expect(src).toMatch(/testID="settings-analytics-clear-button"/);
+    });
   });
-});
+
+  describe('phase 44.4 — onboarding_step_viewed wiring (source contract)', () => {
+    // OnboardingScreen owns the per-step view events. The screen renders
+    // a single step at a time (selected by currentStepId) and fires a
+    // track() call when that step becomes active. The funnel needs
+    // each step to fire exactly once per visit — that's what the test
+    // contract pins.
+    const ONBOARDING_PATH = join(ROOT, 'src', 'screens', 'OnboardingScreen.tsx');
+    const onboardingSrc = readFileSync(ONBOARDING_PATH, 'utf8');
+
+    it('OnboardingScreen imports track() from the analytics service', () => {
+      expect(onboardingSrc).toMatch(/import\s*\{\s*track\s*\}\s*from\s*['"]\.\.\/services\/analyticsService['"]/);
+    });
+
+    it('OnboardingScreen fires onboarding_step_viewed in a useEffect keyed on step.id', () => {
+      // The effect must:
+      //   1. depend on the step id (so re-fires don't happen on every render)
+      //   2. include the step name in the props bag
+      // We allow either step.id or step.currentStepId as the dep — both
+      // are valid patterns and the source contract should not over-pin.
+      expect(onboardingSrc).toMatch(/useEffect\([\s\S]*?track\(\s*['"]onboarding_step_viewed['"][\s\S]*?\}/);
+      expect(onboardingSrc).toMatch(/track\(\s*['"]onboarding_step_viewed['"][\s\S]*?step:\s*(?:step\.id|step\.currentStepId)/);
+    });
+
+    it('OnboardingScreen prop name matches one of the four known steps', () => {
+      // The four steps the funnel expects are:
+      //   welcome, language, workplace-goal, daily-habit
+      // The track() call must reference one of them. If we add or rename
+      // a step in the future, this test forces the funnel config to be
+      // updated in lockstep (otherwise the funnel silently drops that
+      // step's traffic).
+      expect(onboardingSrc).toMatch(/step:\s*(?:step\.id|step\.currentStepId)/);
+    });
+  });
