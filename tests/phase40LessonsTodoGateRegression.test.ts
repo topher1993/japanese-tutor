@@ -44,14 +44,22 @@ describe('phase 40 — Lessons tab todo-gate regression', () => {
   });
 
   it('Lessons list keeps the blocking prior week visible while current lesson week is todo-locked', () => {
-    const src = loadLessonsScreen();
-    expect(src).toContain('todoGateBlocksCurrentLessonWeek');
-    expect(src).toContain('!isWeekUnlocked(lessonPath.currentWeek.week, todoBoards, todoPayload)');
-    expect(src).toContain('const displayLessonPathWeek = todoGateBlocksCurrentLessonWeek');
-    expect(src).toContain('displayLessonPathWeek.lessons.map');
-    expect(src).toContain('if (todoGateBlocksCurrentLessonWeek) return;');
-    expect(src).toContain('disabled={todoGateBlocksCurrentLessonWeek}');
-    expect(src).toContain("Finish Week {weekProgress.index}'s todos to unlock Week {nextWeekNumber}");
+    // Phase 43: todo-gate logic moved to src/screens/lessons/useWeeklyTodoGate.ts.
+    // Scan both files for the gate pieces.
+    const screenSrc = loadLessonsScreen();
+    const hookSrc = readFileSync(join(ROOT, 'src', 'screens', 'lessons', 'useWeeklyTodoGate.ts'), 'utf8');
+    const allSrc = screenSrc + '\n\n' + hookSrc;
+    expect(allSrc).toContain('todoGateBlocksCurrentLessonWeek');
+    expect(allSrc).toContain('!isWeekUnlocked(lessonPath.currentWeek.week, todoBoards, todoPayload)');
+    expect(allSrc).toContain('const displayLessonPathWeek = todoGateBlocksCurrentLessonWeek');
+    expect(allSrc).toContain('displayLessonPathWeek.lessons.map');
+    expect(allSrc).toContain('if (todoGateBlocksCurrentLessonWeek) return;');
+    expect(allSrc).toContain('disabled={todoGateBlocksCurrentLessonWeek}');
+    expect(allSrc).toContain("Finish Week {weekProgress.index}'s todos to unlock Week {nextWeekNumber}");
+    // Regression guard: the gate derivation must NOT be inlined back into LessonsScreen.tsx
+    expect(screenSrc).not.toContain('!isWeekUnlocked(lessonPath.currentWeek.week, todoBoards, todoPayload)');
+    // Regression guard: hook file must still own the gate logic
+    expect(hookSrc).toContain('todoGateBlocksCurrentLessonWeek');
   });
 
   it('completion handler gates cross-week auto-advance through isWeekUnlocked', () => {

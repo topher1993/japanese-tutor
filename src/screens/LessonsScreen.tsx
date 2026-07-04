@@ -28,11 +28,10 @@ import { WeeklyTodoBoardView } from '../components/WeeklyTodoBoardView';
 import { LessonPathRow } from './lessons/LessonPathRow';
 import { ToolRow } from './lessons/ToolRow';
 import { useMarkComplete } from './lessons/useMarkComplete';
+import { useWeeklyTodoGate } from './lessons/useWeeklyTodoGate';
 import { useLearningContext } from '../services/learningContext';
 import { isTodoFeatureEnabled } from '../services/practiceProgressStore';
-import { getAllWeekPlans } from '../services/weeklyPlansService';
 import {
-  buildAllTodoBoards,
   isWeekUnlocked,
   type TodoPayload,
 } from '../services/weeklyTodoService';
@@ -53,6 +52,7 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
     let progression = buildLessonProgression(lessonPath.currentWeek.week);
     const [showKanji, setShowKanji] = useState(false);
     const [showMore, setShowMore] = useState(false);
+    // Phase 43: weekly-todo gate logic moved to useWeeklyTodoGate hook below.
     // Phase 43: markInFlight state moved into useMarkComplete hook.
     let currentWeek = progression.currentWeekDetails();
         let weekProgress = {
@@ -61,49 +61,30 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
           minutes: currentWeek.recommendedMinutes,
         };
 
-        // Phase 37c: build the per-week todo boards and decide whether the
-                // "next week" CTA is unlocked. The UI gate (`isTodoFeatureEnabled()`)
-                // stays false by default in 37c, so the block below is invisible to
-                // learners. 37g flips the flag for the rollout. Boards are recomputed
-                // whenever persisted progress changes so completed counts stay fresh.
-                const todoPayload = React.useMemo<TodoPayload>(() => {
-                                  const extended = store?.getExtendedProgress() ?? {
-                                    todoStates: {},
-                                    weekTodosInitialized: {},
-                                    todoEventCounts: emptyTodoEventCounts(),
-                                  };
-                                  return {
-                                    todoStates: extended.todoStates,
-                                    weekTodosInitialized: extended.weekTodosInitialized,
-                                    todoEventCounts: extended.todoEventCounts,
-                                    completedLessonIds: progress?.completedLessonIds ?? [],
-                                  };
-                                }, [progress?.completedLessonIds, store]);
-                const todoBoards = React.useMemo(
-                  () => buildAllTodoBoards(getAllWeekPlans(), todoPayload, 'all', weekProgress.index),
-                  [todoPayload, weekProgress.index],
-                );
-                let todoBoard = todoBoards[weekProgress.index];
-                let nextWeekNumber = weekProgress.index + 1;
-                let nextWeekUnlocked = isWeekUnlocked(nextWeekNumber, todoBoards, todoPayload);
-                const todoGateBlocksCurrentLessonWeek = isTodoFeatureEnabled()
-                  && lessonPath.currentWeek.week > 1
-                  && !isWeekUnlocked(lessonPath.currentWeek.week, todoBoards, todoPayload);
-                const displayLessonPathWeek = todoGateBlocksCurrentLessonWeek
-                  ? (lessonPath.weeks.find(week => week.week === lessonPath.currentWeek.week - 1) ?? lessonPath.currentWeek)
-                  : lessonPath.currentWeek;
-                if (todoGateBlocksCurrentLessonWeek) {
-                  const blockingWeek = lessonPath.currentWeek.week - 1;
-                  progression = buildLessonProgression(blockingWeek);
-                  currentWeek = progression.currentWeekDetails();
-                  weekProgress = {
-                    index: blockingWeek,
-                    total: progression.weeks.length,
-                    minutes: currentWeek.recommendedMinutes,
-                  };
-                  todoBoard = todoBoards[blockingWeek];
-                  nextWeekNumber = lessonPath.currentWeek.week;
-                  nextWeekUnlocked = false;
+        // Phase 43: weekly-todo gate logic moved to useWeeklyTodoGate hook.
+                const gate = useWeeklyTodoGate({
+                  store,
+                  lessonPath,
+                  weekProgress,
+                  progression,
+                  currentWeek,
+                  progress,
+                });
+                const todoPayload = gate.todoPayload;
+                const todoBoards = gate.todoBoards;
+                const todoBoard = gate.todoBoard;
+                const nextWeekNumber = gate.nextWeekNumber;
+                const nextWeekUnlocked = gate.nextWeekUnlocked;
+                const todoGateBlocksCurrentLessonWeek = gate.todoGateBlocksCurrentLessonWeek;
+                const displayLessonPathWeek = gate.displayLessonPathWeek as typeof lessonPath.weeks[number];
+                // Phase 43: if the gate is active, the hook has re-derived
+                // progression/currentWeek/weekProgress for the blocking week.
+                // Reflect those re-derived values into the parent `let` bindings
+                // so the rest of the function body (and the JSX below) uses them.
+                if (gate.todoGateBlocksCurrentLessonWeek) {
+                  progression = gate.progression;
+                  currentWeek = gate.currentWeek;
+                  weekProgress = gate.weekProgress;
                 }
 
     // Phase 30: re-read the raw learner progress on mount so the daily
