@@ -70,6 +70,74 @@ function safeParseJson<T>(raw: unknown, fallback: T, warnContext: string): T {
   }
 }
 
+// Schema-versioned wrapper for the three todo JSON-blob columns.
+//
+// Phase 42 / P1-5: the prior version of these columns was a raw map (e.g.
+// `{ "1": true, "2": true }`). If a future change alters the *shape* of one
+// of these maps (adds/removes/renames a key), devices running the older
+// client would silently misinterpret the new data and the app would behave
+// inconsistently with no obvious failure mode.
+//
+// The fix is a thin envelope: writers serialize
+//   { schema_version: TODO_BLOB_SCHEMA_VERSION, data: {...} }
+// Readers parse the envelope, validate the schema_version, and either
+// accept the inner `data` (match) or fall back to the empty fallback
+// (mismatch — reinitializes the field). Old v1 data without an envelope
+// is accepted as-is to preserve backwards compatibility for existing
+// installs that haven't written a versioned blob yet.
+//
+// This is a soft migration: when a schema_version mismatch is detected
+// the affected field is reset to its empty state, which will then be
+// re-initialized the next time the learner does any todo-affecting action
+// (e.g. unlocking a new week).
+const TODO_BLOB_SCHEMA_VERSION = 1 as const;
+
+interface VersionedTodoBlob<T> {
+  schema_version: number;
+  data: T;
+}
+
+function isVersionedTodoBlob(value: unknown): value is VersionedTodoBlob<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    'schema_version' in value &&
+    typeof (value as Record<string, unknown>).schema_version === 'number'
+  );
+}
+
+function parseTodoBlob<T>(raw: unknown, fallback: T, fieldName: string): T {
+  if (raw == null) return fallback;
+  if (typeof raw !== 'string') return fallback;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    if (__DEV__) console.warn(`[phase42] ${fieldName} failed to parse; falling back to default`, error);
+    return fallback;
+  }
+  if (parsed == null) return fallback;
+  // v2 (or later): envelope with schema_version. Validate and unwrap.
+  if (isVersionedTodoBlob(parsed)) {
+    if (parsed.schema_version === TODO_BLOB_SCHEMA_VERSION) {
+      return (parsed.data ?? fallback) as T;
+    }
+    if (__DEV__) console.warn(
+      `[phase42] ${fieldName} schema_version=${parsed.schema_version} mismatch (expected ${TODO_BLOB_SCHEMA_VERSION}); resetting to default`,
+    );
+    return fallback;
+  }
+  // v1 (legacy): raw map without envelope. Accept as-is for backwards
+  // compatibility with installs that pre-date the schema-version work.
+  return parsed as T;
+}
+
+function wrapTodoBlob<T>(data: T): string {
+  const envelope: VersionedTodoBlob<T> = { schema_version: TODO_BLOB_SCHEMA_VERSION, data };
+  return JSON.stringify(envelope);
+}
+
 // Apply empty defaults for the three todo JSON-blob fields added in Phase 37a
 // WITHOUT overwriting any values that already exist on the input. The function
 // name is misleading if you read it as "force defaults" — it is actually
@@ -140,9 +208,9 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
     const newProgressCache = {
       ...progressCache,
       completedLessonIds,
-      todoStates: safeParseJson<TodoStateMap>(row.todo_states ?? row.todoStates, {}, 'progress.todo_states'),
-      weekTodosInitialized: safeParseJson<WeekTodosInitializedMap>(row.week_todos_initialized ?? row.weekTodosInitialized, {}, 'progress.week_todos_initialized'),
-      todoEventCounts: safeParseJson<TodoEventCountsMap>(row.todo_event_counts ?? row.todoEventCounts, {}, 'progress.todo_event_counts'),
+      todoStates: parseTodoBlob<TodoStateMap>(row.todo_states ?? row.todoStates, {}, 'progress.todo_states'),
+            weekTodosInitialized: parseTodoBlob<WeekTodosInitializedMap>(row.week_todos_initialized ?? row.weekTodosInitialized, {}, 'progress.week_todos_initialized'),
+            todoEventCounts: parseTodoBlob<TodoEventCountsMap>(row.todo_event_counts ?? row.todoEventCounts, {}, 'progress.todo_event_counts'),
     };
     if (lastRealRow !== null || completedLessonIds.length > 0) {
       progressCache = newProgressCache;
@@ -202,9 +270,9 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
       // Phase 37a: 5-tuple → 8-tuple. The three new JSON-blob columns are
       // populated from progressCache so any caller that reads them back via
       // getProgress() sees the same values.
-      const todoStates = JSON.stringify(progressCache.todoStates ?? {});
-      const weekTodosInitialized = JSON.stringify(progressCache.weekTodosInitialized ?? {});
-      const todoEventCounts = JSON.stringify(progressCache.todoEventCounts ?? {});
+      const todoStates = wrapTodoBlob(progressCache.todoStates ?? {});
+            const weekTodosInitialized = wrapTodoBlob(progressCache.weekTodosInitialized ?? {});
+            const todoEventCounts = wrapTodoBlob(progressCache.todoEventCounts ?? {});
       await db.runAsync(
         'INSERT OR REPLACE INTO progress VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         `${lessonId}:${date}`,
@@ -257,9 +325,9 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
       //     completed a lesson) we create a synthetic placeholder so the blobs
       //     are persisted.
       progressCache = withTodoDefaults(snapshot);
-      const todoStates = JSON.stringify(snapshot.todoStates ?? {});
-      const weekTodosInitialized = JSON.stringify(snapshot.weekTodosInitialized ?? {});
-      const todoEventCounts = JSON.stringify(snapshot.todoEventCounts ?? {});
+      const todoStates = wrapTodoBlob(snapshot.todoStates ?? {});
+            const weekTodosInitialized = wrapTodoBlob(snapshot.weekTodosInitialized ?? {});
+            const todoEventCounts = wrapTodoBlob(snapshot.todoEventCounts ?? {});
 
       if (memoryTables) {
         const rows = (memoryTables.get('progress') ?? []) as Array<Record<string, unknown>>;

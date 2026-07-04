@@ -188,9 +188,11 @@ describe('Phase 37a SQLite migration behind feature flag', () => {
     expect(progress.weekTodosInitialized).toEqual({ 1: true });
     expect(progress.todoEventCounts).toEqual({});
     expect(dbLocal.warnSpy).toHaveBeenCalled();
-    const warnMessage = String(dbLocal.warnSpy.mock.calls[0]?.[0] ?? '');
-    expect(warnMessage).toMatch(/phase37a/);
-    expect(warnMessage).toMatch(/todo_states/);
+    const warnMessages = dbLocal.warnSpy.mock.calls.map(c => String(c[0] ?? ''));
+    // Either parseTodoBlob (phase42) or safeParseJson (phase37a) may log on a
+    // malformed blob; both routes indicate the corruption was detected.
+    expect(warnMessages.some(m => /phase37a|phase42/.test(m))).toBe(true);
+    expect(warnMessages.some(m => /todo_states/.test(m))).toBe(true);
 
     dbLocal.warnSpy.mockRestore();
   });
@@ -226,9 +228,12 @@ describe('Phase 37a SQLite migration behind feature flag', () => {
     const rows = dbLocal.tables!.get('progress') as ProgressRow[];
     const updated = rows.find(r => r.id === 'lesson-4:2026-07-02');
     expect(updated).toBeDefined();
-    expect(updated!.todo_states).toBe('{}');
-    expect(updated!.week_todos_initialized).toBe('{}');
-    expect(updated!.todo_event_counts).toBe('{}');
+    // Phase 42 / P1-5: writes are versioned envelopes so future schema
+    // changes can be detected at read time. parseTodoBlob() validates
+    // the schema_version before accepting the inner data.
+    expect(updated!.todo_states).toBe('{"schema_version":1,"data":{}}');
+    expect(updated!.week_todos_initialized).toBe('{"schema_version":1,"data":{}}');
+    expect(updated!.todo_event_counts).toBe('{"schema_version":1,"data":{}}');
 
     dbLocal.warnSpy.mockRestore();
   });
@@ -304,10 +309,10 @@ describe('Phase 37a SQLite migration behind feature flag', () => {
     expect(JSON.parse(seededRow.week_todos_initialized as string)).toEqual(seeded.weekTodosInitialized);
     expect(JSON.parse(seededRow.todo_event_counts as string)).toEqual(seeded.todoEventCounts);
 
-    // New lesson-complete row also carries todo fields (they round-trip through
-    // withTodoDefaults even when input has none).
-    expect(JSON.parse(newRow.todo_states as string)).toEqual({});
-    expect(JSON.parse(newRow.week_todos_initialized as string)).toEqual({});
-    expect(JSON.parse(newRow.todo_event_counts as string)).toEqual({});
+    // New lesson-complete row also carries todo fields. Phase 42 / P1-5:
+    // these are written as versioned envelopes (schema_version: 1).
+    expect(JSON.parse(newRow.todo_states as string)).toEqual({ schema_version: 1, data: {} });
+    expect(JSON.parse(newRow.week_todos_initialized as string)).toEqual({ schema_version: 1, data: {} });
+    expect(JSON.parse(newRow.todo_event_counts as string)).toEqual({ schema_version: 1, data: {} });
   });
 });

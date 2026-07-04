@@ -115,12 +115,13 @@ describe('Phase 41 — cold-start new-install migration (no-op path)', () => {
     await repo.saveCompletedLesson('lesson-fresh-1', 100, '2026-07-04');
 
     expect(db.progressRows).toHaveLength(1);
+    // Phase 42 / P1-5: writes are versioned envelopes.
     expect(db.progressRows[0]).toMatchObject({
       lesson_id: 'lesson-fresh-1',
       completed: 1,
-      todo_states: '{}',
-      week_todos_initialized: '{}',
-      todo_event_counts: '{}',
+      todo_states: '{"schema_version":1,"data":{}}',
+      week_todos_initialized: '{"schema_version":1,"data":{}}',
+      todo_event_counts: '{"schema_version":1,"data":{}}',
     });
     // The INSERT itself should be present; ALTERs should remain absent.
     expect(db.executedSql.some(sql => /^INSERT OR REPLACE INTO progress VALUES/i.test(sql.trim()))).toBe(true);

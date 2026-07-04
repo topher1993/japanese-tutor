@@ -99,12 +99,13 @@ describe('Phase 40 — native progress schema migration', () => {
     expect(db.columns.has('todo_event_counts')).toBe(true);
     expect(db.executedSql.some(sql => /ALTER TABLE progress ADD COLUMN todo_states/i.test(sql))).toBe(true);
     expect(db.progressRows).toHaveLength(1);
+    // Phase 42 / P1-5: writes are versioned envelopes.
     expect(db.progressRows[0]).toMatchObject({
       lesson_id: 'lesson-schedule-time',
       completed: 1,
-      todo_states: '{}',
-      week_todos_initialized: '{}',
-      todo_event_counts: '{}',
+      todo_states: '{"schema_version":1,"data":{}}',
+      week_todos_initialized: '{"schema_version":1,"data":{}}',
+      todo_event_counts: '{"schema_version":1,"data":{}}',
     });
   });
 
