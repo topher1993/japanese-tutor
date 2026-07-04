@@ -225,8 +225,7 @@ export default function App() {
                 const store = createOnboardingPreferenceStore(storage);
                 await store.save({ onboarded: true, language });
               } catch (err) {
-                // eslint-disable-next-line no-console
-                console.warn('[app] failed to persist onboarding choice', err);
+                if (__DEV__) console.warn('[app] failed to persist onboarding choice', err);
               }
               setSupportLanguage(language);
               setOnboarded(true);
@@ -274,8 +273,7 @@ export default function App() {
                 const { clearOnboardingPreference } = await import('./src/services/onboardingPreferenceService');
                 await clearOnboardingPreference();
               } catch (err) {
-                // eslint-disable-next-line no-console
-                console.warn('[settings] failed to clear onboarding preference', err);
+                if (__DEV__) console.warn('[settings] failed to clear onboarding preference', err);
               }
               // Force back to a cold-start state.
               setOnboarded(false);
