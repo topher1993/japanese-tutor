@@ -7,6 +7,15 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { useLearningContext } from '../services/learningContext';
 import { useUserProfileContext } from '../services/userProfileContext';
 import { ds } from '../theme/designSystem';
+// Phase 44.2: analytics debug — read the in-memory queue so devs can
+// inspect what would be transmitted to a backend (once one is wired).
+// track() is a no-op in test mode, so this view stays empty under
+// Vitest and the import has no effect on production builds.
+import {
+  clearQueuedEvents,
+  getQueuedEvents,
+  isAnalyticsEnabled,
+} from '../services/analyticsService';
 
 // Phase 37g — dev-only feature-flag toggle. The helper lives in src/dev/ and
 // is gated behind `__DEV__` at the render site below so release builds
@@ -155,7 +164,63 @@ export function SettingsScreen({
           />
         </Card>
       ) : null}
+
+      {/* Phase 44.2 — analytics debug queue. Visible only in dev builds
+          that have NO analytics backend configured. Once
+          EXPO_PUBLIC_ANALYTICS_KEY is set, the backend's own debug UI
+          takes over and this section hides itself to avoid clutter. */}
+      {typeof __DEV__ !== 'undefined' && __DEV__ && !isAnalyticsEnabled() ? (
+              <Card shadow="card">
+                <Text style={styles.sectionLabel}>Analytics (dev)</Text>
+                <Text style={styles.help}>
+                  In-memory event queue. These events WOULD be sent to a
+                  analytics backend if EXPO_PUBLIC_ANALYTICS_KEY were set.
+                  Set the env var to disable this section and use the
+                  backend's own debug UI.
+                </Text>
+                <AnalyticsDebugQueue />
+              </Card>
+            ) : null}
     </ScreenScaffold>
+  );
+}
+
+/**
+ * Phase 44.2 — render the last 20 queued events + a Clear button.
+ * Pure presentational helper; the Card wrapper above controls visibility
+ * via __DEV__ + isAnalyticsEnabled().
+ */
+function AnalyticsDebugQueue() {
+  // We re-read the queue on every render. The queue is small (capped
+  // at 100 entries), so a read on every paint is fine and avoids a
+  // useEffect + interval. The button re-renders when clearQueuedEvents
+  // fires because SettingsScreen owns no state around this — React's
+  // natural re-render on parent state change covers it.
+  const events = getQueuedEvents().slice(-20);
+  const queueLen = getQueuedEvents().length;
+  return (
+    <>
+      <Text style={styles.meta}>
+        Queue: {queueLen} event{queueLen === 1 ? '' : 's'}
+        {queueLen > 20 ? ' (showing last 20)' : ''}
+      </Text>
+      {events.length === 0 ? (
+        <Text style={styles.meta}>No events queued. Trigger one (switch tab, open a lesson) and come back.</Text>
+      ) : (
+        events.slice().reverse().map((e, i) => (
+          <Text key={`${e.ts}-${i}`} style={styles.meta} testID={`settings-analytics-event-${i}`}>
+            {new Date(e.ts).toISOString().slice(11, 19)} · {e.event} · {JSON.stringify(e.props)}
+          </Text>
+        ))
+      )}
+      <Button
+        label="Clear queue"
+        onPress={clearQueuedEvents}
+        icon="cross"
+        variant="secondary"
+        testID="settings-analytics-clear-button"
+      />
+    </>
   );
 }
 

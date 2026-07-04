@@ -24,6 +24,8 @@ import {
   saveOnboardingPreference,
 } from './src/app/onboardingStorage';
 import { useAppNavigation } from './src/app/useAppNavigation';
+import { wrapTabChangeForAnalytics } from './src/utils/wrapTabChangeForAnalytics';
+import { track } from './src/services/analyticsService';
 
 /**
  * Phase 43 — App.tsx as a thin orchestrator.
@@ -40,6 +42,12 @@ import { useAppNavigation } from './src/app/useAppNavigation';
  *   - useAppNavigation    — 9 useState calls + URL-param gates
  *   - renderTab           — typed React component for tab routing
  *   - onboardingStorage   — async bootstrap (web localStorage / SQLite KV)
+ *
+ * Phase 44.2 — analytics wiring. App.tsx is the single integration point
+ * for cross-cutting events (tab changes, onboarding completion, settings
+ * reset) so that all `track()` call sites in the render tree are grep-able
+ * from one file. Per-screen events (lesson_opened, mark_complete_*) live
+ * in the screen/hook that owns the relevant state transition.
  */
 export default function App() {
   const { width: windowWidth } = useWindowDimensions();
@@ -48,6 +56,25 @@ export default function App() {
 
   // Single source of navigation state, owned by useAppNavigation.
   const nav = useAppNavigation();
+
+  // Phase 44.2: fire an analytics event on the initial tab paint so
+  // the first session's starting tab is captured (not just subsequent
+  // switches). This effect runs exactly once on mount. track() is a
+  // no-op in test mode.
+  React.useEffect(() => {
+    track('tab_visited', { tab: nav.tab, initial: true });
+    // We intentionally only run on mount; nav.onTabChange (wrapped
+    // below) handles subsequent switches with `initial` undefined.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Phase 44.2: tab change → analytics event. The wrapper preserves
+  // the original handler's side effects (nav state updates) and
+  // adds a track() call without coupling the hook to analytics.
+  const onTabChangeWithAnalytics = React.useMemo(
+    () => wrapTabChangeForAnalytics(nav.onTabChange),
+    [nav.onTabChange],
+  );
 
   // Onboarding preference lifecycle — owned by App.tsx because it bridges
   // the async load + render-after-ready contract.
@@ -81,6 +108,12 @@ export default function App() {
           <OnboardingScreen
             initialStepId={nav.onboardingStep ?? undefined}
             onDone={async (language) => {
+              // Phase 44.2: capture the onboarding completion so we
+              // can measure onboarding funnel drop-off. The event
+              // includes the chosen support language (scrubbed by
+              // track() anyway, but the language is already on the
+              // safe list of typed enums).
+              track('onboarding_completed', { language });
               await saveOnboardingPreference({ onboarded: true, language });
               setSupportLanguage(language);
               setOnboarded(true);
@@ -121,6 +154,11 @@ export default function App() {
             showReviewerTools={nav.reviewerMode}
             onOpenReview={nav.reviewerMode ? () => { nav.setShowSettings(false); nav.setShowReview(true); } : undefined}
             onReset={async () => {
+              // Phase 44.2: capture the reset action so we can
+              // measure how many users reset their progress.
+              // Settings is the only call site, so the source is
+              // hardcoded — no need to thread it through.
+              track('settings_reset_app', { source: 'settings' });
               // Clear onboarding preference via the same storage path the
               // app loads from. This forces a fresh onboarding + fresh
               // screens on the next cold start.
@@ -188,7 +226,7 @@ export default function App() {
             onOpenDailyRush: () => nav.setShowDailyRush(true),
           })}
         </View>
-        <TabBar items={bottomTabs} activeId={nav.tab} onSelect={nav.onTabChange} />
+        <TabBar items={bottomTabs} activeId={nav.tab} onSelect={onTabChangeWithAnalytics} />
         <CompletionToast />
         <LessonErrorToast />
       </AppProviders>

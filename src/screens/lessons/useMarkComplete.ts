@@ -39,6 +39,11 @@ import {
 import { isTodoFeatureEnabled } from '../../services/practiceProgressStore';
 import { getAllWeekPlans } from '../../services/weeklyPlansService';
 import type { SenseiLesson } from '../../types/lesson';
+// Phase 44.2: analytics — fires attempt / success / failure events so
+// we can measure the mark-complete funnel. The track() call is a no-op
+// in test mode, so production instrumentation can land without
+// breaking existing tests.
+import { track } from '../../services/analyticsService';
 
 type SqliteLearningRepositoryLike = {
   completeCurrentLesson(lessonId: string, score: number, completedAt: string): Promise<void>;
@@ -92,8 +97,20 @@ export function useMarkComplete({
       // Defensive: the Button is disabled when !store, but keep this
       // branch so a synchronous tap during a hot reload still surfaces.
       notifyLessonError({ kind: 'store-unavailable', lessonId: lesson.id });
+      // Phase 44.2: record this as a failure (the store being missing
+      // is a real failure mode the user can hit, even though the
+      // button is disabled in normal flow).
+      track('lesson_mark_complete_failure', {
+        lessonId: lesson.id,
+        reason: 'store-unavailable',
+      });
       return;
     }
+    // Phase 44.2: record the attempt so we can measure the funnel
+    // (attempts vs successes vs failures). track() is a no-op in test
+    // mode and in dev without an analytics key, so this is zero-cost
+    // until a backend is wired.
+    track('lesson_mark_complete_attempt', { lessonId: lesson.id });
     setMarkInFlight(true);
     try {
       await store.completeCurrentLesson(
@@ -108,6 +125,13 @@ export function useMarkComplete({
       // no signal that anything happened.
       const refreshed = await store.getProgress();
       setProgress(refreshed);
+      // Phase 44.2: success event. Include the lesson id + week so we
+      // can break down completion rate by week in the dashboard later.
+      const lessonWeek = (lesson as { week?: number }).week;
+      track('lesson_mark_complete_success', {
+        lessonId: lesson.id,
+        week: lessonWeek,
+      });
       notifyLessonCompleted({
         message: `✓ ${lesson.title}`,
         detail: `${(refreshed as { completedLessonIds: string[] }).completedLessonIds.length} of ${lessons.length} lessons done total.`,
@@ -148,10 +172,16 @@ export function useMarkComplete({
       // LessonErrorToast (and any other subscriber) can show the
       // user what went wrong. The toast fires for both code paths
       // (cold-start race + repo.cast throw) without further work.
+      // Phase 44.2: also fire an analytics event so we can measure
+      // failure rate over time.
       notifyLessonError({
         kind: 'completion-failed',
         lessonId: lesson.id,
         error: err instanceof Error ? err.message : String(err),
+      });
+      track('lesson_mark_complete_failure', {
+        lessonId: lesson.id,
+        reason: err instanceof Error ? err.message : String(err),
       });
     } finally {
       setMarkInFlight(false);

@@ -33,6 +33,11 @@
 // Node test environment gets it from tests/setup.ts (true for parity).
 declare const __DEV__: boolean | undefined;
 
+// Phase 44.2: scrub PII out of every props bag before it reaches the
+// in-memory queue. Callers must not need to remember to scrub — the
+// contract is "track() never sends PII, period".
+import { scrubPii } from '../utils/scrubPii';
+
 export type AnalyticsEvent =
   // Navigation events
   | 'tab_visited'
@@ -124,7 +129,11 @@ export function track(event: AnalyticsEvent, props: Record<string, unknown> = {}
   const ctx = getContext();
   // Test mode: completely silent.
   if (ctx.isTest) return;
-  const entry = { event, props, ts: Date.now() };
+  // Phase 44.2: scrub PII before the entry ever enters the queue. This
+  // is the single chokepoint — every event passes through here, so
+  // every event is scrubbed.
+  const scrubbed = scrubPii(props);
+  const entry = { event, props: scrubbed, ts: Date.now() };
   eventQueue.push(entry);
   // Cap queue at 100 events to avoid unbounded memory growth in dev mode.
   if (eventQueue.length > 100) eventQueue.shift();

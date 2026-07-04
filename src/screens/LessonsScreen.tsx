@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { getAllLessons, getDailyLesson } from '../services/lessonService';
+// Phase 44.2: analytics — fires lesson_opened when the learner opens a
+// lesson detail view. Lets us measure lesson engagement and which
+// lessons get opened most.
+import { track } from '../services/analyticsService';
 import { createLessonNavigator } from '../services/lessonNavigatorService';
 import { buildLessonProgression } from '../services/lessonProgressionService';
 import { buildLessonInteractionPath, type LessonPathItem } from '../services/lessonInteractionPathService';
@@ -100,13 +104,29 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
     }, [ready, store]);
 
   useEffect(() => {
-    if (pendingLessonId) {
-      setSelected(pendingLessonId);
-      setSelectedCategory(undefined);
-      setShowKanji(false);
-      setShowMore(false);
-    }
-  }, [pendingLessonId]);
+      if (pendingLessonId) {
+        setSelected(pendingLessonId);
+        setSelectedCategory(undefined);
+        setShowKanji(false);
+        setShowMore(false);
+      }
+    }, [pendingLessonId]);
+
+    // Phase 44.2: fire lesson_opened when the learner transitions from
+    // the lesson list (no selection) into a lesson detail view. We only
+    // fire on the transition (not on re-renders while already open), so
+    // the dashboard counts opens, not renders.
+    useEffect(() => {
+      if (!selected) return;
+      const lesson = lessons.find(l => l.id === selected);
+      track('lesson_opened', {
+        lessonId: selected,
+        week: lesson && (lesson as { week?: number }).week,
+      });
+      // We intentionally depend only on `selected` (the id), so we
+      // don't re-fire on every `lessons` array re-derivation.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selected]);
 
   // Phase 39 (Igris mark-complete fix) — derive the selected lesson
   // UNCONDITIONALLY so the handler hook can sit at the top of the

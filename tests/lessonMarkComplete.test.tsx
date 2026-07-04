@@ -46,6 +46,7 @@ const APP_PATH = join(ROOT, 'App.tsx');
 const SCREEN_PATH = join(ROOT, 'src', 'screens', 'LessonsScreen.tsx');
 const HOOK_PATH = join(ROOT, 'src', 'screens', 'lessons', 'useMarkComplete.ts');
 const TOAST_PATH = join(ROOT, 'src', 'components', 'CompletionToast.tsx');
+const SETTINGS_PATH = join(ROOT, 'src', 'screens', 'SettingsScreen.tsx');
 
 function loadAppSource(): string {
   return readFileSync(APP_PATH, 'utf8');
@@ -58,6 +59,9 @@ function loadHookSource(): string {
 }
 function loadToastSource(): string {
   return readFileSync(TOAST_PATH, 'utf8');
+}
+function loadSettingsSource(): string {
+  return readFileSync(SETTINGS_PATH, 'utf8');
 }
 
 describe('phase 39 — LessonsScreen mark-complete button (source contract)', () => {
@@ -230,5 +234,154 @@ describe('phase 39 — CompletionToast error channel', () => {
     expect(src).toContain("import { CompletionToast, LessonErrorToast } from './src/components/CompletionToast';");
     expect(src).toContain('<CompletionToast />');
     expect(src).toContain('<LessonErrorToast />');
+  });
+});
+
+describe('phase 44.2 — mark-complete analytics wiring (source contract)', () => {
+  it('hook imports the track() function from the analytics service', () => {
+    const hookSrc = loadHookSource();
+    // The hook must import track() so it can fire events.
+    expect(hookSrc).toMatch(/import\s*\{\s*track\s*\}\s*from\s*['"]\.\.\/\.\.\/services\/analyticsService['"]/);
+  });
+
+  it('fires lesson_mark_complete_attempt when the handler enters the store-available path', () => {
+    const hookSrc = loadHookSource();
+    // Attempt event fires AFTER the !store guard but BEFORE the await
+    // on completeCurrentLesson — this lets us measure how many taps
+    // actually try to write.
+    const handler = hookSrc.match(
+      /markComplete\s*=\s*useCallback\([\s\S]*?\}\s*,\s*\[selectedLesson\s*,\s*store[\s\S]*?\]\)/,
+    );
+    expect(handler).not.toBeNull();
+    const body = handler![0];
+    expect(body).toMatch(/track\(\s*['"]lesson_mark_complete_attempt['"]/);
+    // Attempt must include the lessonId so dashboards can break down by lesson.
+    expect(body).toMatch(/track\(\s*['"]lesson_mark_complete_attempt['"][\s\S]*?lessonId:\s*lesson\.id/);
+  });
+
+  it('fires lesson_mark_complete_success after progress refresh', () => {
+    const hookSrc = loadHookSource();
+    const handler = hookSrc.match(
+      /markComplete\s*=\s*useCallback\([\s\S]*?\}\s*,\s*\[selectedLesson\s*,\s*store[\s\S]*?\]\)/,
+    );
+    expect(handler).not.toBeNull();
+    const body = handler![0];
+    expect(body).toMatch(/track\(\s*['"]lesson_mark_complete_success['"]/);
+    // Success event should appear AFTER the setProgress(refreshed) call,
+    // because the analytics call should reflect the freshly persisted
+    // state (not the pre-write state).
+    const setProgressIdx = body.indexOf('setProgress(refreshed)');
+    const successIdx = body.indexOf("track('lesson_mark_complete_success'");
+    expect(setProgressIdx, 'setProgress(refreshed) missing from handler').toBeGreaterThan(-1);
+    expect(successIdx, 'lesson_mark_complete_success track() missing').toBeGreaterThan(-1);
+    expect(successIdx).toBeGreaterThan(setProgressIdx);
+  });
+
+  it('fires lesson_mark_complete_failure in the catch block', () => {
+    const hookSrc = loadHookSource();
+    // The catch clause must contain a track('lesson_mark_complete_failure', ...)
+    // call so failure rate is measurable.
+    expect(hookSrc).toMatch(/catch\s*\(\s*err\s*\)\s*\{[\s\S]*?track\(\s*['"]lesson_mark_complete_failure['"]/);
+    // And it must include the lessonId so failures can be tied back.
+    expect(hookSrc).toMatch(/track\(\s*['"]lesson_mark_complete_failure['"][\s\S]*?lessonId:\s*lesson\.id/);
+  });
+
+  it('fires lesson_mark_complete_failure in the !store guard', () => {
+    const hookSrc = loadHookSource();
+    // The store-unavailable branch must also fire a failure event —
+    // it's a real failure mode even though the button is disabled in
+    // normal flow (defensive during hot reload).
+    expect(hookSrc).toMatch(/if\s*\(\s*!store\s*\)[\s\S]*?notifyLessonError\(\s*\{\s*kind:\s*['"]store-unavailable['"][\s\S]*?track\(\s*['"]lesson_mark_complete_failure['"]/);
+  });
+});
+
+describe('phase 44.2 — lesson_opened wiring in LessonsScreen (source contract)', () => {
+  it('LessonsScreen imports track() from the analytics service', () => {
+    const screenSrc = loadScreenSource();
+    expect(screenSrc).toMatch(/import\s*\{\s*track\s*\}\s*from\s*['"]\.\.\/services\/analyticsService['"]/);
+  });
+
+  it('LessonsScreen fires lesson_opened in a useEffect keyed on selected', () => {
+    const screenSrc = loadScreenSource();
+    // The effect body must:
+    //   1. early-return if `selected` is undefined
+    //   2. call track('lesson_opened', { lessonId, week })
+    //   3. depend on [selected] so re-renders don't re-fire
+    expect(screenSrc).toMatch(/useEffect\(\s*\(\)\s*=>\s*\{[\s\S]*?if\s*\(\s*!\s*selected\s*\)\s*return;[\s\S]*?track\(\s*['"]lesson_opened['"][\s\S]*?\}\s*,\s*\[\s*selected\s*\]\s*\)/);
+    // The props bag must include the lessonId so we can group opens
+    // by lesson on the dashboard.
+    expect(screenSrc).toMatch(/track\(\s*['"]lesson_opened['"][\s\S]*?lessonId:\s*selected/);
+  });
+});
+
+describe('phase 44.2 — App.tsx analytics wiring (source contract)', () => {
+  it('App imports track() and the tab-change wrapper', () => {
+    const src = loadAppSource();
+    expect(src).toMatch(/import\s*\{\s*track\s*\}\s*from\s*['"]\.\/src\/services\/analyticsService['"]/);
+    expect(src).toMatch(/import\s*\{\s*wrapTabChangeForAnalytics\s*\}\s*from\s*['"]\.\/src\/utils\/wrapTabChangeForAnalytics['"]/);
+  });
+
+  it('App fires tab_visited on mount with initial: true', () => {
+    const src = loadAppSource();
+    // useEffect with empty deps fires once on mount; track('tab_visited')
+    // is called with { tab, initial: true } so dashboards can
+    // distinguish "user's starting tab" from "user switched here".
+    expect(src).toMatch(/useEffect\(\s*\(\)\s*=>\s*\{[\s\S]*?track\(\s*['"]tab_visited['"][\s\S]*?initial:\s*true[\s\S]*?\}\s*,\s*\[\s*\]\s*\)/);
+  });
+
+  it('TabBar uses the analytics-wrapped onTabChange', () => {
+    const src = loadAppSource();
+    // The TabBar must receive the wrapped handler, not the raw
+    // nav.onTabChange — otherwise tab switches wouldn't fire events.
+    expect(src).toContain('onSelect={onTabChangeWithAnalytics}');
+    expect(src).not.toContain('onSelect={nav.onTabChange}');
+  });
+
+  it('OnboardingScreen onDone fires onboarding_completed with the chosen language', () => {
+    const src = loadAppSource();
+    // The onDone callback fires BEFORE saveOnboardingPreference so
+    // we capture the moment the user completed onboarding, not
+    // when storage finished.
+    expect(src).toMatch(/track\(\s*['"]onboarding_completed['"][\s\S]*?language/);
+  });
+
+  it('SettingsScreen onReset fires settings_reset_app', () => {
+    const src = loadAppSource();
+    // The reset path captures the action before any storage write,
+    // so we know the user's intent at the moment they tapped Reset.
+    expect(src).toMatch(/track\(\s*['"]settings_reset_app['"][\s\S]*?source:\s*['"]settings['"]/);
+  });
+});
+
+describe('phase 44.2 — SettingsScreen analytics debug card (source contract)', () => {
+  it('SettingsScreen imports the analytics queue helpers', () => {
+    const src = loadSettingsSource();
+    // We need the queue readers + clearer to power the debug card.
+    // The import is multi-line, so we accept any whitespace between
+    // the symbol names.
+    expect(src).toMatch(/import\s*\{[\s\S]*?clearQueuedEvents[\s\S]*?getQueuedEvents[\s\S]*?isAnalyticsEnabled[\s\S]*?\}\s*from\s*['"]\.\.\/services\/analyticsService['"]/);
+  });
+
+  it('Analytics debug Card is gated behind __DEV__ AND !isAnalyticsEnabled()', () => {
+      const src = loadSettingsSource();
+      // The card must:
+      //   1. Render only in __DEV__ (so prod bundle tree-shakes it out)
+      //   2. Render only when !isAnalyticsEnabled() (so the backend's own
+      //      debug UI takes over once a key is configured)
+      const cardBlock = src.match(
+        /typeof\s+__DEV__\s*!==\s*['"]undefined['"]\s*&&\s*__DEV__\s*&&\s*!isAnalyticsEnabled\(\)\s*\?\s*\(\s*<Card[\s\S]*?shadow="card"[\s\S]*?<\/Card>\s*\)\s*:\s*null/,
+      );
+      expect(cardBlock, 'analytics debug Card not gated correctly').not.toBeNull();
+    });
+
+  it('AnalyticsDebugQueue renders queue length + Clear button', () => {
+    const src = loadSettingsSource();
+    // The helper must read the queue + offer a Clear button. We pin
+    // the helper name so refactors that move it to a different file
+    // are intentional (not silent loss).
+    expect(src).toMatch(/function\s+AnalyticsDebugQueue\s*\(\s*\)/);
+    expect(src).toMatch(/getQueuedEvents\(\)/);
+    expect(src).toMatch(/clearQueuedEvents/);
+    expect(src).toMatch(/testID="settings-analytics-clear-button"/);
   });
 });
