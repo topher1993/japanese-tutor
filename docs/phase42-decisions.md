@@ -78,6 +78,6 @@
 | Todo blob schema-version envelope (P1-5) | ✅ Shipped (`206206a`) |
 | App.tsx split (P1-1) | 🚫 **DEFERRED** — see `.hermes/work-cards/phase42-p1-1-app-split-deferred.md` |
 | LessonsScreen refactor (P1-3) | 🚫 **DEFERRED** — see `.hermes/work-cards/phase42-p1-3-lessons-screen-deferred.md` |
-| Vietnamese content quality review | 🟡 Subagent running |
+| Vietnamese content quality review | 🚫 **DEFERRED** — corpus is 380 drafts vs ~50 estimated; see `.hermes/work-cards/phase42-vi-content-quality-DEFERRED.md` |
 
 **6+ commits ahead of Phase 41 close-out. 700 tests pass.**
