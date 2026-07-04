@@ -38,6 +38,11 @@ declare const __DEV__: boolean | undefined;
 // contract is "track() never sends PII, period".
 import { scrubPii } from '../utils/scrubPii';
 
+// Phase 44.3: route events to the configured backend. The backend
+// module is the ONLY place posthog-react-native is imported; track()
+// just fires the named export and stays decoupled from the SDK.
+import { sendToBackend } from './analyticsBackend';
+
 export type AnalyticsEvent =
   // Navigation events
   | 'tab_visited'
@@ -142,7 +147,14 @@ export function track(event: AnalyticsEvent, props: Record<string, unknown> = {}
     // eslint-disable-next-line no-console
     console.log(`[analytics] ${event}`, props);
   }
-  // Phase 44.2: if (isAnalyticsEnabled()) sendToBackend(entry);
+  // Phase 44.3: fire to the configured backend. sendToBackend is a
+  // no-op when the backend hasn't been initialised (no API key set),
+  // so the in-memory queue remains the source of truth for the dev
+  // debug card. We do NOT await — track() must stay synchronous to
+  // keep call sites cheap. Errors are swallowed inside sendToBackend.
+  if (isAnalyticsEnabled()) {
+    void sendToBackend(event, scrubbed);
+  }
 }
 
 /**

@@ -26,6 +26,11 @@ import {
 import { useAppNavigation } from './src/app/useAppNavigation';
 import { wrapTabChangeForAnalytics } from './src/utils/wrapTabChangeForAnalytics';
 import { track } from './src/services/analyticsService';
+// Phase 44.3: initialize the PostHog backend on app mount so the
+// very first event (tab_visited initial: true) gets transmitted.
+// Safe to call repeatedly; initBackend is idempotent and skips
+// itself when EXPO_PUBLIC_ANALYTICS_KEY is unset.
+import { initBackend } from './src/services/analyticsBackend';
 
 /**
  * Phase 43 — App.tsx as a thin orchestrator.
@@ -58,15 +63,19 @@ export default function App() {
   const nav = useAppNavigation();
 
   // Phase 44.2: fire an analytics event on the initial tab paint so
-  // the first session's starting tab is captured (not just subsequent
-  // switches). This effect runs exactly once on mount. track() is a
-  // no-op in test mode.
-  React.useEffect(() => {
-    track('tab_visited', { tab: nav.tab, initial: true });
-    // We intentionally only run on mount; nav.onTabChange (wrapped
-    // below) handles subsequent switches with `initial` undefined.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // the first session's starting tab is captured (not just subsequent
+    // switches). This effect runs exactly once on mount. track() is a
+    // no-op in test mode.
+    React.useEffect(() => {
+      // Phase 44.3: kick off backend init before the first event so the
+      // SDK has a chance to set up before tab_visited fires. initBackend
+      // is a no-op when no API key is set, so this is safe in dev too.
+      void initBackend();
+      track('tab_visited', { tab: nav.tab, initial: true });
+      // We intentionally only run on mount; nav.onTabChange (wrapped
+      // below) handles subsequent switches with `initial` undefined.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
   // Phase 44.2: tab change → analytics event. The wrapper preserves
   // the original handler's side effects (nav state updates) and
