@@ -9,6 +9,19 @@ function readFile(path: string): string {
   return readFileSync(path, 'utf8');
 }
 
+/**
+ * Phase Fix-A — primary CTAs are no longer dead buttons.
+ *
+ * Phase 43 — App.tsx split: the `onStartLesson` callback that switches
+ * tabs to 'Lessons' now lives in App.tsx as an inline arrow passed to
+ * renderTab (`onStartLesson: () => nav.setTab('Lessons')`). The setTab
+ * call itself is in useAppNavigation.ts.
+ *
+ * Test 3 "App.tsx wires Home CTA to switch to Learn tab" now scans
+ * App.tsx + src/app/useAppNavigation.ts because the literal
+ * `setTab('Lessons')` lives in the hook. The `<HomeScreen onStartLesson=`
+ * render still lives in App.tsx (inside renderTab call).
+ */
 describe('Phase Fix-A — primary CTAs are no longer dead buttons', () => {
   describe("HomeScreen Start CTA", () => {
     const src = readFile(join(SRC, 'screens', 'HomeScreen.tsx'));
@@ -30,16 +43,25 @@ describe('Phase Fix-A — primary CTAs are no longer dead buttons', () => {
   });
 
   describe('App.tsx wires Home CTA to switch to Learn tab', () => {
-    const src = readFile(join(APP, 'App.tsx'));
+    const appSrc = readFile(join(APP, 'App.tsx'));
+    const hookSrc = readFile(join(APP, 'src/app/useAppNavigation.ts'));
+    const renderTabSrc = readFile(join(APP, 'src/app/renderTab.tsx'));
 
     it('passes an onStartLesson callback that switches tabs', () => {
-      const srcLines = src.split('\n').join(' ');
-      // 1) onStartLesson appears in the render() signature
-      expect(srcLines).toMatch(/onStartLesson:\s*\(\)\s*=>\s*void/);
-      // 2) HomeScreen receives onStartLesson
-      expect(srcLines).toMatch(/<HomeScreen[^>]*onStartLesson=/);
-      // 3) The callback passed to render() switches tabs to 'Lessons'
-      expect(srcLines).toMatch(/setTab\(['"]Lessons['"]\)/);
+      // Phase 43: App.tsx passes onStartLesson to renderTab as
+      // `onStartLesson: () => nav.setTab('Lessons')`. The setTab call
+      // lives in useAppNavigation.
+      const appShell = [appSrc, hookSrc, renderTabSrc].join('\n\n');
+
+      // 1) HomeScreen accepts onStartLesson (covered by describe above)
+      // 2) renderTab wires onStartLesson to <HomeScreen>
+      expect(renderTabSrc).toMatch(/<HomeScreen[^>]*onStartLesson=/);
+      // 3) App.tsx passes an arrow to renderTab that calls nav.setTab('Lessons')
+      expect(appSrc).toMatch(/onStartLesson:\s*\(\)\s*=>\s*nav\.setTab\(['"]Lessons['"]\)/);
+      // 4) setTab lives in the hook (defensive — guards against inline re-implementation)
+      expect(hookSrc).toMatch(/setTab\s*[:=]/);
+      // Combined check: the literal `setTab('Lessons')` exists in the app shell.
+      expect(appShell).toMatch(/setTab\(['"]Lessons['"]\)/);
     });
   });
 

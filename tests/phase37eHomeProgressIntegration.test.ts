@@ -9,9 +9,16 @@
 // No React rendering — we read HomeScreen.tsx + ProgressScreen.tsx as text
 // and pin substring/regex matches so a future edit cannot silently remove
 // the gate or duplicate the focus-card pattern.
+//
+// Phase 43 — App.tsx split: the `getParam('screen') === 'daily-rush'`
+// derivation moved out of App.tsx into src/app/useAppNavigation.ts.
+// App.tsx still routes `'daily-rush'` (via `nav.showDailyRush`) and the
+// `tab === 'Lessons'` etc. literals now live in src/app/renderTab.tsx.
+// This test scans the full app shell (App.tsx + src/app/**) and asserts
+// the patterns exist somewhere; App.tsx no longer owns them directly.
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -25,6 +32,7 @@ import type { WeekPlan } from '../src/types/weeklyTodo';
 const HOME_PATH = join(__dirname, '..', 'src', 'screens', 'HomeScreen.tsx');
 const PROGRESS_PATH = join(__dirname, '..', 'src', 'screens', 'ProgressScreen.tsx');
 const APP_PATH = join(__dirname, '..', 'App.tsx');
+const APP_DIR = join(__dirname, '..', 'src', 'app');
 
 function loadHomeSource(): string {
   return readFileSync(HOME_PATH, 'utf8');
@@ -34,6 +42,17 @@ function loadProgressSource(): string {
 }
 function loadAppSource(): string {
   return readFileSync(APP_PATH, 'utf8');
+}
+/** Phase 43: App.tsx + every file under src/app/ (the "App shell"). */
+function loadAppShellSource(): string {
+  const parts: string[] = [loadAppSource()];
+  for (const entry of readdirSync(APP_DIR)) {
+    const full = join(APP_DIR, entry);
+    if (statSync(full).isFile() && (entry.endsWith('.ts') || entry.endsWith('.tsx'))) {
+      parts.push(readFileSync(full, 'utf8'));
+    }
+  }
+  return parts.join('\n\n');
 }
 
 describe('phase 37e — Home + Progress todo-integration contract', () => {
@@ -187,7 +206,7 @@ describe('phase 37e — Home + Progress todo-integration contract', () => {
     // source so this test does not duplicate the union.
     const svcPath = join(__dirname, '..', 'src', 'services', 'weeklyTodoService.ts');
     const svc = readFileSync(svcPath, 'utf8');
-    const app = loadAppSource();
+    const appShell = loadAppShellSource();
     // Literal screen ids asserted by the union type (mirroring §5 ctaRoute).
     const KNOWN_SCREENS: Array<TodoCtaRoute['screen']> = [
       'lessons',
@@ -204,14 +223,15 @@ describe('phase 37e — Home + Progress todo-integration contract', () => {
       );
     }
     // 'daily-rush' is the only screen with a dedicated query-param
-    // handler in App.tsx (line `getParam('screen') === 'daily-rush'`).
+    // handler in App shell. Phase 43: handler moved from App.tsx to
+    // src/app/useAppNavigation.ts. Both files are scanned.
     // The others are tab IDs (Lessons/Flashcards/Quiz) embedded in
-    // LessonsScreen panels (kanji/example-sentences) or handled by the
+    // renderTab.tsx (phase 43: moved out of App.tsx) or handled by the
     // LessonsScreen `lesson` branch. Pin the ones that are observable
-    // in App source to guarantee no invented routes slipped in.
-    expect(app).toMatch(/['"]daily-rush['"]/);
-    expect(app).toMatch(/tab === 'Lessons'|'Lessons'/);
-    expect(app).toMatch(/tab === 'Flashcards'|'Flashcards'/);
-    expect(app).toMatch(/tab === 'Quiz'|'Quiz'/);
+    // in App shell to guarantee no invented routes slipped in.
+    expect(appShell).toMatch(/['"]daily-rush['"]/);
+    expect(appShell).toMatch(/tab === 'Lessons'|'Lessons'/);
+    expect(appShell).toMatch(/tab === 'Flashcards'|'Flashcards'/);
+    expect(appShell).toMatch(/tab === 'Quiz'|'Quiz'/);
   });
 });

@@ -80,13 +80,24 @@ describe('Phase 34 strict helper-language visibility', () => {
   });
 
   it('reviewer-only translation tooling is gated away from normal learner mode', () => {
+    // Phase 43 — App.tsx split: reviewerMode + showReview state moved into
+    // src/app/useAppNavigation.ts. App.tsx still wires showReviewerTools +
+    // onOpenReview through the destructured nav object, so those patterns
+    // remain in App.tsx. The useState lines moved to the hook.
     const appSource = readFileSync(join(REPO_ROOT, 'App.tsx'), 'utf8');
+    const navHookSource = readFileSync(join(REPO_ROOT, 'src/app/useAppNavigation.ts'), 'utf8');
     const settingsSource = readFileSync(join(REPO_ROOT, 'src/screens/SettingsScreen.tsx'), 'utf8');
 
-    expect(appSource).toContain("const reviewerMode = getParam('reviewer') === '1'");
-    expect(appSource).toContain("useState(reviewerMode && getParam('screen') === 'review')");
-    expect(appSource).toContain('showReviewerTools={reviewerMode}');
-    expect(appSource).toContain('onOpenReview={reviewerMode ?');
+    // App.tsx still wires the SettingsScreen props (now via `nav.*`).
+    expect(appSource).toContain('showReviewerTools={nav.reviewerMode}');
+    expect(appSource).toContain('onOpenReview={nav.reviewerMode ?');
+    // The reviewerMode derivation moved to the hook.
+    expect(navHookSource).toContain("getParam('reviewer') === '1'");
+    expect(navHookSource).toContain("useState(reviewerMode && getParam('screen') === 'review')");
+    // App.tsx must NOT contain the inline reviewer-mode derivation (regression guard).
+    expect(appSource).not.toContain("getParam('reviewer') === '1'");
+    expect(appSource).not.toContain("useState(reviewerMode && getParam('screen') === 'review')");
+    // SettingsScreen contract unchanged.
     expect(settingsSource).toContain('showReviewerTools && onOpenReview');
     expect(settingsSource).not.toContain('EN / VI / TL');
   });

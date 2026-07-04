@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const SRC = join(__dirname, '..', 'src');
+const APP_DIR = join(__dirname, '..', 'src', 'app');
 
 function readScreen(name: string): string {
   return readFileSync(join(SRC, 'screens', name), 'utf8');
@@ -25,6 +26,14 @@ const ALL_SCREENS = [
   'PlacementTestPanel.tsx',
 ];
 
+/**
+ * Phase SPACING — consistent margins/padding across all screens.
+ *
+ * Phase 43 — App.tsx split: the shell background style (`backgroundColor:
+ * ds.colors.background`) moved out of App.tsx styles into AppShell.tsx.
+ * Test "App.tsx shell background matches scaffold (no seam)" now scans
+ * both App.tsx and src/app/AppShell.tsx.
+ */
 describe('Phase SPACING — consistent margins/padding across all screens', () => {
   describe('Foundation: primitives handle safe area and bg', () => {
     it('ScreenHeader applies safe-area top inset automatically (no caller can forget)', () => {
@@ -57,9 +66,18 @@ describe('Phase SPACING — consistent margins/padding across all screens', () =
   });
 
   describe('App-level: shell background consistent with scaffold', () => {
-    it('App.tsx shell background matches scaffold (no seam)', () => {
+    it('App shell background matches scaffold (no seam)', () => {
+      // Phase 43: shell background style moved from App.tsx styles to
+      // src/app/AppShell.tsx. Scan both. App.tsx no longer defines a
+      // styles.app or styles.fill (those styles are in AppShell).
       const app = readFileSync(join(__dirname, '..', 'App.tsx'), 'utf8');
-      expect(app).toContain("backgroundColor: ds.colors.background");
+      const appShell = readFileSync(join(APP_DIR, 'AppShell.tsx'), 'utf8');
+      const all = app + '\n\n' + appShell;
+      expect(all).toContain('backgroundColor: ds.colors.background');
+      // App.tsx itself must NOT define the shell background style.
+      // It still owns `styles.body` for the tab body container.
+      expect(app).not.toMatch(/styles\.app\s*=/);
+      expect(app).not.toMatch(/styles\.fill\s*=/);
     });
   });
 

@@ -8,14 +8,20 @@
  * P1-09: dependency audit script must exist, parse `npm audit --json`, and
  *        emit a markdown report. Critical/high vulnerabilities fail the
  *        release gate.
+ *
+ * Phase 43 — App.tsx split: the `__DEV__ ? createAppSearchParams` guard
+ * lives in `src/app/useAppNavigation.ts`. The "must exist somewhere" scan
+ * now covers App.tsx + src/app/**. The new "App.tsx must NOT contain"
+ * assertion guards against future regression that re-inlines the guard.
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..');
 const APP = join(ROOT, 'App.tsx');
+const APP_DIR = join(ROOT, 'src', 'app');
 const PKG = join(ROOT, 'package.json');
 const SCRIPT = join(ROOT, 'scripts', 'audit-report.mjs');
 
@@ -23,32 +29,51 @@ function readPath(p: string): string {
   return readFileSync(p, 'utf8');
 }
 
+/**
+ * Concatenate App.tsx + every file under src/app/ for pattern scanning.
+ * Phase 43: source-grep tests no longer couple to a single file.
+ */
+function readAppOrAppModule(): string {
+  const parts: string[] = [readPath(APP)];
+  if (existsSync(APP_DIR)) {
+    for (const entry of readdirSync(APP_DIR)) {
+      const full = join(APP_DIR, entry);
+      if (statSync(full).isFile() && (entry.endsWith('.ts') || entry.endsWith('.tsx'))) {
+        parts.push(readPath(full));
+      }
+    }
+  }
+  return parts.join('\n\n');
+}
+
 describe('Phase 22 audit — query-param shell escape hatch (P1-08 fix)', () => {
-  it('App.tsx wraps createAppSearchParams() in __DEV__ guard', () => {
-    const src = readPath(APP);
-    expect(src).toMatch(/__DEV__\s*\?\s*createAppSearchParams/);
+  it('App shell wraps createAppSearchParams() in __DEV__ guard (now lives in src/app/useAppNavigation)', () => {
+    const all = readAppOrAppModule();
+    expect(all).toMatch(/__DEV__\s*\?\s*createAppSearchParams/);
+    // App.tsx itself must NOT contain the pattern — it lives in the hook now.
+    expect(readPath(APP)).not.toMatch(/__DEV__\s*\?\s*createAppSearchParams/);
   });
 
-  it('App.tsx never calls params.get(...) directly at top level (only via getParam helper)', () => {
-    const src = readPath(APP);
+  it('params.get(...) is only called inside the getParam helper (anywhere in App shell)', () => {
+    const all = readAppOrAppModule();
     // The single `params.get` call must be inside the helper definition.
     const getParamDef = /const getParam = [\s\S]*?params\.get\(/;
-    const helperCount = (src.match(getParamDef) || []).length;
+    const helperCount = (all.match(getParamDef) || []).length;
     expect(helperCount).toBe(1);
     // Outside the helper definition, there should be no direct calls.
-    const srcMinusHelper = src.replace(getParamDef, '');
-    const directCalls = srcMinusHelper.match(/params\.get\(/g) || [];
+    const allMinusHelper = all.replace(getParamDef, '');
+    const directCalls = allMinusHelper.match(/params\.get\(/g) || [];
     expect(directCalls.length).toBe(0);
-    expect(src).toContain('const getParam = ');
+    expect(all).toContain('const getParam = ');
   });
 
   it('all four hatch params are accessed via getParam, not raw', () => {
-    const src = readPath(APP);
-    expect(src).toContain("getParam('tab')");
-    expect(src).toContain("getParam('onboarding')");
-    expect(src).toContain("getParam('skipOnboarding')");
+    const all = readAppOrAppModule();
+    expect(all).toContain("getParam('tab')");
+    expect(all).toContain("getParam('onboarding')");
+    expect(all).toContain("getParam('skipOnboarding')");
     // 'screen' appears six times (feedback, sources, settings, profile, review, daily-rush).
-    const screenMatches = src.match(/getParam\('screen'\)/g) || [];
+    const screenMatches = all.match(/getParam\('screen'\)/g) || [];
     expect(screenMatches.length).toBe(6);
   });
 });

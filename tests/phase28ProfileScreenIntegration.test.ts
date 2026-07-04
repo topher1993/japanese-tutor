@@ -1,16 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 
+/**
+ * Phase 28 profile screen integration.
+ *
+ * Phase 43 — App.tsx split: the `showProfile` state moved out of App.tsx
+ * into `src/app/useAppNavigation.ts`. App.tsx still owns the route
+ * registration + `<ProfileScreen>` JSX, but the state name now comes from
+ * `nav.showProfile` / `nav.setShowProfile` destructured from the hook.
+ *
+ * The "ProfileScreen is registered" assertion still scans App.tsx (it does).
+ * The `useState` line that owned `showProfile` now lives in the hook, so
+ * the test must scan App.tsx + src/app/useAppNavigation.ts to find it.
+ */
 const appSource = readFileSync('App.tsx', 'utf8');
+const navHookSource = readFileSync('src/app/useAppNavigation.ts', 'utf8');
 const progressSource = readFileSync('src/screens/ProgressScreen.tsx', 'utf8');
 const profileSource = readFileSync('src/screens/ProfileScreen.tsx', 'utf8');
 
 describe('Phase 28 profile screen integration', () => {
   it('registers a ProfileScreen route in the app shell without changing bottom-tab IDs', () => {
     expect(appSource).toContain("import { ProfileScreen } from './src/screens/ProfileScreen';");
-    expect(appSource).toContain("const [showProfile, setShowProfile] = useState(getParam('screen') === 'profile');");
-    expect(appSource).toContain('<ProfileScreen onBack={() => setShowProfile(false)} />');
-    expect(appSource).toContain("setShowProfile(true)");
+    expect(appSource).toContain('<ProfileScreen onBack={() => nav.setShowProfile(false)} />');
+    expect(appSource).toContain('nav.setShowProfile(true)');
+    // The showProfile state itself now lives in the navigation hook.
+    expect(navHookSource).toContain("useState(getParam('screen') === 'profile')");
   });
 
   it('adds a real Progress affordance for opening the learner profile', () => {

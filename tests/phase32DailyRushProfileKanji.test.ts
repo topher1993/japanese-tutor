@@ -8,7 +8,17 @@ import { buildCandidateKanjiSection } from '../src/services/candidateKanjiAdapte
 import { buildProgressDashboard } from '../src/services/progressDashboardService';
 import type { LearnerProgress } from '../src/types/progress';
 
+/**
+ * Phase 32 Daily Flashcard Rush + Kanji polish + Profile progression.
+ *
+ * Phase 43 — App.tsx split: the `showDailyRush` useState moved out of App.tsx
+ * into `src/app/useAppNavigation.ts`. App.tsx still imports DailyRushScreen
+ * and renders the route block (guarded by `nav.showDailyRush`), so the
+ * import assertion still scans App.tsx. The useState line is now in the hook.
+ */
+
 const appSource = readFileSync('App.tsx', 'utf8');
+const navHookSource = readFileSync('src/app/useAppNavigation.ts', 'utf8');
 const homeSource = readFileSync('src/screens/HomeScreen.tsx', 'utf8');
 const profileSource = readFileSync('src/screens/ProfileScreen.tsx', 'utf8');
 const flashcardSource = readFileSync('src/screens/FlashcardsScreen.tsx', 'utf8');
@@ -88,8 +98,9 @@ describe('Phase 32 Daily Flashcard Rush', () => {
 
   it('wires a DailyRushScreen route and visible Home CTA without adding a bottom tab', () => {
     expect(appSource).toContain("import { DailyRushScreen } from './src/screens/DailyRushScreen';");
-    expect(appSource).toContain("const [showDailyRush, setShowDailyRush] = useState(getParam('screen') === 'daily-rush');");
-    expect(appSource).toContain('<DailyRushScreen supportLanguage={supportLanguage} onBack={() => setShowDailyRush(false)} />');
+    // Phase 43: showDailyRush state moved to useAppNavigation.ts.
+    expect(navHookSource).toContain("useState(getParam('screen') === 'daily-rush')");
+    expect(appSource).toContain('<DailyRushScreen supportLanguage={supportLanguage} onBack={() => nav.setShowDailyRush(false)} />');
     expect(homeSource).toContain('Daily Flashcard Rush');
     expect(homeSource).toContain('home-daily-rush-cta');
     expect(homeSource).toContain('onOpenDailyRush');

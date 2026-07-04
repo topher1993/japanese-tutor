@@ -12,6 +12,11 @@
  * `.tsx` file. Typed wrappers (function declarations, type aliases,
  * interface methods) are allowed; only the object-literal
  * `{ ... getAllAsync: <T>(...) ... }` shape is forbidden in `.tsx`.
+ *
+ * Phase 43 — App.tsx split: the SqliteLikeDatabase cast moved out of
+ * App.tsx into `src/app/onboardingStorage.ts`. The "must exist somewhere"
+ * scan now covers App.tsx + src/app/onboardingStorage.ts. The new
+ * "App.tsx must NOT contain" assertion guards against regression.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -68,11 +73,18 @@ describe('Phase 25 / P0-1 — TSX generic-arrow guard', () => {
     }
   });
 
-  it('App.tsx uses SqliteLikeDatabase cast for getAllAsync', () => {
+  it('App shell uses SqliteLikeDatabase cast for getAllAsync (now in src/app/onboardingStorage.ts)', () => {
+    // Phase 43: App.tsx no longer contains the cast (it's in onboardingStorage.ts).
+    // Scan covers App.tsx + src/app/onboardingStorage.ts. ≥1 occurrence
+    // (the refactor deduplicated the loader + saver cast sites into one
+    // helper, so we no longer need 2 — see PR description).
     const app = readFileSync('App.tsx', 'utf8');
-    // Count occurrences of the wrapper pattern (must be ≥ 2 — both storage init sites).
-    const matches = app.match(/as SqliteLikeDatabase\['getAllAsync'\]/g);
-    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(2);
+    const storage = readFileSync('src/app/onboardingStorage.ts', 'utf8');
+    const all = app + '\n\n' + storage;
+    const matches = all.match(/as SqliteLikeDatabase\['getAllAsync'\]/g);
+    expect(matches?.length ?? 0).toBeGreaterThanOrEqual(1);
+    // App.tsx must NOT contain the cast (regression guard).
+    expect(app).not.toMatch(/as SqliteLikeDatabase\['getAllAsync'\]/);
   });
 
   it('learningContext.tsx uses SqliteLikeDatabase cast for getAllAsync', () => {
@@ -80,21 +92,29 @@ describe('Phase 25 / P0-1 — TSX generic-arrow guard', () => {
     expect(lc).toMatch(/as SqliteLikeDatabase\['getAllAsync'\]/);
   });
 
-  it('App.tsx imports SqliteLikeDatabase type', () => {
+  it('App shell imports SqliteLikeDatabase type (now in src/app/onboardingStorage.ts)', () => {
+    // Phase 43: App.tsx no longer imports SqliteLikeDatabase.
+    // Scan covers App.tsx + src/app/onboardingStorage.ts.
     const app = readFileSync('App.tsx', 'utf8');
-    expect(app).toMatch(
-      /import\s+type\s+\{\s*SqliteLikeDatabase\s*\}\s+from\s+['"]\.\/src\/repositories\/sqliteLearningRepository['"]/
+    const storage = readFileSync('src/app/onboardingStorage.ts', 'utf8');
+    const all = app + '\n\n' + storage;
+    expect(all).toMatch(
+      /import\s+type\s+\{\s*SqliteLikeDatabase\s*\}\s+from\s+['"][^'"]*repositories\/sqliteLearningRepository['"]/
+    );
+    // App.tsx must NOT import the type (regression guard).
+    expect(app).not.toMatch(
+      /import\s+type\s+\{\s*SqliteLikeDatabase\s*\}/
     );
   });
 
-  it('typecheck no longer fails on App.tsx:117 / 176 / learningContext.tsx:72', () => {
-    // This is a structural check (grep), not a full tsc run — full tsc has
-    // unrelated pre-existing errors that GPT-5.5 did not flag as P0.
+  it('typecheck no longer fails on App shell + learningContext.tsx (no inline <T> getAllAsync anywhere)', () => {
+    // Phase 43: App.tsx is checked, but the actual cast site is in
+    // src/app/onboardingStorage.ts. Both must NOT have the inline shape.
     const app = readFileSync('App.tsx', 'utf8');
+    const storage = readFileSync('src/app/onboardingStorage.ts', 'utf8');
     const lc = readFileSync('src/services/learningContext.tsx', 'utf8');
-    // Verify the original failing pattern is absent from the 3 known lines.
-    // (We can't assert exact line numbers — use context-anchored checks.)
     expect(app).not.toMatch(/getAllAsync:\s*<T>\(/);
+    expect(storage).not.toMatch(/getAllAsync:\s*<T>\(/);
     expect(lc).not.toMatch(/getAllAsync:\s*<T>\(/);
   });
 });
