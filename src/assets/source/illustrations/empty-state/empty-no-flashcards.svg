@@ -1,0 +1,40 @@
+<!--
+  Empty-state 3 — Flashcards (NEW; not wired to EmptyStateArt yet, but PNG + manifest entry ready).
+  Scene: fresh stack of blank cards fanned on a table, pen resting.
+  Output: empty-no-flashcards.svg -> empty-no-flashcards.png (240x240)
+
+  palette (ds.colors only):
+    ds.colors.brand (#2A6F97) - cards outline / pen nib
+    ds.colors.brandSoft (#E0F2FE) - card body
+    ds.colors.warm (#F4A261) - pen body
+    ds.colors.warmInk (#92400E) - pen grip
+    ds.colors.text (#0F172A) - outlines
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="Empty flashcards state: a fanned stack of three blank cards on a table, with a pen resting nearby">
+  <!-- Table surface -->
+  <line x1="20" y1="200" x2="220" y2="200" stroke="#64748B" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="120" cy="200" rx="100" ry="14" fill="#E0F2FE" opacity="0.4"/>
+
+  <!-- Card fan (3 blank cards, fanned from center) -->
+  <g transform="translate(120 130)">
+    <!-- Left card -->
+    <g transform="rotate(-22)">
+      <rect x="-50" y="-32" width="100" height="64" rx="6" fill="#FFFFFF" stroke="#2A6F97" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <!-- Middle card -->
+    <g>
+      <rect x="-50" y="-32" width="100" height="64" rx="6" fill="#FFFFFF" stroke="#2A6F97" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <!-- Right card -->
+    <g transform="rotate(22)">
+      <rect x="-50" y="-32" width="100" height="64" rx="6" fill="#FFFFFF" stroke="#2A6F97" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <!-- Pen (foreground-left) -->
+  <g transform="translate(40 168) rotate(-18)">
+    <rect x="0" y="0" width="68" height="8" rx="3" fill="#F4A261" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    <rect x="48" y="0" width="20" height="8" rx="2" fill="#92400E" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    <path d="M 68 0 L 78 4 L 68 8 Z" fill="#2A6F97" stroke="#0F172A" stroke-width="2" stroke-linejoin="round"/>
+  </g>
+</svg>

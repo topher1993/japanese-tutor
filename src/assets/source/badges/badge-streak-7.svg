@@ -1,9 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="7-day streak badge">
+<!--
+  Badge 1 — 7-day Streak (streak7) — REFRESH.
+  Silhouette: ROUND. Center motif: stylized flame (not emoji 🔥). Palette: warm/amber.
+  Identity lock: matches existing badge-streak-7.svg disk location.
+  Export: 96x96 PNG. Hand-authored at 64x64 viewBox to match existing convention.
+
+  palette (ds.colors only):
+    ds.colors.warm (#F4A261) - disk
+    ds.colors.warmSoft (#FFF4E6) - flame body
+    ds.colors.warmInk (#92400E) - flame tip
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="7-day streak badge: a stylized flame on a warm amber disk">
+  <!-- Disk (round silhouette) -->
   <circle cx="32" cy="32" r="30" fill="#F4A261"/>
-  <path d="M 32 14
-           C 28 22 22 26 22 34
-           C 22 42 28 48 32 48
-           C 36 48 42 42 42 34
-           C 42 26 36 22 32 14 Z"
-        fill="#FFFFFF"/>
+  <!-- Rim ring (white inner) -->
+  <circle cx="32" cy="32" r="26" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.6"/>
+  <!-- Stylized flame silhouette (NOT emoji) -->
+  <path d="M 32 12
+           C 28 18 22 24 22 32
+           C 22 28 24 26 26 26
+           C 25 30 27 33 30 33
+           C 28 36 28 40 32 42
+           C 36 40 36 36 34 33
+           C 37 33 39 30 38 26
+           C 40 26 42 28 42 32
+           C 42 24 36 18 32 12 Z"
+        fill="#FFF4E6" stroke="#92400E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Inner flame core (slightly darker amber for depth without gradient) -->
+  <path d="M 32 22
+           C 30 26 28 30 28 34
+           C 28 38 30 40 32 40
+           C 34 40 36 38 36 34
+           C 36 30 34 26 32 22 Z"
+        fill="#F4A261" opacity="0.6"/>
 </svg>

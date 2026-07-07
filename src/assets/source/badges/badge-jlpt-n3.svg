@@ -1,0 +1,40 @@
+<!--
+  Badge 4 — N3 (jlptN3) — NEW. First-ever N3 badge.
+  Silhouette: BANNER (third silhouette class — round=streak7, shield=N4, banner=N3).
+  Center motif: "N3" in white, sans-serif weight 700-900.
+  Palette: brandDark deep blue + success teal accent (behaviour-signal hint).
+  Export: 96x96 PNG.
+
+  palette (ds.colors only):
+    ds.colors.brandDark (#014F86) - banner body
+    ds.colors.success (#2A9D8F) - banner accent (behaviour-signal)
+    ds.colors.text (#0F172A) - outlines
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="JLPT N3 badge: the letters N3 on a deep brand-dark banner with a teal behaviour-signal accent">
+  <!-- Banner fold tails (left) -->
+  <path d="M 4 14
+           L 12 18
+           L 12 46
+           L 4 50
+           L 8 32 Z"
+        fill="#014F86" stroke="#0F172A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Banner fold tails (right) -->
+  <path d="M 60 14
+           L 52 18
+           L 52 46
+           L 60 50
+           L 56 32 Z"
+        fill="#014F86" stroke="#0F172A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Banner main field (rectangle) -->
+  <rect x="10" y="14" width="44" height="36" fill="#014F86" stroke="#0F172A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Banner top fold line -->
+  <line x1="10" y1="20" x2="54" y2="20" stroke="#0F172A" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+  <!-- Banner bottom fold line -->
+  <line x1="10" y1="44" x2="54" y2="44" stroke="#0F172A" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+  <!-- Inner field rim (white) -->
+  <rect x="14" y="22" width="36" height="20" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.6"/>
+  <!-- N3 center text -->
+  <text x="32" y="38" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="-0.5">N3</text>
+  <!-- Teal behaviour-signal accent (corner pip) -->
+  <circle cx="50" cy="20" r="3" fill="#2A9D8F" stroke="#0F172A" stroke-width="1.5"/>
+</svg>

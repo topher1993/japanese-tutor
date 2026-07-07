@@ -1,0 +1,40 @@
+<!--
+  Empty-state 4 — Progress (refresh; EmptyStateArt scene="progress").
+  Scene: notepad graph with empty X-axis, small pencil hovering.
+  Output: empty-no-progress.svg -> empty-no-progress.png (240x240)
+
+  palette (ds.colors only):
+    ds.colors.info (#7E57C2) - notepad cover
+    ds.colors.infoSoft (#EDE9FE) - notepad page
+    ds.colors.warm (#F4A261) - pencil body
+    ds.colors.warmInk (#92400E) - pencil tip / grip
+    ds.colors.text (#0F172A) - outlines / axes
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="Empty progress state: a notepad with an empty X-axis, a small pencil hovering at the start">
+  <!-- Notepad (slight 3/4 tilt) -->
+  <g transform="translate(30 40) rotate(-2 90 80)">
+    <!-- Notepad cover (info purple) -->
+    <rect x="0" y="0" width="180" height="160" fill="#7E57C2" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Notepad page -->
+    <rect x="10" y="10" width="160" height="140" fill="#EDE9FE" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    <!-- Y-axis -->
+    <line x1="30" y1="20" x2="30" y2="130" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+    <!-- X-axis -->
+    <line x1="30" y1="130" x2="160" y2="130" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+    <!-- Grid suggestion (dashed, very light) -->
+    <line x1="30" y1="100" x2="160" y2="100" stroke="#7E57C2" stroke-width="1" stroke-dasharray="4 4" opacity="0.4"/>
+    <line x1="30" y1="70" x2="160" y2="70" stroke="#7E57C2" stroke-width="1" stroke-dasharray="4 4" opacity="0.4"/>
+    <line x1="30" y1="40" x2="160" y2="40" stroke="#7E57C2" stroke-width="1" stroke-dasharray="4 4" opacity="0.4"/>
+    <!-- Y-axis tick marks (very small) -->
+    <line x1="26" y1="40" x2="30" y2="40" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    <line x1="26" y1="70" x2="30" y2="70" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    <line x1="26" y1="100" x2="30" y2="100" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <!-- Pencil hovering (lower-left, at start of X-axis) -->
+  <g transform="translate(46 178) rotate(-22)">
+    <rect x="0" y="0" width="58" height="8" rx="2" fill="#F4A261" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    <rect x="40" y="0" width="18" height="8" rx="1" fill="#92400E" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    <path d="M 58 0 L 70 4 L 58 8 Z" fill="#0F172A" stroke="#0F172A" stroke-width="2" stroke-linejoin="round"/>
+  </g>
+</svg>

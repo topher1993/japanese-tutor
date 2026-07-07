@@ -1,0 +1,59 @@
+<!--
+  Onboarding Panel B — Workplace FINAL (base scene + しごと wordmark overlay).
+  Mirrors workplace.svg + adds the しごと wordmark headline.
+  Output: src/assets/source/illustrations/onboarding/workplace-final.svg -> workplace-final.png (320x480)
+
+  Continuity lock: <symbol id="desk-silhouette"> block is IDENTICAL across all 6 onboarding files.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 480" width="320" height="480" role="img" aria-label="Onboarding Step 3 Workplace final: same workplace scene with colleague, sticky note, and the しごと wordmark headline">
+  <defs>
+    <symbol id="desk-silhouette" viewBox="0 0 320 200">
+      <rect x="8" y="8" width="80" height="48" rx="4" fill="#FFF4E6" stroke="#92400E" stroke-width="2" stroke-linecap="round"/>
+      <line x1="48" y1="8" x2="48" y2="56" stroke="#92400E" stroke-width="2" stroke-linecap="round"/>
+      <line x1="8" y1="32" x2="88" y2="32" stroke="#92400E" stroke-width="2" stroke-linecap="round"/>
+      <rect x="0" y="120" width="320" height="20" fill="#64748B" stroke="#0F172A" stroke-width="4" stroke-linecap="round"/>
+      <line x1="0" y1="140" x2="320" y2="140" stroke="#0F172A" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+      <rect x="20" y="140" width="8" height="60" fill="#64748B" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+      <rect x="292" y="140" width="8" height="60" fill="#64748B" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+
+  <!-- Soft daylight wash -->
+  <ellipse cx="48" cy="32" rx="120" ry="60" fill="#FFF4E6" opacity="0.7"/>
+
+  <!-- Shared desk silhouette -->
+  <use href="#desk-silhouette" x="0" y="280" width="320" height="200"/>
+
+  <!-- Laptop -->
+  <g transform="translate(170 240)">
+    <path d="M 0 80 L 90 80 L 98 100 L -8 100 Z" fill="#014F86" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="5" y="0" width="82" height="80" rx="4" fill="#2A6F97" stroke="#0F172A" stroke-width="4" stroke-linecap="round"/>
+    <rect x="12" y="8" width="68" height="64" fill="#FFFFFF" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    <text x="46" y="56" font-family="Noto Sans JP, sans-serif" font-size="36" font-weight="700" fill="#2A6F97" text-anchor="middle">あ</text>
+  </g>
+
+  <!-- Sticky note -->
+  <g transform="translate(40 296) rotate(-4)">
+    <rect x="0" y="0" width="90" height="60" fill="#FFF4E6" stroke="#92400E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="45" y="38" font-family="Noto Sans JP, sans-serif" font-size="22" font-weight="700" fill="#92400E" text-anchor="middle">お願いします</text>
+  </g>
+
+  <!-- Colleague -->
+  <g transform="translate(20 200)">
+    <path d="M 10 80 L 10 50 C 10 38 18 30 30 30 L 50 30 C 62 30 70 38 70 50 L 70 80 Z" fill="#7E57C2" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="40" cy="20" r="16" fill="#EDE9FE" stroke="#0F172A" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 24 18 C 26 8 54 8 56 18" fill="none" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+    <g transform="translate(74 4)">
+      <path d="M 0 0 L 60 0 L 60 30 L 30 30 L 22 38 L 22 30 L 0 30 Z" fill="#FFFFFF" stroke="#0F172A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="14" cy="15" r="2" fill="#0F172A"/>
+      <circle cx="28" cy="15" r="2" fill="#0F172A"/>
+      <circle cx="42" cy="15" r="2" fill="#0F172A"/>
+    </g>
+  </g>
+
+  <!-- Kanji overlay: しごと wordmark -->
+  <g>
+    <text x="160" y="100" font-family="Noto Sans JP, sans-serif" font-size="56" font-weight="900" fill="#0F172A" text-anchor="middle" opacity="0.18">しごと</text>
+    <text x="160" y="96" font-family="Noto Sans JP, sans-serif" font-size="56" font-weight="900" fill="#7E57C2" text-anchor="middle">しごと</text>
+  </g>
+</svg>

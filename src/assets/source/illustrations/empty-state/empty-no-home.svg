@@ -1,0 +1,42 @@
+<!--
+  Empty-state 1 — Home (refresh; lives in EmptyStateArt.tsx scene="home").
+  Scene: open doorway with 3 labelled rooms (less / flashcards / progress).
+  Output: src/assets/source/illustrations/empty-state/empty-no-home.svg -> empty-no-home.png (240x240)
+
+  palette (ds.colors only):
+    ds.colors.brand (#2A6F97) - doorway frame
+    ds.colors.brandDark (#014F86) - doorway depth
+    ds.colors.brandSoft (#E0F2FE) - room interior
+    ds.colors.textMuted (#64748B) - threshold
+    ds.colors.text (#0F172A) - outlines
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="Empty home state: an open doorway leading to three labelled rooms — lessons, flashcards, progress">
+  <!-- Floor / threshold line -->
+  <line x1="20" y1="200" x2="220" y2="200" stroke="#64748B" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Open doorway frame (center-frame, focal) -->
+  <g transform="translate(70 30)">
+    <!-- Door frame (arched) -->
+    <path d="M 0 100 L 0 30 A 50 50 0 0 1 100 30 L 100 100 Z" fill="#E0F2FE" stroke="#2A6F97" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Door depth (inside) -->
+    <path d="M 10 100 L 10 35 A 40 40 0 0 1 90 35 L 90 100" fill="#014F86" stroke="#0F172A" stroke-width="2" stroke-linecap="round" opacity="0.25"/>
+    <!-- Room 1 label (left) -->
+    <g transform="translate(20 60)">
+      <rect x="0" y="0" width="28" height="14" rx="3" fill="#FFFFFF" stroke="#2A6F97" stroke-width="2"/>
+      <text x="14" y="11" font-family="Noto Sans JP, sans-serif" font-size="9" font-weight="700" fill="#2A6F97" text-anchor="middle">less</text>
+    </g>
+    <!-- Room 2 label (center) -->
+    <g transform="translate(36 80)">
+      <rect x="0" y="0" width="28" height="14" rx="3" fill="#FFFFFF" stroke="#2A6F97" stroke-width="2"/>
+      <text x="14" y="11" font-family="Noto Sans JP, sans-serif" font-size="7" font-weight="700" fill="#2A6F97" text-anchor="middle">cards</text>
+    </g>
+    <!-- Room 3 label (right) -->
+    <g transform="translate(54 60)">
+      <rect x="0" y="0" width="28" height="14" rx="3" fill="#FFFFFF" stroke="#2A6F97" stroke-width="2"/>
+      <text x="14" y="11" font-family="Noto Sans JP, sans-serif" font-size="7" font-weight="700" fill="#2A6F97" text-anchor="middle">stats</text>
+    </g>
+  </g>
+
+  <!-- Floor surface in front of door -->
+  <rect x="0" y="200" width="240" height="40" fill="#E0F2FE" opacity="0.4"/>
+</svg>

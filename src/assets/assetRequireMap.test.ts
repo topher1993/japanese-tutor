@@ -120,4 +120,21 @@ describe('manifest ↔ component wiring', () => {
       expect(typeof getAsset(key as keyof typeof assetRequireMap)).toBe('number');
     }
   });
+
+  // Phase 45 Tier-2: explicit assertions for the 4 new require() lines.
+  it('Phase 45: assetRequireMap has emptyState.flashcards', () => {
+    expect(assetRequireMap['emptyState.flashcards']).toBeDefined();
+  });
+
+  it('Phase 45: assetRequireMap has emptyState.quiz', () => {
+    expect(assetRequireMap['emptyState.quiz']).toBeDefined();
+  });
+
+  it('Phase 45: assetRequireMap has emptyState.survival', () => {
+    expect(assetRequireMap['emptyState.survival']).toBeDefined();
+  });
+
+  it('Phase 45: assetRequireMap has badge.jlptN3', () => {
+    expect(assetRequireMap['badge.jlptN3']).toBeDefined();
+  });
 });

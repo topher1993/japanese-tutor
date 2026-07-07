@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { Disclosure } from '../components/Disclosure';
+import { EmptyStateArt } from '../components/EmptyStateArt';
 import { FlipCard } from '../components/FlipCard';
 import { JishoLink } from '../components/JishoLink';
 import { Mascot, type MascotExpression } from '../components/Mascot';
@@ -159,6 +160,28 @@ export function FlashcardsScreen({
     return (
       <ScreenScaffold>
         <ScreenHeader title="Flashcards" subtitle="Loading..." />
+      </ScreenScaffold>
+    );
+  }
+
+  // Phase 45 Tier-2: defensive empty-state for the case where the deck
+  // hydrates successfully but has no cards to study. In practice
+  // createFlashcardDeck() flattens every lesson's items so this branch
+  // is reachable only if getAllLessons() returns [] (data refactor) or
+  // every candidate adapter errors out. Mirrors the LessonsScreen
+  // empty-wrap pattern (size 200 sits between HomeScreen's 180 and
+  // LessonsScreen's 220).
+  if (activeDeck.cards.length === 0) {
+    return (
+      <ScreenScaffold>
+        <ScreenHeader title="Flashcards" subtitle="No cards yet" />
+        <View style={styles.emptyWrap}>
+          <EmptyStateArt screen="flashcards" size={200} />
+          <Text style={styles.emptyTitle}>No flashcards yet</Text>
+          <Text style={styles.emptyBody}>
+            Flashcards will appear here once lessons and review items are available.
+          </Text>
+        </View>
       </ScreenScaffold>
     );
   }
@@ -417,4 +440,7 @@ const styles = StyleSheet.create({
   infoList: { gap: ds.spacing.xs },
   infoLine: { fontSize: ds.type.caption, color: ds.colors.text, fontFamily: 'monospace' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.xs, marginTop: ds.spacing.sm },
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: ds.spacing.md, paddingVertical: ds.spacing.xl },
+  emptyTitle: { fontSize: ds.type.title, fontWeight: '900', color: ds.colors.text, textAlign: 'center' },
+  emptyBody: { fontSize: ds.type.body, color: ds.colors.textMuted, textAlign: 'center', flexShrink: 1, paddingHorizontal: ds.spacing.lg },
 });
