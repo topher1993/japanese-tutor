@@ -1,5 +1,5 @@
 import type { LessonCategory, SenseiLesson } from '../types/lesson';
-import type { LearnerProgress } from '../types/progress';
+import type { LearnerProgress, WeeklyReviewCompletion } from '../types/progress';
 import { createInitialProgress, completeLesson } from '../services/progressService';
 import { createTablesSql, CURRENT_SCHEMA_VERSION } from '../db/schema';
 
@@ -38,11 +38,16 @@ export interface PersistentLearningRepository {
 export interface TodoStateMap { [todoId: string]: unknown; }
 export interface WeekTodosInitializedMap { [weekNumber: number]: boolean; }
 export interface TodoEventCountsMap { [eventKey: string]: unknown; }
+// Phase 46: shape of the new `weekly_review_completions` column. Stored as a
+// JSON-encoded array; each entry is `{ weekIso: 'YYYY-Www' }`. Older saves
+// without the column default to `[]`.
+export interface WeeklyReviewCompletionMap { stamps: WeeklyReviewCompletion[]; }
 
 export interface ExtendedLearnerProgress extends LearnerProgress {
   todoStates: TodoStateMap;
   weekTodosInitialized: WeekTodosInitializedMap;
   todoEventCounts: TodoEventCountsMap;
+  weeklyReviewCompletions: WeeklyReviewCompletion[];
 }
 
 const SCHEMA_META_KEY_PROGRESS = 'progress';
@@ -53,6 +58,13 @@ const PROGRESS_TODO_COLUMNS = [
   { name: 'todo_states', sql: "ALTER TABLE progress ADD COLUMN todo_states TEXT NOT NULL DEFAULT '{}'" },
   { name: 'week_todos_initialized', sql: "ALTER TABLE progress ADD COLUMN week_todos_initialized TEXT NOT NULL DEFAULT '{}'" },
   { name: 'todo_event_counts', sql: "ALTER TABLE progress ADD COLUMN todo_event_counts TEXT NOT NULL DEFAULT '{}'" },
+  // Phase 46: 9th column for the JLPT N3 weekly-review counter. Defaults to
+  // '[]' (raw array, no schema_version envelope) because the entry shape is
+  // trivially stable — a single `{ weekIso: string }` per element, no nested
+  // schema. Backwards compat: rows that pre-date this column read with the
+  // default, so N3 just stays un-earned until the user completes a weekly
+  // review under the new client.
+  { name: 'weekly_review_completions', sql: "ALTER TABLE progress ADD COLUMN weekly_review_completions TEXT NOT NULL DEFAULT '[]'" },
 ] as const;
 
 // Safe JSON parse: returns the provided fallback on any parse error and warns.
@@ -152,6 +164,10 @@ function wrapTodoBlob<T>(data: T): string {
 // callers that pass an extended shape (which only this repo does) preserve their
 // values via the cast below; callers that pass the plain v1 shape get the
 // default `{}` per field, matching the previous behaviour.
+//
+// Phase 46: also defaults the new `weeklyReviewCompletions` field to `[]`.
+// Older saves (before Phase 46) reach this helper without that field set, so
+// the coalesce keeps `consecutiveIsoWeeks` honest on first read.
 function withTodoDefaults(progress: LearnerProgress): ExtendedLearnerProgress {
   const extended = progress as ExtendedLearnerProgress;
   return {
@@ -159,6 +175,7 @@ function withTodoDefaults(progress: LearnerProgress): ExtendedLearnerProgress {
     todoStates: extended.todoStates ?? {},
     weekTodosInitialized: extended.weekTodosInitialized ?? {},
     todoEventCounts: extended.todoEventCounts ?? {},
+    weeklyReviewCompletions: extended.weeklyReviewCompletions ?? [],
   };
 }
 
@@ -205,12 +222,23 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
       }
     }
     const row = lastRealRow ?? rows[rows.length - 1];
+    // Phase 46 — the new weekly_review_completions column defaults to '[]'
+    // for v2 rows that pre-date the column addition. Read with safeParseJson
+    // because older test seams in phase42 hand-roll v2-shape rows without the
+    // 9th field set, and we must not throw on those.
+    const weeklyReviewRaw = (row.weekly_review_completions ?? row.weeklyReviewCompletions) as string | undefined;
+    const weeklyReviewCompletions = safeParseJson<WeeklyReviewCompletion[]>(
+      weeklyReviewRaw,
+      [],
+      'progress.weekly_review_completions',
+    );
     const newProgressCache = {
       ...progressCache,
       completedLessonIds,
       todoStates: parseTodoBlob<TodoStateMap>(row.todo_states ?? row.todoStates, {}, 'progress.todo_states'),
             weekTodosInitialized: parseTodoBlob<WeekTodosInitializedMap>(row.week_todos_initialized ?? row.weekTodosInitialized, {}, 'progress.week_todos_initialized'),
             todoEventCounts: parseTodoBlob<TodoEventCountsMap>(row.todo_event_counts ?? row.todoEventCounts, {}, 'progress.todo_event_counts'),
+      weeklyReviewCompletions,
     };
     if (lastRealRow !== null || completedLessonIds.length > 0) {
       progressCache = newProgressCache;
@@ -270,11 +298,16 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
       // Phase 37a: 5-tuple → 8-tuple. The three new JSON-blob columns are
       // populated from progressCache so any caller that reads them back via
       // getProgress() sees the same values.
+      //
+      // Phase 46: 8-tuple → 9-tuple. The weekly_review_completions column is
+      // populated from progressCache too so a lesson-complete event doesn't
+      // wipe the counter the recompute path just stamped.
       const todoStates = wrapTodoBlob(progressCache.todoStates ?? {});
             const weekTodosInitialized = wrapTodoBlob(progressCache.weekTodosInitialized ?? {});
             const todoEventCounts = wrapTodoBlob(progressCache.todoEventCounts ?? {});
+      const weeklyReviewCompletions = JSON.stringify(progressCache.weeklyReviewCompletions ?? []);
       await db.runAsync(
-        'INSERT OR REPLACE INTO progress VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT OR REPLACE INTO progress VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         `${lessonId}:${date}`,
         lessonId,
         1,
@@ -283,6 +316,7 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
         todoStates,
         weekTodosInitialized,
         todoEventCounts,
+        weeklyReviewCompletions,
       );
     },
     async getProgress() {
@@ -294,7 +328,7 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
         hydrateProgressFromRows((memoryTables.get('progress') as ProgressSqlRow[] | undefined) ?? []);
       } else if (!memoryTables) {
         const rows = await db.getAllAsync<ProgressSqlRow>(
-          'SELECT lesson_id, completed, completed_at, score, todo_states, week_todos_initialized, todo_event_counts FROM progress ORDER BY rowid ASC',
+          'SELECT lesson_id, completed, completed_at, score, todo_states, week_todos_initialized, todo_event_counts, weekly_review_completions FROM progress ORDER BY rowid ASC',
         );
         hydrateProgressFromRows(rows);
       }
@@ -324,10 +358,15 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
       //     progress row by rowid. If no row exists (fresh learner, never
       //     completed a lesson) we create a synthetic placeholder so the blobs
       //     are persisted.
+      //
+      // Phase 46: also persist weeklyReviewCompletions on the same UPDATE so
+      // the JLPT N3 counter survives a cold start. The 9th column is updated
+      // alongside the three existing blobs.
       progressCache = withTodoDefaults(snapshot);
       const todoStates = wrapTodoBlob(snapshot.todoStates ?? {});
             const weekTodosInitialized = wrapTodoBlob(snapshot.weekTodosInitialized ?? {});
             const todoEventCounts = wrapTodoBlob(snapshot.todoEventCounts ?? {});
+      const weeklyReviewCompletions = JSON.stringify(snapshot.weeklyReviewCompletions ?? []);
 
       if (memoryTables) {
         const rows = (memoryTables.get('progress') ?? []) as Array<Record<string, unknown>>;
@@ -338,6 +377,7 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
             todo_states: todoStates,
             week_todos_initialized: weekTodosInitialized,
             todo_event_counts: todoEventCounts,
+            weekly_review_completions: weeklyReviewCompletions,
           };
           memoryTables.set('progress', rows);
         } else {
@@ -350,6 +390,7 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
             todo_states: todoStates,
             week_todos_initialized: weekTodosInitialized,
             todo_event_counts: todoEventCounts,
+            weekly_review_completions: weeklyReviewCompletions,
           });
           memoryTables.set('progress', rows);
         }
@@ -357,16 +398,17 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
 
       try {
         await db.runAsync(
-          'UPDATE progress SET todo_states = ?, week_todos_initialized = ?, todo_event_counts = ? WHERE rowid = (SELECT MAX(rowid) FROM progress)',
+          'UPDATE progress SET todo_states = ?, week_todos_initialized = ?, todo_event_counts = ?, weekly_review_completions = ? WHERE rowid = (SELECT MAX(rowid) FROM progress)',
           todoStates,
           weekTodosInitialized,
           todoEventCounts,
+          weeklyReviewCompletions,
         );
       } catch {
         // No progress row exists yet — create a synthetic one so the blobs
         // survive the next getProgress() read.
         await db.runAsync(
-          'INSERT INTO progress (id, lesson_id, completed, completed_at, score, todo_states, week_todos_initialized, todo_event_counts) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO progress (id, lesson_id, completed, completed_at, score, todo_states, week_todos_initialized, todo_event_counts, weekly_review_completions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           'todo-snapshot',
           '',
           0,
@@ -375,6 +417,7 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
           todoStates,
           weekTodosInitialized,
           todoEventCounts,
+          weeklyReviewCompletions,
         );
       }
     },

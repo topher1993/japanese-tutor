@@ -8,7 +8,7 @@ export const createTablesSql = [
   // JSON-blob payloads for the weekly-todo gating feature (§3.3 of the proposal).
   // They default to '{}' so existing v1 progress rows upgraded via the migration
   // in sqliteLearningRepository still satisfy NOT NULL.
-  `CREATE TABLE IF NOT EXISTS progress (id TEXT PRIMARY KEY, lesson_id TEXT NOT NULL, completed INTEGER NOT NULL, completed_at TEXT, score INTEGER, todo_states TEXT NOT NULL DEFAULT '{}', week_todos_initialized TEXT NOT NULL DEFAULT '{}', todo_event_counts TEXT NOT NULL DEFAULT '{}');`,
+  `CREATE TABLE IF NOT EXISTS progress (id TEXT PRIMARY KEY, lesson_id TEXT NOT NULL, completed INTEGER NOT NULL, completed_at TEXT, score INTEGER, todo_states TEXT NOT NULL DEFAULT '{}', week_todos_initialized TEXT NOT NULL DEFAULT '{}', todo_event_counts TEXT NOT NULL DEFAULT '{}', weekly_review_completions TEXT NOT NULL DEFAULT '[]');`,
   `CREATE TABLE IF NOT EXISTS streaks (id TEXT PRIMARY KEY, current_streak INTEGER NOT NULL, longest_streak INTEGER NOT NULL, last_study_date TEXT);`,
   `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
   // Phase 22 audit fix P0-01 + P0-02: durable key/value store for onboarding
@@ -35,4 +35,10 @@ export const createTablesSql = [
 // exist before — it is invented here, not "bumped". The repo reads it via
 // sqliteLearningRepository's migration logic and writes the corresponding row
 // into `schema_meta` on first run.
-export const CURRENT_SCHEMA_VERSION = 2;
+//
+// Phase 46: bumped from 2 (8-tuple with todo blobs) to 3 (9-tuple: adds
+// `weekly_review_completions` JSON column for the JLPT N3 weekly-review
+// 4-week-streak badge). Old saves without the column continue to load — the
+// repo migration adds the column with `DEFAULT '[]'` and the deserializer
+// falls back to `[]` when the value is missing.
+export const CURRENT_SCHEMA_VERSION = 3;

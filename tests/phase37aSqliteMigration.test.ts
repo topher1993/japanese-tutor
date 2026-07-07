@@ -73,22 +73,44 @@ function createFakeSqliteDatabase(): SqliteLikeDatabase & {
           return { changes: 1 };
         }
         if (params.length === 8) {
-          const [, lesson_id, completed, completed_at, score, todo_states, week_todos_initialized, todo_event_counts] = params as [
-            string, string, number, string | null, number | null, string, string, string,
-          ];
-          const row: ProgressRow = {
-            id,
-            lesson_id,
-            completed,
-            completed_at,
-            score,
-            todo_states,
-            week_todos_initialized,
-            todo_event_counts,
-          };
-          if (idx >= 0) rows[idx] = row; else rows.push(row);
-          tables.set('progress', rows);
-          return { changes: 1 };
+                  const [, lesson_id, completed, completed_at, score, todo_states, week_todos_initialized, todo_event_counts] = params as [
+        string, string, number, string | null, number | null, string, string, string,
+        ];
+        const row: ProgressRow = {
+        id,
+        lesson_id,
+        completed,
+        completed_at,
+        score,
+        todo_states,
+        week_todos_initialized,
+        todo_event_counts,
+        };
+        if (idx >= 0) rows[idx] = row; else rows.push(row);
+        tables.set('progress', rows);
+        return { changes: 1 };
+        }
+        // Phase 46: 9-tuple insert (adds weekly_review_completions column).
+        // The test only asserts on the original 3 columns; the 9th is
+        // accepted but ignored for backward compatibility with these
+        // hand-rolled test rows.
+        if (params.length === 9) {
+        const [, lesson_id, completed, completed_at, score, todo_states, week_todos_initialized, todo_event_counts] = params as [
+        string, string, number, string | null, number | null, string, string, string, string,
+        ];
+        const row: ProgressRow = {
+        id,
+        lesson_id,
+        completed,
+        completed_at,
+        score,
+        todo_states,
+        week_todos_initialized,
+        todo_event_counts,
+        };
+        if (idx >= 0) rows[idx] = row; else rows.push(row);
+        tables.set('progress', rows);
+        return { changes: 1 };
         }
         return { changes: 0 };
       }
@@ -220,7 +242,7 @@ describe('Phase 37a SQLite migration behind feature flag', () => {
     const meta = dbLocal.tables!.get('schema_meta') as SchemaMetaRow[];
     expect(meta).toHaveLength(1);
     expect(meta[0]).toEqual({ key: 'progress', value: String(CURRENT_SCHEMA_VERSION) });
-    expect(CURRENT_SCHEMA_VERSION).toBe(2);
+    expect(CURRENT_SCHEMA_VERSION).toBe(3);
 
     // saveCompletedLesson still writes the 8-tuple shape so the JSON blobs
     // survive round-trips.

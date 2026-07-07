@@ -1,6 +1,7 @@
 import type { SenseiLesson } from '../types/lesson';
 import type { LearnerProgress } from '../types/progress';
 import type { ProgressDashboard } from './progressDashboardService';
+import { consecutiveIsoWeeks } from './weeklyReviewService';
 
 export interface ProfileBadgeProgress {
   id: string;
@@ -88,6 +89,13 @@ export function buildProfileProgression(
     'lesson-emergency',
   ];
   const n5Breadth = n5TrackLessonIds.every(id => completed.has(id));
+  // Phase 46: N3 unlocks when N4 earned + 4 consecutive ISO weeks of
+  // weekly-review completion. The counter is recorded by
+  // weeklyTodoService.maybeRecordWeeklyReviewCompletion whenever the
+  // weekly-todo board hits allDone (see JT-CARRY-FORWARD.md §2.1).
+  const n4Earned = n5Breadth && completed.size >= 5;
+  const weeklyCompletions = progress.weeklyReviewCompletions ?? [];
+  const consecutiveWeeklyReviewWeeks = consecutiveIsoWeeks(weeklyCompletions);
   const badges: ProfileBadgeProgress[] = [
     { id: 'first-lesson', label: 'First lesson', description: 'Complete one lesson', earned: completed.size >= 1 },
     { id: 'seven-day-streak', label: '7-day streak', description: 'Study seven days in a row', earned: dashboard.currentStreak >= 7 },
@@ -95,14 +103,8 @@ export function buildProfileProgression(
     { id: 'perfect-quiz', label: 'Perfect quiz', description: 'Score 100% on a quiz', earned: progress.quizScores.some(score => score.score >= 100) },
     { id: 'n4-unlocked', label: 'N4 path', description: 'Complete at least five lessons', earned: completed.size >= 5 },
     { id: 'jlpt-n5', label: 'JLPT N5 ready', description: 'Complete all five N5 workplace-phrase tracks', earned: n5Breadth },
-    { id: 'jlpt-n4', label: 'JLPT N4 path', description: 'N5 breadth + at least 5 total lessons', earned: n5Breadth && completed.size >= 5 },
-    // TODO Phase 46: wire the weekly-review 4-week-streak counter on
-    // LearnerProgress (e.g. `progress.weeklyReviewCompletions: string[]` of
-    // ISO weeks). Once the field exists, replace this predicate with
-    // `n4Earned && weeklyReviewCompletions.length >= 4`. Until then this
-    // badge is intentionally NOT earned for any user, regardless of other
-    // progress. See JT-CARRY-FORWARD.md §2.1 for the separate work-card.
-    { id: 'jlpt-n3', label: 'JLPT N3', description: 'N4 earned + weekly-review 4-week streak', earned: false },
+    { id: 'jlpt-n4', label: 'JLPT N4 path', description: 'N5 breadth + at least 5 total lessons', earned: n4Earned },
+    { id: 'jlpt-n3', label: 'JLPT N3', description: 'N4 earned + weekly-review 4-week streak', earned: n4Earned && consecutiveWeeklyReviewWeeks >= 4 },
   ];
   const remaining = Math.max(0, xpForNextLevel - xpIntoLevel);
   return {

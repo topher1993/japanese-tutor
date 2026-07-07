@@ -18,6 +18,7 @@ import type {
   WeekPlan,
   WeekTodo,
 } from '../types/weeklyTodo';
+import { recordWeeklyReviewCompletion } from './weeklyReviewService';
 
 /** Minimal extended shape so this service compiles without widening progress.ts. */
 export interface TodoPayload {
@@ -290,4 +291,47 @@ export function isTodoPayload(p: LearnerProgress | TodoPayload): p is TodoPayloa
     && candidate.todoEventCounts !== null
     && Array.isArray(candidate.completedLessonIds)
   );
+}
+
+/**
+ * Phase 46 — gate the weekly-review completion stamp behind the same
+ * `allDone` verdict the week-advance gate already uses. Mirrors the
+ * existing `buildWeeklyTodoBoard` call pattern in `practiceProgressStore`
+ * so callers do not have to rebuild the board themselves just to check
+ * the predicate.
+ *
+ * Pure: does NOT call the persistence layer. The caller (each
+ * recompute path in `practiceProgressStore`) is responsible for handing
+ * the returned progress to `repo.saveExtendedProgress`. The producer
+ * `recordWeeklyReviewCompletion` is itself idempotent on the ISO-week
+ * key, so calling this helper twice on the same day never double-stamps.
+ *
+ * - `progress.weeklyReviewCompletions` may be `undefined` (backwards
+ *   compat with saves written before Phase 46); the helper materialises
+ *   it on first stamp.
+ * - `strategy: 'majority'` is supported so callers can opt into the
+ *   relaxed rule without having to compute the board a second time.
+ */
+export function maybeRecordWeeklyReviewCompletion(
+  progress: LearnerProgress,
+  currentWeekNumber: number,
+  weekPlan: WeekPlan | undefined,
+  todoStates: Record<string, TodoState>,
+  todosInitialized: boolean,
+  strategy: 'lesson_completion' | 'manual' = 'lesson_completion',
+  d: Date = new Date(),
+): LearnerProgress {
+  void strategy; // currently unused — kept in signature for future per-strategy debugging
+  const board = buildWeeklyTodoBoard(
+    currentWeekNumber,
+    weekPlan,
+    todoStates,
+    todosInitialized,
+    'all',
+    currentWeekNumber,
+  );
+  if (board.allDone && !board.isLegacyWeek) {
+    return recordWeeklyReviewCompletion(progress, d);
+  }
+  return progress;
 }
