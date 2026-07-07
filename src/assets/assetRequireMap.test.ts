@@ -16,11 +16,14 @@ vi.mock('./assetRequireMap', async () => {
   function walk(obj: unknown, prefix = ''): void {
     if (typeof obj !== 'object' || obj === null) return;
     const record = obj as Record<string, unknown>;
+    // Detect a manifest leaf entry: has { key, path } shape.
+    if (typeof record.key === 'string' && typeof record.path === 'string' && record.path.startsWith('src/')) {
+      flat[record.key] = Math.floor(Math.random() * 1_000_000);
+      return; // don't recurse into leaf; the rest are metadata (label, maxBytes, etc.)
+    }
+    // Otherwise it's a grouping node; recurse into children.
     for (const [k, v] of Object.entries(record)) {
       if (typeof v === 'object' && v !== null) walk(v, `${prefix}${k}.`);
-      else if (typeof v === 'string' && v.startsWith('src/')) {
-        flat[`${prefix}${k}`] = Math.floor(Math.random() * 1_000_000);
-      }
     }
   }
   walk(manifest);
@@ -98,9 +101,14 @@ describe('manifest ↔ component wiring', () => {
     function walk(obj: unknown): void {
       if (typeof obj !== 'object' || obj === null) return;
       const record = obj as Record<string, unknown>;
+      // Detect a manifest leaf entry: has { key, path } shape.
+      if (typeof record.key === 'string' && typeof record.path === 'string' && record.path.startsWith('src/')) {
+        flat.push(record.path);
+        return;
+      }
+      // Otherwise it's a grouping node; recurse into children.
       for (const v of Object.values(record)) {
         if (typeof v === 'object' && v !== null) walk(v);
-        else if (typeof v === 'string' && v.startsWith('src/')) flat.push(v);
       }
     }
     walk(manifest);
