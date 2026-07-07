@@ -53,7 +53,7 @@ Every screen in `src/screens/` references `ds.colors` (counts per file, design-s
 | SourcesScreen | (6+ in colors alone) |
 | WeeklyLessonScreen | (3+ in colors alone) |
 
-No orphan ad-hoc-hex-color regression was found in any screen file (Phase 21's triple-grep gate held; Phase 20G's `phaseDesignSystem.test.ts` with 33 locks continues to enforce it).
+No orphan ad-hoc-hex-color regression was found in any screen file (Phase 21's triple-grep gate held; Phase 20G's `phaseDesignSystem.test.ts` with 13 `it()` blocks (22 `expect()` assertions, 35 total lock-points) continues to enforce it).
 
 ### 1.3 Phase 20G primitives are in steady use
 
