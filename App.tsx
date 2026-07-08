@@ -12,6 +12,7 @@ import { TabBar } from './src/components/TabBar';
 import { CompletionToast, LessonErrorToast } from './src/components/CompletionToast';
 import { ds } from './src/theme/designSystem';
 import type { LearnerLanguage } from './src/types/onboarding';
+import type { AppTab } from './src/types/navigation';
 import { getBottomNavigationTabs } from './src/services/appNavigationService';
 import { clearOnboardingPreference } from './src/services/onboardingPreferenceService';
 
@@ -208,6 +209,14 @@ export default function App() {
     );
   }
 
+  // Phase 47: stable callback for the Weekly Todo Board CTAs that route
+  // to a different tab. Wrapped in useCallback so the identity doesn't
+  // change on every render (matters because the callback is threaded
+  // through renderTab -> LessonsScreen -> WeeklyTodoBoardView.onTodoPress).
+  const onOpenTab = React.useCallback((next: AppTab) => {
+    nav.setTab(next);
+  }, [nav.setTab]);
+
   // Sensei Translation Review — hidden dev tool for native-speaker reviewers.
   if (nav.showReview) {
     return (
@@ -233,6 +242,8 @@ export default function App() {
             onStartLesson: () => nav.setTab('Lessons'),
             onReviewDue: nav.onReviewDue,
             onOpenDailyRush: () => nav.setShowDailyRush(true),
+            // Phase 47: Weekly Todo Board CTAs.
+            onOpenTab,
           })}
         </View>
         <TabBar items={bottomTabs} activeId={nav.tab} onSelect={onTabChangeWithAnalytics} />

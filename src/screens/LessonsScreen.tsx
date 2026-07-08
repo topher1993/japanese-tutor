@@ -40,9 +40,20 @@ import {
   type TodoPayload,
 } from '../services/weeklyTodoService';
 import { emptyTodoEventCounts } from '../types/weeklyTodo';
+import type { AppTab } from '../types/navigation';
 import { ds } from '../theme/designSystem';
 
-export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { supportLanguage?: LearnerLanguage; pendingLessonId?: string }) {
+export function LessonsScreen({
+  supportLanguage = 'en',
+  pendingLessonId,
+  onOpenTab,
+  onOpenDailyRush,
+}: {
+  supportLanguage?: LearnerLanguage;
+  pendingLessonId?: string;
+  onOpenTab?: (tab: AppTab) => void;
+  onOpenDailyRush?: () => void;
+}) {
   const lessons = getAllLessons();
     const { ready, store } = useLearningContext();
     const categories = getLessonCategoryCards();
@@ -379,12 +390,32 @@ export function LessonsScreen({ supportLanguage = 'en', pendingLessonId }: { sup
                     <WeeklyTodoBoardView
                       board={todoBoard}
                       onTodoPress={(ctaRoute) => {
-                        if (ctaRoute.screen === 'lesson' && ctaRoute.params?.lessonId) {
-                          setSelected(ctaRoute.params.lessonId);
+                        switch (ctaRoute.screen) {
+                          case 'lesson':
+                            if (ctaRoute.params?.lessonId) setSelected(ctaRoute.params.lessonId);
+                            return;
+                          case 'lessons':
+                            // Already on the Lessons tab; nothing to do.
+                            return;
+                          case 'flashcards':
+                            onOpenTab?.('Flashcards');
+                            return;
+                          case 'quiz':
+                            onOpenTab?.('Quiz');
+                            return;
+                          case 'kanji':
+                            // Kanji screen is mounted under Progress tab (More tools).
+                            onOpenTab?.('Progress');
+                            return;
+                          case 'daily-rush':
+                            onOpenDailyRush?.();
+                            return;
+                          case 'example-sentences':
+                            // Reachable from Progress (More tools). For Phase 47 we route to
+                            // the Progress tab; a dedicated sub-route can come in a later phase.
+                            onOpenTab?.('Progress');
+                            return;
                         }
-                        // Other kinds (flashcards / daily-rush / quiz / kanji /
-                        // example-sentences) are 37d-1..5. The board already
-                        // disables those CTAs so this branch is never hit for them.
                       }}
                     />
                   </View>
