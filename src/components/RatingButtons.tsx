@@ -72,6 +72,7 @@ export function RatingButtons({ onRate, disabled = false, dueCount, disableHapti
           );
         })}
       </View>
+      <Text style={styles.tooltip}>Good = saw it, knew it.  Easy = instant.</Text>
     </View>
   );
 }
@@ -94,4 +95,5 @@ const styles = StyleSheet.create({
   },
   emoji: { fontSize: 22 },
   label: { fontSize: ds.type.caption, fontWeight: '900', color: '#fff' },
+  tooltip: { fontSize: ds.type.caption, color: ds.colors.textMuted, textAlign: 'center', opacity: 0.85 },
 });

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { AppState, type AppStateStatus, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { Disclosure } from '../components/Disclosure';
@@ -11,6 +11,7 @@ import { RatingButtons, type Rating } from '../components/RatingButtons';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ds } from '../theme/designSystem';
+import { track } from '../services/analyticsService';
 import { getAllLessons } from '../services/lessonService';
 import { buildLessonInteractionPath } from '../services/lessonInteractionPathService';
 import { answerFlashcard, createFlashcardDeck } from '../services/flashcardService';
@@ -23,6 +24,10 @@ import { getSecondaryTranslations, getSupportTranslation } from '../services/sup
 import type { LearnerLanguage } from '../types/onboarding';
 import type { LearnerProgress } from '../types/progress';
 import type { ReviewCard } from '../services/spacedRepetitionService';
+
+function daysBetween(a: string, b: string): number {
+  return Math.round((new Date(a+'T00:00:00Z').getTime() - new Date(b+'T00:00:00Z').getTime()) / 86400000);
+}
 
 export function FlashcardsScreen({
   supportLanguage = 'en',
@@ -47,6 +52,16 @@ export function FlashcardsScreen({
   // commits so the new card animates in from the opposite edge.
   // null = first mount (no entry animation).
   const [incomingDirection, setIncomingDirection] = useState<'left' | 'right' | null>(null);
+  // Phase 50: due-card count captured at session start, used as the
+  // baseline for the per-session `srs_session_summary` event. Survives
+  // re-renders via state (updated only inside the SRS hydrate effect).
+  const [startDueCount, setStartDueCount] = useState<number>(0);
+  // Phase 50: per-session aggregate trackers — refs so they survive
+  // renders without triggering re-renders. Flushed on AppState='background'
+  // / unmount via the effect below.
+  const lapseCount = useRef<number>(0);
+  const reviewCount = useRef<number>(0);
+  const efAverage = useRef<{ sum: number; n: number }>({ sum: 0, n: 0 });
 
   const { ready, store, srs } = useLearningContext();
 
@@ -81,6 +96,10 @@ export function FlashcardsScreen({
         setSrsCardIdByRefId(map);
         setPersistedSrsCards(cards);
         setDueCount(count);
+        // Phase 50: snapshot the due count at the moment we hydrate the
+        // SRS store. The per-session summary event references this baseline
+        // so analytics can compare cards-due-at-start vs lapses-during-session.
+        setStartDueCount(count);
       } catch {
         // SRS rehydration failed — leave maps empty, screen still works for new ratings.
       }
@@ -250,17 +269,83 @@ export function FlashcardsScreen({
       cardId = created.id;
       setSrsCardIdByRefId(prev => ({ ...prev, [card.id]: cardId! }));
     }
-    srs.review(cardId, rating).catch((err) => {
-          // Don't let SRS errors (e.g. card-not-found during cold-start edge
-          // cases) crash the screen — surface them through the feedback path
-          // instead. The persistent store hydrates from SQLite on its own;
-          // this catch is the last-resort net.
-          if (__DEV__) console.warn('[FlashcardsScreen] srs.review failed', err);
-        });
-        recordPractice();
+    // Phase 50: capture pre-state for telemetry (Beru Q4 must-have).
+    // We snapshot the SRS card BEFORE calling srs.review() so the
+    // pre_* values reflect the actual on-disk state. The updated card
+    // arrives in the .then() handler, which lets us compute post_ease
+    // / post_interval as the real post-review numbers — never guessed.
+    const preEase = srCard?.easeFactor ?? 2.5;
+    const preInterval = srCard?.intervalDays ?? 0;
+    const reps = srCard?.repetitions ?? 0;
+    const preDueOn = srCard?.dueOn ?? todayIso();
+    const overdueDays = Math.max(0, daysBetween(todayIso(), preDueOn));
+    const overdue_state: 'on_time' | 'recent_overdue' | 'catch_up_handled' =
+      overdueDays >= 2 * preInterval ? 'recent_overdue' : 'on_time';
+    srs.review(cardId, rating).then((updated) => {
+      const postEase = updated.easeFactor;
+      const postInterval = updated.intervalDays;
+      // Beru Q1+Q2 cascade: if the review was the catch-up reschedule
+      // (recent_overdue) AND the post-interval came back shorter than
+      // pre (i.e. the rescheduler halved the interval), tag this as
+      // 'catch_up_handled' so analytics can distinguish "user reviewed
+      // a long-overdue card normally" from "rescheduler stepped in".
+      const final_state: 'on_time' | 'recent_overdue' | 'catch_up_handled' =
+        overdue_state === 'recent_overdue' && postInterval < preInterval ? 'catch_up_handled' : overdue_state;
+      track('srs_review', {
+        card_id: cardId,
+        rating,
+        pre_ease: preEase,
+        post_ease: postEase,
+        pre_interval: preInterval,
+        post_interval: postInterval,
+        reps,
+        overdue_days: overdueDays,
+        overdue_state: final_state,
+      });
+      // Accumulate per-session aggregates (refs only — no re-renders).
+      reviewCount.current += 1;
+      efAverage.current.sum += postEase;
+      efAverage.current.n += 1;
+      if (rating === 'again') lapseCount.current += 1;
+    }).catch((err) => {
+      // Don't let SRS errors (e.g. card-not-found during cold-start edge
+      // cases) crash the screen — surface them through the feedback path
+      // instead. The persistent store hydrates from SQLite on its own;
+      // this catch is the last-resort net.
+      if (__DEV__) console.warn('[FlashcardsScreen] srs.review failed', err);
+    });
+    recordPractice();
     setLastRating({ rating, cardId: card.id });
     void refreshSrs().then(showRandomCard);
   }
+
+  // Phase 50: per-session summary — fires when the app goes to background
+  // OR when the screen unmounts. Both paths reset the aggregate refs so a
+  // new session starts from zero. The session-end flush on unmount is the
+  // safety net: even if AppState doesn't fire (e.g. fast refresh during
+  // dev), we still emit a summary for whatever the user has rated so far.
+  useEffect(() => {
+    const handler = (next: AppStateStatus) => {
+      if (next === 'background' || next === 'inactive') {
+        const average_ef = efAverage.current.n > 0 ? efAverage.current.sum / efAverage.current.n : 0;
+        track('srs_session_summary', {
+          lapse_count: lapseCount.current,
+          average_ef,
+          cards_due_at_session_start: startDueCount,
+        });
+        // reset for next session
+        lapseCount.current = 0;
+        reviewCount.current = 0;
+        efAverage.current = { sum: 0, n: 0 };
+      }
+    };
+    const sub = AppState.addEventListener('change', handler);
+    return () => {
+      // final flush on unmount
+      handler('background');
+      sub.remove();
+    };
+  }, [startDueCount]);
 
   const subtitle = (() => {
     if (dueReviewMode && dueSubset && dueSubset.length > 0) {
