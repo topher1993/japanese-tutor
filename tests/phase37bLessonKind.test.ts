@@ -76,7 +76,10 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
     expect(board.isLegacyWeek).toBe(false);
     expect(board.allDone).toBe(false);
     expect(board.canAdvance).toBe(false);
-    expect(board.totalCount).toBe(3);
+    // Phase 48: N5 W1 now has 6 todos (lesson + daily-rush + flashcards
+    // + quiz + kanji + example-sentences). The Phase 47 wiring made the
+    // last 3 kinds tappable; this phase makes the data layer ship them.
+    expect(board.totalCount).toBe(6);
   });
 
   it('2b. buildWeeklyTodoBoard: prior week that is not initialized renders as legacy', () => {
@@ -108,16 +111,17 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
     const board = buildWeeklyTodoBoard(1, plan, partial, true, 'all');
     expect(board.isLegacyWeek).toBe(false);
     expect(board.completedCount).toBe(0); // lesson todo not yet complete
-    // Phase 37d-2: N5 W1 now has 3 todos (lesson + daily-rush + flashcards).
-    // Partial state leaves every todo incomplete, so allDone=false.
-    expect(board.totalCount).toBe(3);
+    // Phase 48: N5 W1 now has 6 todos (lesson + daily-rush + flashcards
+    // + quiz + kanji + example-sentences). Partial state leaves every todo
+    // incomplete, so allDone=false.
+    expect(board.totalCount).toBe(6);
     expect(board.allDone).toBe(false);
     expect(board.canAdvance).toBe(false);
   });
 
   it('4. buildWeeklyTodoBoard: complete state — all todos done → allDone true', () => {
-    // Phase 37d-2: complete state requires ALL 3 todos done (lesson +
-    // daily-rush + flashcards).
+    // Phase 48: complete state requires ALL 6 todos done (lesson +
+    // daily-rush + flashcards + quiz + kanji + example-sentences).
     const plan = n5w1Plan();
     const lessonTodo = plan.todos.find(t => t.kind === 'lesson')!;
     const rushTodo = plan.todos.find(t => t.kind === 'daily-rush')!;
@@ -128,6 +132,13 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
     // the "complete" state has a non-zero target for the flashcards kind.
     const flashcardPool = resolveCardPool(flashcardTodo.pool ?? 'week', 1);
     expect(flashcardPool.cardIds.length).toBeGreaterThan(0);
+    // Phase 48: resolve the 3 new todo kinds (quiz + kanji + example-sentences)
+    // and look up their pool/target sizes the same way flashcards does.
+    const quizTodo = plan.todos.find(t => t.kind === 'quiz')!;
+    const kanjiTodo = plan.todos.find(t => t.kind === 'kanji')!;
+    const exampleSentencesTodo = plan.todos.find(t => t.kind === 'example-sentences')!;
+    const kanjiResolved = resolveKanjiSet(kanjiTodo.kanjiSet ?? []);
+    expect(kanjiResolved.cardIds.length).toBeGreaterThan(0);
     const complete: Record<string, TodoState> = {
       [lessonTodo.id]: {
         todoId: lessonTodo.id,
@@ -150,10 +161,39 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
         target: flashcardPool.cardIds.length,
         completedAt: Date.now(),
       },
+      // Phase 48: seed the 3 new todos (quiz + kanji + example-sentences)
+      // as complete. The board asserts all 6 are done, so the seed must
+      // reflect all 6.
+      [quizTodo.id]: {
+        todoId: quizTodo.id,
+        weekNumber: 1,
+        // Quiz target=1 (binary pass at >= 70%). progress=1 means "passed".
+        progress: 1,
+        target: 1,
+        completedAt: Date.now(),
+      },
+      [kanjiTodo.id]: {
+        todoId: kanjiTodo.id,
+        weekNumber: 1,
+        // Kanji target=0 in weeklyPlans so the resolver fills it at runtime
+        // (kanjiSet.length = 5). Mirror the resolver's expectedTarget.
+        progress: kanjiResolved.cardIds.length,
+        target: kanjiResolved.cardIds.length,
+        completedAt: Date.now(),
+      },
+      [exampleSentencesTodo.id]: {
+        todoId: exampleSentencesTodo.id,
+        weekNumber: 1,
+        // Example-sentences target=5 in weeklyPlans.
+        progress: 5,
+        target: 5,
+        completedAt: Date.now(),
+      },
     };
     const board = buildWeeklyTodoBoard(1, plan, complete, true, 'all');
-    expect(board.completedCount).toBe(3);
-    expect(board.totalCount).toBe(3);
+    // Phase 48: 6 todos total, all complete.
+    expect(board.completedCount).toBe(6);
+    expect(board.totalCount).toBe(6);
     expect(board.allDone).toBe(true);
     expect(board.canAdvance).toBe(true);
   });
@@ -220,12 +260,21 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
       weekTodosInitialized: { 1: true },
     }, 'all')).toBe(false);
 
-    // Once week 1's lesson, daily-rush, AND flashcards todos are all complete,
-    // week 2 unlocks. Phase 37d-2: the plan now has 3 todos; canAdvance=true
-    // under strategy='all' requires all 3. Board is built from todoStates (not
-    // completedLessonIds), so we seed the recomputed map for all three.
+    // Once week 1's lesson, daily-rush, flashcards, quiz, kanji, AND
+    // example-sentences todos are all complete, week 2 unlocks.
+    // Phase 48: the plan now has 6 todos; canAdvance=true under
+    // strategy='all' requires all 6. Board is built from todoStates (not
+    // completedLessonIds), so we seed the recomputed map for all six.
     const flashcardTodo = plan.todos.find(t => t.kind === 'flashcards')!;
     const flashcardPool = resolveCardPool(flashcardTodo.pool ?? 'week', 1);
+    // Phase 48: same story for the kanji and example-sentences todos.
+    // kanji target=0 in weeklyPlans so the resolver fills it at runtime
+    // (resolveKanjiSet returns expectedTarget = kanjiSet.length = 5).
+    // example-sentences target=5 in weeklyPlans.
+    const kanjiTodo = plan.todos.find(t => t.kind === 'kanji')!;
+    const exSentencesTodo = plan.todos.find(t => t.kind === 'example-sentences')!;
+    const kanjiResolved = resolveKanjiSet(kanjiTodo.kanjiSet ?? []);
+    expect(kanjiResolved.cardIds.length).toBe(5);
     const fullPayload: TodoPayload = {
       ...makeEmptyPayload(),
       weekTodosInitialized: { 1: true },
@@ -257,6 +306,33 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
           weekNumber: 1,
           progress: flashcardPool.cardIds.length,
           target: flashcardPool.cardIds.length,
+          completedAt: Date.now(),
+        },
+        // Phase 48: same for the quiz todo (target=1, pass-once semantics).
+        ...(plan.todos.find(t => t.kind === 'quiz') ? {
+          [plan.todos.find(t => t.kind === 'quiz')!.id]: {
+            todoId: plan.todos.find(t => t.kind === 'quiz')!.id,
+            weekNumber: 1,
+            progress: 1,
+            target: 1,
+            completedAt: Date.now(),
+          },
+        } : {}),
+        // Phase 48: kanji todo — target=0 in weeklyPlans so use the
+        // resolver-computed set size (5) as the completion target.
+        [kanjiTodo.id]: {
+          todoId: kanjiTodo.id,
+          weekNumber: 1,
+          progress: kanjiResolved.cardIds.length,
+          target: kanjiResolved.cardIds.length,
+          completedAt: Date.now(),
+        },
+        // Phase 48: example-sentences todo — target=5 in weeklyPlans.
+        [exSentencesTodo.id]: {
+          todoId: exSentencesTodo.id,
+          weekNumber: 1,
+          progress: 5,
+          target: 5,
           completedAt: Date.now(),
         },
       },

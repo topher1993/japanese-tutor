@@ -58,6 +58,59 @@ export const WEEKLY_PLANS: WeekPlan[] = [
         target: 0,
         unit: 'cards',
       },
+      // Phase 48 — N5 week 1: add the 3 remaining todo kinds so the
+      // weekly todo board exercises every wired CTA. Each new todo's
+      // `target` and per-kind config is derived from the existing data
+      // layer (kanji card ids, example-sentence ids) — no invented ids.
+      //
+      // passThreshold (70%) is the binary completion rule for `quiz`
+      // (see practiceProgressStore.ts:668). target=1 makes the
+      // "passes once" semantics explicit; a learner who scores >= 70%
+      // once completes the todo.
+      {
+        id: 'n5-w1-quiz',
+        kind: 'quiz',
+        title: 'Pass a Week 1 quiz with 70% or better',
+        // §11.2 default: target=1. The store flips this to progress=1
+        // when best score >= passThreshold (70).
+        target: 1,
+        unit: '% correct',
+      },
+      // Phase 48 — kanji-kind todo for N5 week 1. kanjiSet is an
+      // explicit list of kanji card ids from src/data/candidates/n5KanjiCandidateData.ts.
+      // The first 5 are the N5 "1-5" kanji (一, 二, 三, 四, 五) — commonly
+      // taught first. resolveKanjiSet returns them as card ids and sets
+      // expectedTarget = kanjiSet.length (5). recordKanjiGood counts
+      // intersection of kanjiGoodAnswers[1] ∩ kanjiSet.
+      {
+        id: 'n5-w1-kanji',
+        kind: 'kanji',
+        title: 'Mark these 5 Week 1 kanji as Good',
+        // §11.2 default: leave target=0 so the resolver drives the count
+        // (kanjiSet.length = 5).
+        target: 0,
+        unit: 'kanji',
+        kanjiSet: [
+          'kanji-n5-0001', // 一 (one)
+          'kanji-n5-0002', // 二 (two)
+          'kanji-n5-0003', // 三 (three)
+          'kanji-n5-0004', // 四 (four)
+          'kanji-n5-0005', // 五 (five)
+        ],
+      },
+      // Phase 48 — example-sentences-kind todo for N5 week 1. The
+      // resolver does NOT need an explicit id list (per §11.2 default);
+      // recomputeTodoStatesForWeek counts the size of the intersection
+      // of exampleSentencesViewed[1] with the week's example set.
+      // Per the 37d-5 default, target=5 sentences.
+      {
+        id: 'n5-w1-example-sentences',
+        kind: 'example-sentences',
+        title: 'View 5 Week 1 example sentences',
+        // §11.2 default: target=5 (5 distinct sentence views).
+        target: 5,
+        unit: 'sentences',
+      },
     ],
   },
 ];
