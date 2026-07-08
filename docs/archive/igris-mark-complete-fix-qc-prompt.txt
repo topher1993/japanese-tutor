@@ -1,0 +1,90 @@
+You are Tusk (QC Division) running QC through GPT-5.5 (openai-codex model,
+no fallback).
+
+Your task: validate the Phase 39 mark-complete fix that defends against
+both root-cause candidates for the silent freeze the user reported.
+
+Repo: C:/Users/tophe/japanese-tutor-mobile-app
+Commit: dc8a12c
+
+Step 1: Confirm GPT-5.5 is reachable. Run:
+  hermes -m gpt-5.5 -z "REACHABLE"
+Report the exact output. If you are NOT running GPT-5.5, STOP and report
+"QC BLOCKED — wrong model".
+
+Step 2: Read the commit message and the source for the touched files.
+
+Step 3: Verify the five implementation pieces:
+
+  (a) Silent ready/store guard (candidate A) removed from
+      src/screens/LessonsScreen.tsx:
+        - handleMarkComplete synchronously checks `if (!store)` and
+          emits `notifyLessonError({ kind: 'store-unavailable', lessonId: lesson.id })`.
+        - The Mark-complete Button has `disabled={!store || markInFlight}`.
+        - The Mark-complete Button also has `iconRight={markInFlight ? undefined : 'check'}`.
+        - The handler is hoisted out of the `if (nav.selectedLesson)`
+          branch (Rules of Hooks) and stored in a `selectedLesson`
+          local at top of component body.
+
+  (b) Swallowed catch (candidate B) replaced with notifyLessonError:
+        - The `catch (err)` clause calls
+          `notifyLessonError({ kind: 'completion-failed', lessonId: lesson.id, error: err instanceof Error ? err.message : String(err) })`.
+        - A `finally { setMarkInFlight(false); }` block releases the
+          in-flight flag regardless of success/failure.
+        - The pre-fix `} catch { /* best-effort */ }` at line ~245 of
+          commit 85c02ae is GONE.
+
+  (c) tests/lessonMarkComplete.test.tsx covers all 4 scenarios:
+        - (a) Incomplete state asserts Button label + onPress wired to
+          handleMarkComplete.
+        - (b) Store unavailable path: assert `if (!store)` +
+          `notifyLessonError({ kind: 'store-unavailable' ... })` AND
+          `disabled={!store || markInFlight}`.
+        - (c) Tap → store + read-back progress + setSelected: assert
+          await store.completeCurrentLesson + getProgress + setProgress
+          + setSelected(next.id|undefined).
+        - (d) Error surfacing: assert `catch (err)` emits
+          notifyLessonError('completion-failed') and the handler region
+          contains NO silent `catch { /* best-effort */ }`.
+
+  (d) tests/phase37gColdStartHydration.test.ts narrowing patched:
+        - Lines 116 and 160: `db2.tables` → `db2.tables!` AND
+          `db1.tables` → `db1.tables!`. The four TS18048 errors from
+          the brief must be gone.
+        - Original test logic intact (cold-start hydration semantics
+          not changed).
+
+  (e) src/components/CompletionToast.tsx exports:
+        - `LessonErrorPayload` type union (`store-unavailable` |
+          `completion-failed`).
+        - `notifyLessonError(payload)` function mirroring
+          `notifyLessonCompleted` with its own listener set
+          (`errorListeners`).
+        - `LessonErrorToast()` component subscribing via useEffect,
+          auto-dismissing after ~3s, returns null when no error.
+        - errorStyles.error style entry (uses ds.colors.dangerSoft with
+          fallback hex) so the toast visually differs from the success
+          toast.
+
+Step 4: Run these commands and report exit codes + key output:
+  cd C:/Users/tophe/japanese-tutor-mobile-app
+  npm run typecheck
+  npm test 2>&1 | tail -10
+  npm test -- --run tests/lessonMarkComplete.test.tsx 2>&1 | tail -10
+  npm test -- --run tests/phase37gColdStartHydration.test.ts 2>&1 | tail -10
+
+Step 5: Save your QC report to:
+  C:/Users/tophe/japanese-tutor-mobile-app/docs/igris-mark-complete-fix-qc.md
+
+Required output (markdown body):
+1. Verdict: PASS / BLOCKED / NEEDS WORK
+2. Findings by severity (P0/P1/P2/P3) with file:line evidence
+3. Specific verdict on each of the 5 contract points above
+4. Final recommendation
+
+Note: src/screens/ExampleSentencesScreen.tsx(155) pre-existing TS2345 is
+out of scope; OK if it remains in typecheck output. Do NOT cross
+contaminate with helper-language / Stronghold / ExampleSentencesScreen
+work.
+
+Stay strictly on the mark-complete fix.

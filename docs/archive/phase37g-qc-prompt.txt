@@ -1,0 +1,61 @@
+You are Tusk (QC Division) running QC through GPT-5.5 (openai-codex model,
+no fallback).
+
+Your task: validate the Phase 37g flip of the weekly-todo gate (default-on)
+and the cold-start hydration of the extended-progress cache.
+
+Repo: C:/Users/tophe/japanese-tutor-mobile-app
+
+Step 1: Confirm GPT-5.5 is reachable. Run:
+  hermes -m gpt-5.5 -z "REACHABLE"
+Report the exact output. If you are NOT running GPT-5.5, STOP and report
+"QC BLOCKED — wrong model".
+
+Step 2: Read the proposal update at docs/phase-37-todo-gated-progression-proposal.md
+§37g (search for "Phase 37g — Rollout (implemented 2026-07-01)").
+
+Step 3: Verify the three implementation pieces:
+
+  (a) Default-on flag — src/services/practiceProgressStore.ts line ~19:
+      `export let todoFeatureEnabled = true;` (not false).
+
+  (b) Eager disk-hydration — src/services/practiceProgressStore.ts:
+      - createPracticeProgressStore eagerly starts hydration via
+        ensureHydrated() (look for `void ensureHydrated();`).
+      - All 6 mutating methods (completeCurrentLesson, recordDailyRushComplete,
+        recordFlashcardReview, recordKanjiGood, recordQuizAttempt,
+        markExampleViewed) call `await ensureHydrated()` before reading the
+        cache.
+      - ready() method exists and awaits ensureHydrated().
+      - reset() clears the cache and does NOT re-hydrate (the comment explains
+        why — see line ~789 in practiceProgressStore.ts).
+
+  (c) SQLite cold-start hydration — src/repositories/sqliteLearningRepository.ts
+      getProgress():
+      - Walks memoryTables.get('progress') and rebuilds completedLessonIds
+        from rows with completed === 1.
+      - Skips the synthetic todo-snapshot placeholder (id='todo-snapshot',
+        completed=0).
+      - Only commits newProgressCache when lastRealRow !== null OR
+        completedLessonIds.length > 0.
+
+Step 4: Run these commands and report exit codes + key output:
+  cd C:/Users/tophe/japanese-tutor-mobile-app
+  npm run typecheck
+  npm test 2>&1 | tail -10
+  npm test -- --run tests/phase37gColdStartHydration.test.ts 2>&1 | tail -10
+  curl -sS --max-time 60 "http://127.0.0.1:8081/node_modules/expo/AppEntry.bundle?platform=web&dev=true&hot=false&lazy=true" -o /tmp/37g-bundle.js
+  grep -c 'ensureHydrated' /tmp/37g-bundle.js
+  grep -c 'todoFeatureEnabled' /tmp/37g-bundle.js
+
+Step 5: Save your QC report to:
+  C:/Users/tophe/japanese-tutor-mobile-app/docs/phase37g-qc.md
+
+Required output (markdown body):
+1. Verdict: PASS / BLOCKED / NEEDS WORK
+2. Findings by severity (P0/P1/P2/P3) with file:line evidence
+3. Specific verdict on each of the 3 implementation pieces
+4. Final recommendation
+
+Stay strictly on the 37g flip. Do not preemptively review unrelated code
+(37h was already QC-approved in commit 85c02ae).
