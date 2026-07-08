@@ -10,6 +10,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { WeeklyTodoBoard, TodoCtaRoute } from '../services/weeklyTodoService';
+import type { WeekTodoKind } from '../types/weeklyTodo';
 import { Card } from './Card';
 import { ds } from '../theme/designSystem';
 
@@ -52,14 +53,28 @@ interface WeeklyTodoRowProps {
   onPress: (ctaRoute: TodoCtaRoute) => void;
 }
 
+// Phase 47: every WeekTodoKind value is wired — the CTA routes for all 6
+// kinds come from `weeklyTodoService.ctaRouteForTodo` and the parent
+// (LessonsScreen) handles each ctaRoute.screen. If you add a new kind to
+// `src/types/weeklyTodo.ts`, add it here too — the regression test
+// `tests/phase47WeeklyTodoBoardWiring.test.ts` will catch a miss.
+const WIRED_TODO_KINDS: ReadonlySet<WeekTodoKind> = new Set<WeekTodoKind>([
+  'lesson',
+  'flashcards',
+  'daily-rush',
+  'quiz',
+  'kanji',
+  'example-sentences',
+]);
+
 function WeeklyTodoRow({ status, onPress }: WeeklyTodoRowProps) {
-  // 37c: only the `lesson` kind is wired into the existing navigation
-  // surface. Every other kind renders as a visible row with a disabled
-  // "Coming soon" CTA. 37d-1..5 will swap each in. Completed `lesson`
-  // todos stay tappable so the learner can review the lesson again —
-  // mirroring the Continue-lesson CTA which routes to any lesson (done
-  // or not) once the course/week is complete.
-  const isWired = status.todo.kind === 'lesson';
+  // Phase 47: all 6 WeekTodoKind values are tappable (the parent
+  // LessonsScreen.switch on ctaRoute.screen handles the 6 -> AppTab /
+  // showDailyRush mapping). Completed `lesson` todos stay tappable so the
+  // learner can review the lesson again — mirroring the Continue-lesson
+  // CTA which routes to any lesson (done or not) once the course/week is
+  // complete.
+  const isWired = WIRED_TODO_KINDS.has(status.todo.kind);
   const ctaLabel = status.completed && isWired
     ? 'Review'
     : isWired

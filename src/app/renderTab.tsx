@@ -26,11 +26,22 @@ export interface RenderTabProps {
   onStartLesson: () => void;
   onReviewDue: () => void;
   onOpenDailyRush: () => void;
+  // Phase 47: Weekly Todo Board CTAs route to other tabs / modal screens.
+  // onOpenTab covers the 5 tab-based kinds (flashcards / quiz / kanji /
+  // example-sentences). onOpenDailyRush is reused (same callback that
+  // HomeScreen already uses) for the daily-rush kind.
+  onOpenTab: (tab: AppTab) => void;
 }
 
 export function renderTab(props: RenderTabProps): React.ReactNode {
   const { tab, supportLanguage, dueReviewMode } = props;
-  if (tab === 'Lessons') return <LessonsScreen supportLanguage={supportLanguage} />;
+  if (tab === 'Lessons') return (
+    <LessonsScreen
+      supportLanguage={supportLanguage}
+      onOpenTab={props.onOpenTab}
+      onOpenDailyRush={props.onOpenDailyRush}
+    />
+  );
   if (tab === 'Flashcards') return <FlashcardsScreen supportLanguage={supportLanguage} dueReviewMode={dueReviewMode} />;
   if (tab === 'Quiz') return <QuizScreen supportLanguage={supportLanguage} />;
   if (tab === 'Progress') return (
