@@ -66,7 +66,21 @@ export type AnalyticsEvent =
   | 'store_unavailable_shown'
   // Discovery events
   | 'disclosure_opened'
-  | 'disclosure_closed';
+  | 'disclosure_closed'
+  /**
+   * Phase 50: per-review telemetry (Beru Q4 must-have).
+   * Props shape: { card_id: string; rating: 'again'|'hard'|'good'|'easy';
+   *   pre_ease: number; post_ease: number; pre_interval: number;
+   *   post_interval: number; reps: number; overdue_days: number;
+   *   overdue_state: 'on_time'|'recent_overdue'|'catch_up_handled' }.
+   */
+  | 'srs_review'
+  /**
+   * Phase 50: per-session aggregate (Beru Q4 must-have).
+   * Props shape: { lapse_count: number; average_ef: number;
+   *   cards_due_at_session_start: number }.
+   */
+  | 'srs_session_summary';
 
 export interface AnalyticsContext {
   /** Stable per-install identifier (UUID v4). Generated on first call. */

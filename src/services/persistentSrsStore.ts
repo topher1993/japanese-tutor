@@ -45,6 +45,11 @@ export interface PersistentSpacedRepetitionScheduler {
    */
   review(cardId: string, rating: ReviewRating): Promise<ReviewCard>;
   dueCards(now?: Date): ReviewCard[];
+  /**
+   * Phase 50: cards in the catch-up bucket (overdue beyond 2x intervalDays).
+   * Same semantics as `inner.overdueCatchUpCards(now)`.
+   */
+  overdueCatchUpCards(now?: Date): ReviewCard[];
   getCard(cardId: string): ReviewCard | undefined;
   /** Count of cards due today (or earlier). Always reads SQLite. */
   dueCount(now?: Date): Promise<number>;
@@ -138,9 +143,38 @@ export function createPersistentSrsStore(db: SqliteLikeDatabase): PersistentSpac
       return updated;
     },
     dueCards(now) {
-      // In-memory view (used by the flashcards screen during a session).
-      // For accurate cold-start counts, use `dueCount()` instead.
-      return inner.dueCards(now);
+      // Phase 50: inline rescheduler in inner.dueCards() now mutates the
+      // in-memory mirror (Beru pedagogy review Q5#4). Persist any card
+      // that crossed the catch-up threshold so SQLite's dueCount stays
+      // consistent on cold start. Compare pre/post dueOn via inner.getCard.
+      const idsToCheck = inner.dueCards(now).map((c) => c.id);
+      void idsToCheck; // used below
+      const result = idsToCheck.map((id) => inner.getCard(id)).filter((c): c is NonNullable<ReturnType<typeof inner.getCard>> => c != null);
+      // For each due card, check whether dueOn is now further than today
+      // (which means it was rescheduled — its original dueOn was <= today
+      // and the rescheduler pushed it out to today + half-interval).
+      const todayStr = todayIso(now ?? new Date());
+      for (const card of result) {
+        const daysUntilDue = Math.round(
+          (new Date(`${card.dueOn}T00:00:00Z`).getTime() - new Date(`${todayStr}T00:00:00Z`).getTime()) /
+            (1000 * 60 * 60 * 24),
+        );
+        // Rescheduled = interval > 1 AND dueOn pushed out (positive days)
+        // AND those days < intervalDays (otherwise it was a normal fresh
+        // schedule). The catch-up rescheduler sets dueOn = today + half-
+        // interval, so daysUntilDue is exactly half.
+        if (daysUntilDue > 0 && daysUntilDue < card.intervalDays && card.intervalDays > 1) {
+          void persist(card).catch(() => undefined);
+        }
+      }
+      // Re-derive the actual dueCards subset (cards whose dueOn <= today
+      // AFTER the reschedule). After the inline reschedule, the inner
+      // map has been mutated; cards that were pushed out no longer have
+      // dueOn <= today. Filter again to be honest.
+      return result.filter((c) => c.dueOn <= todayStr);
+    },
+    overdueCatchUpCards(now) {
+      return inner.overdueCatchUpCards(now);
     },
     async dueCount(now = new Date()) {
       const today = todayIso(now);
@@ -203,11 +237,12 @@ export function createInMemorySrsStore(): PersistentSpacedRepetitionScheduler {
     },
     async review(cardId, rating) {
       const card = inner.review(cardId, rating);
-      const idx = allCards.findIndex(c => c.id === cardId);
+      const idx = allCards.findIndex((c) => c.id === cardId);
       if (idx >= 0) allCards[idx] = card;
       return card;
     },
-    dueCards(now) { return inner.dueCards(now); },
+    dueCards(now?: Date) { return inner.dueCards(now); },
+    overdueCatchUpCards(now?: Date) { return inner.overdueCatchUpCards(now); },
     async dueCount(now = new Date()) { return inner.dueCards(now).length; },
     getCard(cardId) { return inner.getCard(cardId); },
     async hydrate() { /* in-memory already has everything */ },

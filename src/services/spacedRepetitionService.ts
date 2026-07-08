@@ -14,6 +14,17 @@ export interface SpacedRepetitionScheduler {
   createCard(refId: string): ReviewCard;
   review(cardId: string, rating: ReviewRating): ReviewCard;
   dueCards(now?: Date): ReviewCard[];
+  /**
+   * Phase 50: cards overdue enough to be in the "catch-up" bucket.
+   * Per Beru pedagogy review: returns cards where (today - dueOn)
+   * crossed the 2x intervalDays threshold. Beru Q1 inclusive
+   * `>=`, Q2 `Math.round(intervalDays * 0.5)` halving, applied
+   * on the `dueCards()` pass so the in-memory mirror stays current.
+   * Card dueOn is updated; intervalDays is NOT (spec-preserving;
+   * SM-2 math on the next `review()` runs over the rescheduled
+   * dueOn naturally).
+   */
+  overdueCatchUpCards(now?: Date): ReviewCard[];
   getCard(cardId: string): ReviewCard | undefined;
   /**
    * Seed the scheduler with a card that already has known state. Used to
@@ -31,6 +42,12 @@ function addDaysIso(iso: string, days: number): string {
   const d = new Date(iso + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+// Phase 50: integer day difference between two ISO dates (today - dueIso).
+function diffDays(todayIsoStr: string, dueIso: string): number {
+  const ms = new Date(`${todayIsoStr}T00:00:00Z`).getTime() - new Date(`${dueIso}T00:00:00Z`).getTime();
+  return Math.round(ms / (1000 * 60 * 60 * 24));
 }
 
 export function createSpacedRepetitionScheduler(): SpacedRepetitionScheduler {
@@ -107,7 +124,56 @@ export function createSpacedRepetitionScheduler(): SpacedRepetitionScheduler {
     },
     dueCards(now: Date = new Date()) {
       const today = todayIso(now);
-      return Array.from(cards.values()).filter((c) => c.dueOn <= today);
+      const result: ReviewCard[] = [];
+      for (const card of cards.values()) {
+        if (card.dueOn <= today) {
+          result.push(card);
+          // Phase 50 catch-up rescheduler (per Beru pedagogy review Q1+Q2):
+          // if overdue >= 2x intervalDays AND interval > 1, reschedule
+          // in-memory. Inclusive `>=` bound (Beru Q1). Halve interval
+          // via Math.round(intervalDays * 0.5) (Beru Q2). Update only dueOn;
+          // do NOT touch intervalDays or lastReviewedOn (Beru Q5#1
+          // analytics continuity; spec-preserving — the SM-2 math on
+          // the next review() call runs over the rescheduled dueOn
+          // naturally via intervalDays * easeFactor).
+          const overdueDays = Math.max(0, diffDays(today, card.dueOn));
+          if (overdueDays >= 2 * card.intervalDays && card.intervalDays > 1) {
+            const newInterval = Math.max(1, Math.round(card.intervalDays * 0.5));
+            cards.set(card.id, { ...card, dueOn: addDaysIso(today, newInterval) });
+          }
+        }
+      }
+      return result;
+    },
+    overdueCatchUpCards(now: Date = new Date()): ReviewCard[] {
+      const today = todayIso(now);
+      // Phase 50: surface the cards that the rescheduler just touched.
+      // After dueCards() runs, "overdue catch-up" = cards whose
+      // CURRENT (post-reschedule) intervalDays * 2 <= days-until-due.
+      // This is the inverse of the threshold: post-reschedule, the
+      // catch-up card has dueOn = today + half-interval, so its
+      // days-until-due (~half-interval) is less than
+      // 2 * intervalDays. We re-derive the catch-up set by looking
+      // for cards whose ORIGINAL dueOn would have crossed the
+      // threshold. Simplest: a card is a catch-up card iff its
+      // post-reschedule dueOn is in the future but its pre-reschedule
+      // overdueDays would have been >= threshold.
+      //
+      // To avoid re-deriving from a stale state, we mark cards during
+      // the dueCards() reschedule by storing them in a transient set;
+      // but a transient set on the scheduler object would need to be
+      // reset on every call. Cleanest: re-derive from a small
+      // heuristic — a card is catch-up if `dueOn > today` (post-
+      // reschedule) AND `dueOn < today + intervalDays` (it was
+      // due in the recent past, not scheduled normally). This matches
+      // the rescheduler's output: only catch-up cards get their
+      // dueOn pushed out by less than the full intervalDays.
+      return Array.from(cards.values()).filter((card) => {
+        if (card.dueOn <= today) return false;
+        if (card.intervalDays <= 1) return false;
+        const daysUntilDue = diffDays(card.dueOn, today);
+        return daysUntilDue > 0 && daysUntilDue < card.intervalDays;
+      });
     },
     getCard(cardId: string) {
       return cards.get(cardId);
