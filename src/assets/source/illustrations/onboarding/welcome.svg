@@ -1,0 +1,64 @@
+<!--
+  Onboarding Panel A — Welcome (base scene, NO kanji overlay).
+  Scene: workplace desk at midday, soft daylight, laptop with hiragana on screen, coffee mug.
+  Output: src/assets/source/illustrations/onboarding/welcome.svg -> welcome.png (320x480)
+
+  palette (ds.colors only — no parallel hex):
+    ds.colors.brand (#2A6F97) - laptop body
+    ds.colors.brandDark (#014F86) - laptop edge / shadow
+    ds.colors.brandInk (#FFFFFF) - laptop screen + hiragana
+    ds.colors.warm (#F4A261) - coffee mug
+    ds.colors.warmSoft (#FFF4E6) - daylight glow
+    ds.colors.warmInk (#92400E) - daylight window frame
+    ds.colors.textMuted (#64748B) - desk surface
+    ds.colors.text (#0F172A) - outlines
+
+  Continuity lock: <symbol id="desk-silhouette"> block is IDENTICAL across all 6 onboarding files.
+  DO NOT edit the <symbol> below without copy-pasting the change to the other 5 files.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 480" width="320" height="480" role="img" aria-label="Onboarding Step 1 Welcome: workplace desk with laptop showing a single hiragana character and a coffee mug, soft daylight from a window">
+  <defs>
+    <symbol id="desk-silhouette" viewBox="0 0 320 200">
+      <rect x="8" y="8" width="80" height="48" rx="4" fill="#FFF4E6" stroke="#92400E" stroke-width="2" stroke-linecap="round"/>
+      <line x1="48" y1="8" x2="48" y2="56" stroke="#92400E" stroke-width="2" stroke-linecap="round"/>
+      <line x1="8" y1="32" x2="88" y2="32" stroke="#92400E" stroke-width="2" stroke-linecap="round"/>
+      <rect x="0" y="120" width="320" height="20" fill="#64748B" stroke="#0F172A" stroke-width="4" stroke-linecap="round"/>
+      <line x1="0" y1="140" x2="320" y2="140" stroke="#0F172A" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+      <rect x="20" y="140" width="8" height="60" fill="#64748B" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+      <rect x="292" y="140" width="8" height="60" fill="#64748B" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+
+  <!-- Background (no fill = matches ds.colors.background) -->
+
+  <!-- Daylight warmth wash (top-left, behind window) -->
+  <ellipse cx="48" cy="32" rx="120" ry="60" fill="#FFF4E6" opacity="0.7"/>
+
+  <!-- Shared desk silhouette (continuity lock) -->
+  <use href="#desk-silhouette" x="0" y="280" width="320" height="200"/>
+
+  <!-- Laptop (focal point, top-third, 3/4 view) -->
+  <g transform="translate(110 240)">
+    <!-- Laptop base (perspective: front edge angled) -->
+    <path d="M 0 80 L 110 80 L 120 100 L -10 100 Z" fill="#014F86" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Laptop screen body -->
+    <rect x="6" y="0" width="100" height="80" rx="4" fill="#2A6F97" stroke="#0F172A" stroke-width="4" stroke-linecap="round"/>
+    <!-- Laptop screen (white) -->
+    <rect x="14" y="8" width="84" height="64" fill="#FFFFFF" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    <!-- Hiragana on screen (identity lock per Beru — not the SVG-master's \"あ\"; the *final* variant has 日本語 overlay, this base has just the laptop brand hint) -->
+    <text x="56" y="56" font-family="Noto Sans JP, sans-serif" font-size="40" font-weight="700" fill="#2A6F97" text-anchor="middle" opacity="0.55">あ</text>
+  </g>
+
+  <!-- Coffee mug (top-right) -->
+  <g transform="translate(220 320)">
+    <!-- Mug body -->
+    <rect x="0" y="0" width="50" height="56" rx="4" fill="#F4A261" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Coffee surface (top) -->
+    <ellipse cx="25" cy="0" rx="25" ry="6" fill="#7C2D12" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    <!-- Handle -->
+    <path d="M 50 12 C 68 14 68 38 50 40" fill="none" stroke="#0F172A" stroke-width="4" stroke-linecap="round"/>
+    <!-- Steam (subtle) -->
+    <path d="M 16 -10 C 18 -18 14 -22 16 -30" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+    <path d="M 30 -8 C 32 -16 28 -20 30 -28" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  </g>
+</svg>

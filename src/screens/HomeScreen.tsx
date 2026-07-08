@@ -291,6 +291,13 @@ export function HomeScreen({
           <HelpLine icon="test" label='"Quiz" — quick self-check' />
           <HelpLine icon="progress" label='"Progress" — your streak and stats' />
         </View>
+        {/* Phase 45 Tier-2: home empty-state illustration (resolves the dead-wire import).
+            The home empty state is the "fresh start" visual — a doorway with three rooms
+            (less / flashcards / progress). Rendered inside the help disclosure so it doesn't
+            add visual noise to the main home flow, but the dead import is now actually used. */}
+        <View style={styles.helpArt}>
+          <EmptyStateArt screen="home" size={180} />
+        </View>
         <Button label="Take the placement test" onPress={() => setShowPlacement(true)} variant="soft" icon="star" />
       </Disclosure>
     </ScreenScaffold>
@@ -369,6 +376,7 @@ const styles = StyleSheet.create({
   helpList: { gap: ds.spacing.xs },
   helpLine: { flexDirection: 'row', alignItems: 'center', gap: ds.spacing.sm },
   helpLineText: { fontSize: ds.type.body, color: ds.colors.text, flexShrink: 1 },
+  helpArt: { alignItems: 'center', justifyContent: 'center', marginTop: ds.spacing.md, marginBottom: ds.spacing.sm },
   backHeader: { fontSize: ds.type.body },
   reviewCard: { padding: ds.spacing.md, gap: ds.spacing.xs, borderLeftWidth: 4, borderLeftColor: ds.colors.primary },
   reviewHeadline: { fontSize: ds.type.body, fontWeight: '900', color: ds.colors.text },

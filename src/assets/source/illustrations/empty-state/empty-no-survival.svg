@@ -1,0 +1,49 @@
+<!--
+  Empty-state 6 — Survival (NEW; not wired to EmptyStateArt yet).
+  Scene: small landscape with 4 signposts (safety / help / schedule / emergency) in different directions.
+  Output: empty-no-survival.svg -> empty-no-survival.png (240x240)
+
+  palette (ds.colors only):
+    ds.colors.brand (#2A6F97) - safety signpost (tallest)
+    ds.colors.success (#2A9D8F) - safety alternative
+    ds.colors.danger (#D95F43) - emergency
+    ds.colors.warm (#F4A261) - help
+    ds.colors.info (#7E57C2) - schedule
+    ds.colors.textMuted (#64748B) - ground
+    ds.colors.text (#0F172A) - outlines
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="Empty survival state: four signposts pointing in different directions for safety, help, schedule, and emergency topics, on a small ground line">
+  <!-- Ground line + small hill -->
+  <line x1="10" y1="200" x2="230" y2="200" stroke="#64748B" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 10 200 Q 60 180 110 195 Q 170 210 230 198" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Signpost 1 (tallest, brand — safety, top-left) -->
+  <g transform="translate(40 60)">
+    <!-- Pole -->
+    <line x1="0" y1="0" x2="0" y2="140" stroke="#0F172A" stroke-width="4" stroke-linecap="round"/>
+    <!-- Board (arrow) -->
+    <path d="M 0 0 L 30 -10 L 30 14 L 0 4 Z" fill="#2A6F97" stroke="#0F172A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="18" y="6" font-family="Noto Sans JP, sans-serif" font-size="9" font-weight="700" fill="#FFFFFF" text-anchor="middle">安全</text>
+  </g>
+
+  <!-- Signpost 2 (warm — help, mid-right) -->
+  <g transform="translate(150 80)">
+    <line x1="0" y1="0" x2="0" y2="120" stroke="#0F172A" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 0 4 L 0 -6 L 32 -10 L 32 14 L 0 10 Z" fill="#F4A261" stroke="#0F172A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="20" y="6" font-family="Noto Sans JP, sans-serif" font-size="9" font-weight="700" fill="#FFFFFF" text-anchor="middle">助</text>
+  </g>
+
+  <!-- Signpost 3 (info — schedule, lower-left) -->
+  <g transform="translate(80 110)">
+    <line x1="0" y1="0" x2="0" y2="90" stroke="#0F172A" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 0 -2 L -28 -10 L -28 14 L 0 6 Z" fill="#7E57C2" stroke="#0F172A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="-14" y="6" font-family="Noto Sans JP, sans-serif" font-size="9" font-weight="700" fill="#FFFFFF" text-anchor="middle">時</text>
+  </g>
+
+  <!-- Signpost 4 (danger — emergency, lower-right) -->
+  <g transform="translate(180 120)">
+    <line x1="0" y1="0" x2="0" y2="80" stroke="#0F172A" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 0 0 L 24 -6 L 24 12 L 0 6 Z" fill="#D95F43" stroke="#0F172A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="14" y="7" font-family="Noto Sans JP, sans-serif" font-size="9" font-weight="700" fill="#FFFFFF" text-anchor="middle">急</text>
+  </g>
+</svg>

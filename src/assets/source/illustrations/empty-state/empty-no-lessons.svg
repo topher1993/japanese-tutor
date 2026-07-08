@@ -1,0 +1,39 @@
+<!--
+  Empty-state 2 — Lessons (refresh; EmptyStateArt scene="lessons").
+  Scene: small empty bookshelf, single hiragana-block on bottom shelf, ladder leaning.
+  Output: empty-no-lessons.svg -> empty-no-lessons.png (240x240)
+
+  palette (ds.colors only):
+    ds.colors.brand (#2A6F97) - bookshelf frame
+    ds.colors.warm (#F4A261) - ladder wood
+    ds.colors.warmSoft (#FFF4E6) - hiragana-block
+    ds.colors.warmInk (#92400E) - block text
+    ds.colors.text (#0F172A) - outlines
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="Empty lessons state: a small empty bookshelf with a single hiragana block on the bottom shelf and a ladder leaning against it">
+  <!-- Floor line -->
+  <line x1="20" y1="210" x2="220" y2="210" stroke="#64748B" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Ladder (leaning, off-center) -->
+  <g transform="translate(165 30) rotate(-12)">
+    <line x1="0" y1="0" x2="0" y2="180" stroke="#92400E" stroke-width="4" stroke-linecap="round"/>
+    <line x1="14" y1="0" x2="14" y2="180" stroke="#92400E" stroke-width="4" stroke-linecap="round"/>
+    <line x1="0" y1="30" x2="14" y2="30" stroke="#F4A261" stroke-width="3" stroke-linecap="round"/>
+    <line x1="0" y1="60" x2="14" y2="60" stroke="#F4A261" stroke-width="3" stroke-linecap="round"/>
+    <line x1="0" y1="90" x2="14" y2="90" stroke="#F4A261" stroke-width="3" stroke-linecap="round"/>
+    <line x1="0" y1="120" x2="14" y2="120" stroke="#F4A261" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- Bookshelf (center-frame) -->
+  <g transform="translate(40 30)">
+    <!-- Outer frame -->
+    <rect x="0" y="0" width="120" height="180" fill="none" stroke="#2A6F97" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Top shelf (empty) -->
+    <line x1="0" y1="50" x2="120" y2="50" stroke="#2A6F97" stroke-width="3" stroke-linecap="round"/>
+    <!-- Middle shelf (empty) -->
+    <line x1="0" y1="110" x2="120" y2="110" stroke="#2A6F97" stroke-width="3" stroke-linecap="round"/>
+    <!-- Bottom shelf: single hiragana-block (identity lock per Beru) -->
+    <rect x="50" y="120" width="22" height="50" fill="#FFF4E6" stroke="#92400E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="61" y="152" font-family="Noto Sans JP, sans-serif" font-size="24" font-weight="700" fill="#92400E" text-anchor="middle">あ</text>
+  </g>
+</svg>

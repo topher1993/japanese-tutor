@@ -47,4 +47,29 @@ describe('asset manifest', () => {
     const unique = new Set(paths);
     expect(unique.size).toBe(paths.length);
   });
+
+  // Phase 45 Tier-2: explicit assertions for the 4 new entries.
+  it('Phase 45: emptyState.flashcards is registered', () => {
+    expect(manifest.emptyState.flashcards).toBeDefined();
+    expect(manifest.emptyState.flashcards.path).toBe('src/assets/source/illustrations/empty-state/empty-no-flashcards.png');
+    expect(manifest.emptyState.flashcards.maxBytes).toBe(1_500_000);
+  });
+
+  it('Phase 45: emptyState.quiz is registered', () => {
+    expect(manifest.emptyState.quiz).toBeDefined();
+    expect(manifest.emptyState.quiz.path).toBe('src/assets/source/illustrations/empty-state/empty-no-quiz.png');
+    expect(manifest.emptyState.quiz.maxBytes).toBe(1_500_000);
+  });
+
+  it('Phase 45: emptyState.survival is registered', () => {
+    expect(manifest.emptyState.survival).toBeDefined();
+    expect(manifest.emptyState.survival.path).toBe('src/assets/source/illustrations/empty-state/empty-no-survival.png');
+    expect(manifest.emptyState.survival.maxBytes).toBe(1_500_000);
+  });
+
+  it('Phase 45: badge.jlptN3 is registered', () => {
+    expect(manifest.badge.jlptN3).toBeDefined();
+    expect(manifest.badge.jlptN3.path).toBe('src/assets/source/badges/badge-jlpt-n3.png');
+    expect(manifest.badge.jlptN3.maxBytes).toBe(200_000);
+  });
 });

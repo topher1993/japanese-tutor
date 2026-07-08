@@ -1,8 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="JLPT N5 badge">
+<!--
+  Badge 2 — N5 (jlptN5) — REFRESH (existing file overwritten to new visual recipe).
+  Silhouette: ROUND. Center motif: hiragana あ (per Belion's locked decision).
+  Palette: deep brand blue, white type — official-feeling.
+  Export: 96x96 PNG.
+
+  palette (ds.colors only):
+    ds.colors.brand (#2A6F97) - disk
+    ds.colors.brandInk (#FFFFFF) - type + rim
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="JLPT N5 badge: a single hiragana character on a deep brand-blue disk">
+  <!-- Disk (round silhouette) -->
   <circle cx="32" cy="32" r="30" fill="#2A6F97"/>
+  <!-- Rim ring (white inner) -->
   <circle cx="32" cy="32" r="26" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.6"/>
-  <!-- あ (hiragana a) -->
-  <text x="32" y="42" font-family="Noto Sans JP, sans-serif" font-size="32" font-weight="700" fill="#FFFFFF" text-anchor="middle">あ</text>
-  <!-- Amber pip at bottom-right -->
-  <circle cx="48" cy="46" r="3" fill="#F4A261"/>
+  <!-- Hiragana あ (center, white, large) -->
+  <text x="32" y="44" font-family="Noto Sans JP, sans-serif" font-size="32" font-weight="700" fill="#FFFFFF" text-anchor="middle">あ</text>
 </svg>

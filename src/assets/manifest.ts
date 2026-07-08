@@ -121,6 +121,21 @@ export const manifest = {
       path: 'src/assets/source/illustrations/empty-state/empty-no-progress.png',
       maxBytes: 1_500_000,
     },
+    flashcards: {
+      key: 'emptyState.flashcards',
+      path: 'src/assets/source/illustrations/empty-state/empty-no-flashcards.png',
+      maxBytes: 1_500_000,
+    },
+    quiz: {
+      key: 'emptyState.quiz',
+      path: 'src/assets/source/illustrations/empty-state/empty-no-quiz.png',
+      maxBytes: 1_500_000,
+    },
+    survival: {
+      key: 'emptyState.survival',
+      path: 'src/assets/source/illustrations/empty-state/empty-no-survival.png',
+      maxBytes: 1_500_000,
+    },
   },
   badge: {
     firstLesson: {
@@ -171,6 +186,11 @@ export const manifest = {
     jlptN4: {
       key: 'badge.jlptN4',
       path: 'src/assets/source/badges/badge-jlpt-n4.png',
+      maxBytes: 200_000,
+    },
+    jlptN3: {
+      key: 'badge.jlptN3',
+      path: 'src/assets/source/badges/badge-jlpt-n3.png',
       maxBytes: 200_000,
     },
   },

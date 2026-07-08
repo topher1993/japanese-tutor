@@ -45,6 +45,9 @@ export const assetRequireMap = {
   'emptyState.home': require('../assets/source/illustrations/empty-state/empty-no-home.png'),
   'emptyState.lessons': require('../assets/source/illustrations/empty-state/empty-no-lessons.png'),
   'emptyState.progress': require('../assets/source/illustrations/empty-state/empty-no-progress.png'),
+  'emptyState.flashcards': require('../assets/source/illustrations/empty-state/empty-no-flashcards.png'),
+  'emptyState.quiz': require('../assets/source/illustrations/empty-state/empty-no-quiz.png'),
+  'emptyState.survival': require('../assets/source/illustrations/empty-state/empty-no-survival.png'),
 
   // Tab bar icons (Home / Lessons / Flashcards / Quiz / Progress)
   'tabIcon.home': require('../assets/source/tab-icons/tab-home.png'),
@@ -78,6 +81,7 @@ export const assetRequireMap = {
   'badge.perfectQuiz': require('../assets/source/badges/badge-perfect-quiz.png'),
   'badge.jlptN5': require('../assets/source/badges/badge-jlpt-n5.png'),
   'badge.jlptN4': require('../assets/source/badges/badge-jlpt-n4.png'),
+  'badge.jlptN3': require('../assets/source/badges/badge-jlpt-n3.png'),
 } as const;
 
 export type AssetKey = keyof typeof assetRequireMap;

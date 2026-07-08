@@ -6,6 +6,7 @@ import { getCandidateQuizCounts } from '../services/candidateQuizAdapter';
 import type { LearnerLanguage } from '../types/onboarding';
 import { ReviewModePanel } from './ReviewModePanel';
 import { Card } from '../components/Card';
+import { EmptyStateArt } from '../components/EmptyStateArt';
 import { Icon } from '../components/Icon';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -89,6 +90,27 @@ export function QuizScreen({ supportLanguage = 'en' }: { supportLanguage?: Learn
   }
 
   const pct = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+
+  // Phase 45 Tier-2: defensive empty-state for the case where the quiz
+  // session loaded but resolved to zero questions AND no result is
+  // available. In practice createQuizSession() pulls from getQuickQuiz()
+  // which returns authored questions, so this branch is reachable only
+  // if the quiz pool is empty or every adapter errors out. Mirrors the
+  // ProgressScreen empty-wrap pattern (size 180 matches ProgressScreen).
+  if (!question && !result) {
+    return (
+      <ScreenScaffold>
+        <ScreenHeader title="Test" subtitle={getSupportLanguageDisplayName(supportLanguage)} />
+        <View style={styles.emptyWrap}>
+          <EmptyStateArt screen="quiz" size={180} />
+          <Text style={styles.emptyTitle}>No questions available</Text>
+          <Text style={styles.emptyBody}>
+            The quiz pool is empty right now. Try again later or open Review Mode for spaced-repetition practice.
+          </Text>
+        </View>
+      </ScreenScaffold>
+    );
+  }
 
   return (
     <ScreenScaffold>
@@ -194,4 +216,7 @@ const styles = StyleSheet.create({
   feedbackRow: { flexDirection: 'row', alignItems: 'flex-start', gap: ds.spacing.xs, marginTop: ds.spacing.xs },
   feedbackIcon: { fontSize: 16 },
   feedbackText: { flex: 1, fontSize: ds.type.body, color: ds.colors.warmInkStrong, flexShrink: 1 },
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: ds.spacing.md, paddingVertical: ds.spacing.xl },
+  emptyTitle: { fontSize: ds.type.title, fontWeight: '900', color: ds.colors.text, textAlign: 'center' },
+  emptyBody: { fontSize: ds.type.body, color: ds.colors.textMuted, textAlign: 'center', flexShrink: 1, paddingHorizontal: ds.spacing.lg },
 });

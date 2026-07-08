@@ -1,0 +1,35 @@
+<!--
+  Shared desk silhouette (continuity lock for onboarding Panels A/B/C).
+  Inline copy-pasted into welcome/workplace/habit (base) and welcome-final/workplace-final/habit-final SVGs.
+  viewBox: 0 0 320 200 (sits in the lower portion of the 320x480 canvas, y=280 onward).
+
+  palette:
+    ds.colors.brand (#2A6F97) - laptop body accent
+    ds.colors.brandInk (#FFFFFF) - laptop screen
+    ds.colors.warm (#F4A261) - coffee mug + daylight warmth
+    ds.colors.warmSoft (#FFF4E6) - daylight glow
+    ds.colors.warmInk (#92400E) - daylight window frame
+    ds.colors.textMuted (#64748B) - desk surface tone
+    ds.colors.border (#E2E8F0) - laptop edge
+
+  DO NOT EDIT THIS BLOCK IN ONE FILE WITHOUT COPYING THE CHANGE TO THE OTHER 5.
+  All 6 onboarding SVGs MUST carry an identical <symbol id="desk-silhouette"> block.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
+  <defs>
+    <symbol id="desk-silhouette" viewBox="0 0 320 200">
+      <!-- Daylight window (top-left) -->
+      <rect x="8" y="8" width="80" height="48" rx="4" fill="#FFF4E6" stroke="#92400E" stroke-width="2" stroke-linecap="round"/>
+      <line x1="48" y1="8" x2="48" y2="56" stroke="#92400E" stroke-width="2" stroke-linecap="round"/>
+      <line x1="8" y1="32" x2="88" y2="32" stroke="#92400E" stroke-width="2" stroke-linecap="round"/>
+      <!-- Desk surface (foreground) -->
+      <rect x="0" y="120" width="320" height="20" fill="#64748B" stroke="#0F172A" stroke-width="4" stroke-linecap="round"/>
+      <!-- Desk edge highlight -->
+      <line x1="0" y1="140" x2="320" y2="140" stroke="#0F172A" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+      <!-- Desk front leg (left) -->
+      <rect x="20" y="140" width="8" height="60" fill="#64748B" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+      <!-- Desk front leg (right) -->
+      <rect x="292" y="140" width="8" height="60" fill="#64748B" stroke="#0F172A" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
