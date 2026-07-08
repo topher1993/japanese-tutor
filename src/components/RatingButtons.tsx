@@ -21,7 +21,11 @@ const RATING_META: Record<Rating, { label: string; bg: string; key: string; hapt
   again: { label: 'Again',  bg: ds.colors.danger,  key: '😣', haptic: 'heavy' },
   hard:   { label: 'Hard',   bg: ds.colors.warm,    key: '🤔', haptic: 'medium' },
   good:   { label: 'Good',   bg: ds.colors.success, key: '🙂', haptic: 'light' },
-  easy:   { label: 'Easy',   bg: ds.colors.brand,   key: '😎', haptic: 'soft' },
+  // Phase 49 Beru pedagogy review: Easy was 'soft' (selectionAsync) which
+  // is so subtle some devices miss it. Bumped to 'light' (impactAsync Light)
+  // so the button always confirms the tap — without inflating the ease
+  // bump that Easy already gives via the SM-2 algorithm.
+  easy:   { label: 'Easy',   bg: ds.colors.brand,   key: '😎', haptic: 'light' },
 };
 
 function fireHaptic(intensity: 'heavy' | 'medium' | 'light' | 'soft') {

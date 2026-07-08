@@ -61,30 +61,46 @@ export function createSpacedRepetitionScheduler(): SpacedRepetitionScheduler {
       const card = cards.get(cardId);
       if (!card) throw new Error(`Card not found: ${cardId}`);
       let { intervalDays, repetitions, easeFactor } = card;
-      if (rating === 'again') {
-        repetitions = 0;
-        intervalDays = 1;
-        easeFactor = Math.max(1.3, easeFactor - 0.2);
-      } else if (rating === 'hard') {
-        repetitions += 1;
-        intervalDays = Math.max(1, Math.round(intervalDays * 1.2));
-        easeFactor = Math.max(1.3, easeFactor - 0.15);
-      } else if (rating === 'good') {
-        repetitions += 1;
-        intervalDays = repetitions === 1 ? 1 : repetitions === 2 ? 3 : Math.round(intervalDays * easeFactor);
+
+      // Map our 4-button UI to the original SuperMemo quality scale (0-5).
+      // 0-2 = failure; 3+ = pass. We use 2/3/4/5 for again/hard/good/easy.
+      const quality: 2 | 3 | 4 | 5 =
+        rating === 'again' ? 2 : rating === 'hard' ? 3 : rating === 'good' ? 4 : 5;
+
+      // Canonical SM-2 EF formula (Wozniak 1990, eq 3).
+      // For q=4 (good) this evaluates to 0, so EF doesn't change — that's
+      // the spec, not a bug.
+      const newEaseFactor = Math.max(
+        1.3,
+        easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)),
+      );
+
+      let newRepetitions: number;
+      let newInterval: number;
+
+      if (quality < 3) {
+        // Lapse: reset the streak, relearn tomorrow.
+        newRepetitions = 0;
+        newInterval = 1;
       } else {
-        repetitions += 1;
-        intervalDays = repetitions === 1 ? 2 : repetitions === 2 ? 5 : Math.round(intervalDays * easeFactor * 1.3);
-        easeFactor = easeFactor + 0.15;
+        newRepetitions = repetitions + 1;
+        if (newRepetitions === 1) {
+          newInterval = 1;
+        } else if (newRepetitions === 2) {
+          newInterval = 6;
+        } else {
+          newInterval = Math.round(intervalDays * newEaseFactor);
+        }
       }
+
       const today = todayIso();
       const updated: ReviewCard = {
         ...card,
-        repetitions,
-        intervalDays,
-        easeFactor,
+        repetitions: newRepetitions,
+        intervalDays: newInterval,
+        easeFactor: newEaseFactor,
         lastReviewedOn: today,
-        dueOn: addDaysIso(today, intervalDays),
+        dueOn: addDaysIso(today, newInterval),
       };
       cards.set(cardId, updated);
       return updated;

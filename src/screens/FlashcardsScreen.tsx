@@ -330,17 +330,34 @@ export function FlashcardsScreen({
 
       <Disclosure title="Card info" icon="info" open={showInfo} onToggle={() => setShowInfo(v => !v)}>
         <View style={styles.infoList}>
-          <Text style={styles.infoLine}>Card id: {card.id}</Text>
-          <Text style={styles.infoLine}>Category: {card.category}</Text>
           {candidateCounts ? (
             <Text style={styles.infoLine}>Candidate pool: {candidateCounts.n5} N5 + {candidateCounts.n4} N4 = {candidateCounts.total}</Text>
           ) : null}
           {srCard ? (
-            <Text style={styles.infoLine}>Review: interval {srCard.intervalDays}d, {srCard.repetitions} reps, ease {srCard.easeFactor.toFixed(2)}</Text>
+            <Text style={styles.infoLine}>Next review in {srCard.intervalDays} day{srCard.intervalDays === 1 ? '' : 's'}</Text>
           ) : (
             <Text style={styles.infoLine}>Review: not yet rated (will create SRS card on first rating)</Text>
           )}
-          <Text style={styles.infoLine}>Storage: {srs ? 'persistent (durable)' : 'in-memory fallback'}</Text>
+          {/*
+            Phase 49 Sensei + Beru review: dev-only fields below were
+            visible to learners by default. "Card id" / "Category" / raw
+            SM-2 numbers / "Storage" line invite grindy behavior (push
+            Easy to inflate ease) and leak engineering noise. Gated
+            behind __DEV__ so they only appear in dev builds. The
+            learner-facing line above (interval in days) is intentionally
+            non-numeric (no "ease 2.50" or "reps 3") to avoid the same
+            trap.
+          */}
+          {typeof __DEV__ !== 'undefined' && __DEV__ ? (
+            <>
+              <Text style={styles.infoLine}>Card id: {card.id}</Text>
+              <Text style={styles.infoLine}>Category: {card.category}</Text>
+              {srCard ? (
+                <Text style={styles.infoLine}>SM-2: {srCard.repetitions} reps, ease {srCard.easeFactor.toFixed(2)}</Text>
+              ) : null}
+              <Text style={styles.infoLine}>Storage: {srs ? 'persistent (durable)' : 'in-memory fallback'}</Text>
+            </>
+          ) : null}
         </View>
         <JishoLink japanese={card.japanese} variant="full" testID={`flashcard-jisho-info-${card.id}`} />
       </Disclosure>
