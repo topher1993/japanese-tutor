@@ -3,7 +3,11 @@ import { getAllLessons } from './lessonService';
 import { buildProgressDashboard } from './progressDashboardService';
 import { getWeekPlan } from './weeklyPlansService';
 import { resolveCardPool, resolveKanjiSet } from './weeklyCardPoolService';
-import { recomputeTodoStatesForWeek, type TodoPayload } from './weeklyTodoService';
+import {
+  maybeRecordWeeklyReviewCompletion,
+  recomputeTodoStatesForWeek,
+  type TodoPayload,
+} from './weeklyTodoService';
 import type { TodoState, TodoEventCounts, WeekTodo } from '../types/weeklyTodo';
 
 // React Native injects `__DEV__` at runtime; declare it for TS so we don't
@@ -152,12 +156,26 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
               weekTodosInitialized: payload.weekTodosInitialized,
               todoEventCounts: payload.todoEventCounts,
             };
+            // Phase 46 — if the recomputed board is all-done for the current
+            // week, stamp a WeeklyReviewCompletion. Pure helper, idempotent
+            // on the ISO-week key, no persistence side effects here. The
+            // N3 badge predicate in profileProgressionService reads the
+            // counter this call populates.
+            const augmented = maybeRecordWeeklyReviewCompletion(
+              updated,
+              lessonWeek,
+              weekPlan,
+              nextTodoStates,
+              true,
+              'lesson_completion',
+              new Date(),
+            );
             // Cast through unknown so the two slightly-different TodoEventCounts
             // shapes (one keyed by string index in the repo's ExtendedLearnerProgress
             // view, one with named keys here) can converge for the persistence call.
             if (typeof repo.saveExtendedProgress === 'function') {
               await repo.saveExtendedProgress({
-                ...updated,
+                ...augmented,
                 todoStates: nextTodoStates,
                 weekTodosInitialized: payload.weekTodosInitialized,
                 todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
@@ -280,10 +298,22 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
         todoEventCounts: payload.todoEventCounts,
       };
 
+      // Phase 46 — weekly-review stamp gate. If the day's daily-rush pushed
+      // the weekly board to all-done, append a WeeklyReviewCompletion stamp.
+      const augmented = maybeRecordWeeklyReviewCompletion(
+        updated,
+        weekNumber,
+        weekPlan,
+        nextTodoStates,
+        Boolean(payload.weekTodosInitialized[weekNumber]),
+        'lesson_completion',
+        new Date(),
+      );
+
       // Cast through unknown — same pattern completeCurrentLesson uses (37b).
       if (typeof repo.saveExtendedProgress === 'function') {
         await repo.saveExtendedProgress({
-          ...updated,
+          ...augmented,
           todoStates: nextTodoStates,
           weekTodosInitialized: payload.weekTodosInitialized,
           todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
@@ -399,10 +429,21 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
         todoEventCounts: payload.todoEventCounts,
       };
 
+      // Phase 46 — weekly-review stamp gate.
+      const augmented = maybeRecordWeeklyReviewCompletion(
+        updated,
+        weekNumber,
+        weekPlan,
+        nextTodoStates,
+        Boolean(payload.weekTodosInitialized[weekNumber]),
+        'lesson_completion',
+        new Date(),
+      );
+
       // Cast through unknown — same pattern recordDailyRushComplete uses (37d-1).
       if (typeof repo.saveExtendedProgress === 'function') {
         await repo.saveExtendedProgress({
-          ...updated,
+          ...augmented,
           todoStates: nextTodoStates,
           weekTodosInitialized: payload.weekTodosInitialized,
           todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
@@ -526,10 +567,21 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
         todoEventCounts: payload.todoEventCounts,
       };
 
+      // Phase 46 — weekly-review stamp gate.
+      const augmented = maybeRecordWeeklyReviewCompletion(
+        updated,
+        weekNumber,
+        weekPlan,
+        nextTodoStates,
+        Boolean(payload.weekTodosInitialized[weekNumber]),
+        'lesson_completion',
+        new Date(),
+      );
+
       // Cast through unknown — same pattern recordFlashcardReview uses (37d-2).
       if (typeof repo.saveExtendedProgress === 'function') {
         await repo.saveExtendedProgress({
-          ...updated,
+          ...augmented,
           todoStates: nextTodoStates,
           weekTodosInitialized: payload.weekTodosInitialized,
           todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
@@ -647,10 +699,21 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
         todoEventCounts: payload.todoEventCounts,
       };
 
+      // Phase 46 — weekly-review stamp gate.
+      const augmented = maybeRecordWeeklyReviewCompletion(
+        updated,
+        weekNumber,
+        weekPlan,
+        nextTodoStates,
+        Boolean(payload.weekTodosInitialized[weekNumber]),
+        'lesson_completion',
+        new Date(),
+      );
+
       // Cast through unknown — same pattern recordKanjiGood uses (37d-3).
       if (typeof repo.saveExtendedProgress === 'function') {
         await repo.saveExtendedProgress({
-          ...updated,
+          ...augmented,
           todoStates: nextTodoStates,
           weekTodosInitialized: payload.weekTodosInitialized,
           todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,
@@ -773,10 +836,21 @@ export function createPracticeProgressStore(repo: PersistentLearningRepository) 
         todoEventCounts: payload.todoEventCounts,
       };
 
+      // Phase 46 — weekly-review stamp gate.
+      const augmented = maybeRecordWeeklyReviewCompletion(
+        updated,
+        weekNumber,
+        weekPlan,
+        nextTodoStates,
+        Boolean(payload.weekTodosInitialized[weekNumber]),
+        'lesson_completion',
+        new Date(),
+      );
+
       // Cast through unknown — same pattern recordQuizAttempt uses (37d-4).
       if (typeof repo.saveExtendedProgress === 'function') {
         await repo.saveExtendedProgress({
-          ...updated,
+          ...augmented,
           todoStates: nextTodoStates,
           weekTodosInitialized: payload.weekTodosInitialized,
           todoEventCounts: payload.todoEventCounts as unknown as Record<string, unknown>,

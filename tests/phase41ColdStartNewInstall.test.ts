@@ -11,18 +11,19 @@ type ProgressRow = {
   todo_states: string;
   week_todos_initialized: string;
   todo_event_counts: string;
+  weekly_review_completions: string;
 };
 
 type ColumnRow = { name: string };
 
 /**
  * Simulates a fresh install (post-Phase 37): CREATE TABLE IF NOT EXISTS has
- * already created the 8-column progress table. The test asserts that
+ * already created the 9-column progress table. The test asserts that
  * `initialize()` does NOT issue ALTER TABLE SQL (no work to do) and that
  * `saveCompletedLesson` + cold-start `getProgress()` work as expected.
  */
 function createFreshInstallDb(): SqliteLikeDatabase & { progressRows: ProgressRow[]; columns: Set<string>; executedSql: string[] } {
-  // Fresh install: all 8 columns present from CREATE TABLE IF NOT EXISTS.
+  // Fresh install: all 9 columns present from CREATE TABLE IF NOT EXISTS.
   const columns = new Set([
     'id',
     'lesson_id',
@@ -32,6 +33,7 @@ function createFreshInstallDb(): SqliteLikeDatabase & { progressRows: ProgressRo
     'todo_states',
     'week_todos_initialized',
     'todo_event_counts',
+    'weekly_review_completions',
   ]);
   const progressRows: ProgressRow[] = [];
   const executedSql: string[] = [];
@@ -53,17 +55,18 @@ function createFreshInstallDb(): SqliteLikeDatabase & { progressRows: ProgressRo
         return { changes: 1 };
       }
       if (/^INSERT OR REPLACE INTO progress VALUES/i.test(sql.trim())) {
-        const [id, lessonId, completed, completedAt, score, todoStates, weekTodosInitialized, todoEventCounts] = params;
-        const row: ProgressRow = {
-          id: String(id),
-          lesson_id: String(lessonId),
-          completed: Number(completed),
-          completed_at: completedAt == null ? null : String(completedAt),
-          score: score == null ? null : Number(score),
-          todo_states: String(todoStates),
-          week_todos_initialized: String(weekTodosInitialized),
-          todo_event_counts: String(todoEventCounts),
-        };
+              const [id, lessonId, completed, completedAt, score, todoStates, weekTodosInitialized, todoEventCounts, weeklyReviewCompletions] = params;
+              const row: ProgressRow = {
+                id: String(id),
+                lesson_id: String(lessonId),
+                completed: Number(completed),
+                completed_at: completedAt == null ? null : String(completedAt),
+                score: score == null ? null : Number(score),
+                todo_states: String(todoStates),
+                week_todos_initialized: String(weekTodosInitialized),
+                todo_event_counts: String(todoEventCounts),
+                weekly_review_completions: weeklyReviewCompletions == null ? '[]' : String(weeklyReviewCompletions),
+              };
         const idx = progressRows.findIndex(existing => existing.id === row.id);
         if (idx >= 0) progressRows[idx] = row;
         else progressRows.push(row);
@@ -77,23 +80,24 @@ function createFreshInstallDb(): SqliteLikeDatabase & { progressRows: ProgressRo
         return Array.from(columns).map(name => ({ name }) as T);
       }
       if (/FROM progress/i.test(sql)) {
-        return progressRows.map(row => ({
-          lesson_id: row.lesson_id,
-          completed: row.completed,
-          completed_at: row.completed_at,
-          score: row.score,
-          todo_states: row.todo_states,
-          week_todos_initialized: row.week_todos_initialized,
-          todo_event_counts: row.todo_event_counts,
-        }) as T);
-      }
+              return progressRows.map(row => ({
+                lesson_id: row.lesson_id,
+                completed: row.completed,
+                completed_at: row.completed_at,
+                score: row.score,
+                todo_states: row.todo_states,
+                week_todos_initialized: row.week_todos_initialized,
+                todo_event_counts: row.todo_event_counts,
+                weekly_review_completions: row.weekly_review_completions,
+              }) as T);
+            }
       return [];
     },
   };
 }
 
 describe('Phase 41 — cold-start new-install migration (no-op path)', () => {
-  it('initialize() does NOT issue ALTER TABLE when all 8 columns are already present', async () => {
+  it('initialize() does NOT issue ALTER TABLE when all 9 columns are already present', async () => {
     const db = createFreshInstallDb();
     const repo = createSqliteLearningRepository(db);
 
