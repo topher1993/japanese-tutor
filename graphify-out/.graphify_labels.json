@@ -288,17 +288,5 @@
   "286": "verbCandidateData.test.ts",
   "287": "Illustration.tsx",
   "288": "profileProgressionService.ts",
-  "289": "phase29KanjiVocabSplit.test.ts",
-  "290": "phase32DailyRushProfileKanji.test.ts",
-  "291": "SrsKeyValueStorage",
-  "292": "externalBetaFeedbackFormService.ts",
-  "293": "jlptExamNavigationIntegration.test.ts",
-  "294": "Dependency remediation plan",
-  "295": "WeeklyLessonScreen.tsx",
-  "296": "StudyPlanTracker",
-  "297": "phaseUxSimplification.test.ts",
-  "298": "Agent work-product archive",
-  "299": "manifest.test.ts",
-  "300": "kanjidic2StarterKanji.ts",
-  "301": "queryParamService.ts"
+  "293": "jlptExamNavigationIntegration.test.ts"
 }
