@@ -162,6 +162,13 @@ export interface KoiGateway {
   }>;
   getAllowance(requestId: string): Promise<KoiAllowanceView>;
   revokeConsent(requestId: string): Promise<void>;
+  upsertMemory(input: {
+    requestId: string;
+    memoryId: string;
+    category: 'goal' | 'preference' | 'recurring_mistake' | 'useful_phrase';
+    text: string;
+  }): Promise<void>;
+  deleteMemory(input: { requestId: string; memoryId: string }): Promise<void>;
   ask(input: { requestId: string; conversationId: string; text: string }): Promise<KoiAnswer>;
   syncLearningSummary(input: { requestId: string; context: KoiLearningSummary }): Promise<void>;
   synthesize(input: { requestId: string; assistantMessageId: string }): Promise<KoiSynthesisResult>;
@@ -449,6 +456,41 @@ export function createKoiGateway(
         || response.revoked !== true
         || finiteInteger(response.serverTimeMs, 0, Number.MAX_SAFE_INTEGER) === null) {
         throw new KoiClientError('INVALID_RESPONSE', 'Koi did not confirm consent revocation.');
+      }
+    },
+
+    async upsertMemory(input) {
+      requireActiveSession(getSession());
+      const requestId = requireUuid('requestId', input.requestId);
+      const memoryId = requireUuid('memoryId', input.memoryId);
+      const text = input.text.trim();
+      if (!['goal', 'preference', 'recurring_mistake', 'useful_phrase'].includes(input.category)
+        || !text || text.length > 160) {
+        throw new KoiClientError('INVALID_REQUEST', 'A Koi memory must have a valid category and 1 to 160 characters.');
+      }
+      const response = await transport.invoke('upsertKoiMemory', {
+        schemaVersion: 1,
+        requestId,
+        memoryId,
+        category: input.category,
+        text,
+      });
+      if (!isRecord(response) || response.schemaVersion !== 1 || response.requestId !== requestId
+        || response.memoryId !== memoryId || response.stored !== true
+        || finiteInteger(response.serverTimeMs, 0, Number.MAX_SAFE_INTEGER) === null) {
+        throw new KoiClientError('INVALID_RESPONSE', 'Koi did not confirm the approved memory.');
+      }
+    },
+
+    async deleteMemory(input) {
+      requireActiveSession(getSession());
+      const requestId = requireUuid('requestId', input.requestId);
+      const memoryId = requireUuid('memoryId', input.memoryId);
+      const response = await transport.invoke('deleteKoiMemory', { schemaVersion: 1, requestId, memoryId });
+      if (!isRecord(response) || response.schemaVersion !== 1 || response.requestId !== requestId
+        || response.memoryId !== memoryId || response.deleted !== true
+        || finiteInteger(response.serverTimeMs, 0, Number.MAX_SAFE_INTEGER) === null) {
+        throw new KoiClientError('INVALID_RESPONSE', 'Koi did not confirm memory deletion.');
       }
     },
 

@@ -3435,13 +3435,13 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/KoiSenseiContext.tsx": {
-    "mtime": 1784215252.153009,
-    "ast_hash": "65f23f8a5557f539716d3065cf7423ce",
+    "mtime": 1784217340.1219366,
+    "ast_hash": "0c4834018dae4abe9dc58b2df32915d4",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/gateway.ts": {
-    "mtime": 1784214672.145024,
-    "ast_hash": "d34f65da626b284bba7bfafa1ad0d055",
+    "mtime": 1784217326.555635,
+    "ast_hash": "0fe640b0f19c87a854ede9252e3e436d",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/index.ts": {
@@ -3565,8 +3565,8 @@
     "semantic_hash": ""
   },
   "tests/koiSenseiGateway.test.ts": {
-    "mtime": 1784213655.0459588,
-    "ast_hash": "75b4eb4d2ce7965fd073dd2f532615fd",
+    "mtime": 1784217471.1832945,
+    "ast_hash": "6ad68225536ea749d7e9506768c86250",
     "semantic_hash": ""
   },
   "tests/koiSenseiMediaAvatarRetention.test.ts": {
@@ -3745,8 +3745,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/ui/KoiChatPanel.tsx": {
-    "mtime": 1784215308.3237672,
-    "ast_hash": "71023aa0596729411092f6d6dfc1b9b1",
+    "mtime": 1784217437.368881,
+    "ast_hash": "57ae90f029b6f8acf93efc667c939374",
     "semantic_hash": ""
   },
   "tests/koiSenseiAnalytics.test.ts": {

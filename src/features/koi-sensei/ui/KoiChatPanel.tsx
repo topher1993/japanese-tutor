@@ -16,7 +16,7 @@ import { ScreenHeader } from '../../../components/ScreenHeader';
 import { ScreenScaffold } from '../../../components/ScreenScaffold';
 import { speakJapanese } from '../../../services/speechPracticeService';
 import { koiLatencyBucket, trackKoiEvent } from '../analytics';
-import { getKoiSystemVoiceText } from '../api';
+import { createKoiUuid, getKoiSystemVoiceText } from '../api';
 import {
   KOI_DEFAULT_SPEECH_INPUT_LOCALE,
   createExpoKoiDeviceSttAdapter,
@@ -356,6 +356,10 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
   const [reportTargetId, setReportTargetId] = React.useState<string | null>(null);
   const [reportReason, setReportReason] = React.useState<'incorrect' | 'unsafe' | 'offensive' | 'privacy' | 'other'>('incorrect');
   const [reportStatus, setReportStatus] = React.useState('');
+  const [memoryText, setMemoryText] = React.useState('');
+  const [memoryCategory, setMemoryCategory] = React.useState<'goal' | 'preference' | 'recurring_mistake' | 'useful_phrase'>('goal');
+  const [memoryStatus, setMemoryStatus] = React.useState('');
+  const [savingMemory, setSavingMemory] = React.useState(false);
   const [dictating, setDictating] = React.useState(false);
   const speechSession = React.useRef<KoiDeviceSttSession | null>(null);
   const dictationRun = React.useRef(0);
@@ -510,6 +514,22 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const saveMemory = async () => {
+    const text = memoryText.trim();
+    if (!text || savingMemory) return;
+    setSavingMemory(true);
+    setMemoryStatus('');
+    try {
+      await koi.saveCloudMemory({ memoryId: createKoiUuid(), category: memoryCategory, text });
+      setMemoryText('');
+      setMemoryStatus('Saved only because you approved it.');
+    } catch (cause) {
+      setMemoryStatus(cause instanceof Error ? cause.message : 'Koi could not save that approved memory.');
+    } finally {
+      setSavingMemory(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.chatShell}>
       <View style={styles.chatHeader}>
@@ -589,6 +609,29 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
           </Card>
         ) : null}
         {reportStatus ? <Text accessibilityLiveRegion="polite" style={styles.caption}>{reportStatus}</Text> : null}
+
+        {koi.runtimeStage !== 'mock' ? (
+          <Card tone="soft" shadow="none" style={styles.sectionCard}>
+            <Text accessibilityRole="header" style={styles.title}>Save an approved Koi memory</Text>
+            <Text style={styles.caption}>Koi never saves a memory automatically. Choose a category and approve one short learning note.</Text>
+            <View style={styles.memoryChoices}>
+              {(['goal', 'preference', 'recurring_mistake', 'useful_phrase'] as const).map(category => (
+                <Pressable
+                  key={category}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: memoryCategory === category }}
+                  onPress={() => setMemoryCategory(category)}
+                  style={[styles.reportChoice, memoryCategory === category && styles.reportChoiceSelected]}
+                >
+                  <Text style={styles.reportChoiceText}>{category.replace('_', ' ')}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <TextInput accessibilityLabel="Approved Koi memory text" maxLength={160} onChangeText={setMemoryText} placeholder="Example: I want to practise は and が." placeholderTextColor={ds.colors.textMuted} style={styles.input} value={memoryText} />
+            <Button label={savingMemory ? 'Saving…' : 'Approve and save memory'} disabled={!memoryText.trim() || savingMemory} onPress={() => { void saveMemory(); }} testID="koi-memory-save" />
+            {memoryStatus ? <Text accessibilityLiveRegion="polite" style={styles.caption}>{memoryStatus}</Text> : null}
+          </Card>
+        ) : null}
 
         <View style={styles.chatActions}>
           {messages.length > 0 ? (
@@ -713,6 +756,7 @@ const styles = StyleSheet.create({
   reportLink: { alignSelf: 'flex-start', marginTop: ds.spacing.sm, paddingVertical: ds.spacing.xs },
   reportLinkText: { color: ds.colors.danger, fontSize: ds.type.micro, fontWeight: '800' },
   reportChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.xs },
+  memoryChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.xs },
   reportChoice: { borderRadius: ds.radius.pill, borderWidth: 1, borderColor: ds.colors.border, paddingHorizontal: ds.spacing.sm, paddingVertical: ds.spacing.xs },
   reportChoiceSelected: { borderColor: ds.colors.danger, backgroundColor: ds.colors.dangerSoft },
   reportChoiceText: { color: ds.colors.text, fontSize: ds.type.micro, textTransform: 'capitalize' },

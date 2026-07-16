@@ -57,6 +57,12 @@ export interface KoiSenseiContextValue {
     messageId: string,
     reason: 'incorrect' | 'unsafe' | 'offensive' | 'privacy' | 'other',
   ): Promise<void>;
+  saveCloudMemory(input: {
+    memoryId: string;
+    category: 'goal' | 'preference' | 'recurring_mistake' | 'useful_phrase';
+    text: string;
+  }): Promise<void>;
+  deleteCloudMemory(memoryId: string): Promise<void>;
   completeEligibility(input: CreateKoiEligibilityInput): Promise<void>;
   revokeAiConsent(): Promise<void>;
   askKoi(text: string): Promise<KoiAnswer>;
@@ -447,6 +453,20 @@ export function KoiSenseiProvider({
     }
   }, [runtimeStage]);
 
+  const saveCloudMemory = React.useCallback(async (input: {
+    memoryId: string;
+    category: 'goal' | 'preference' | 'recurring_mistake' | 'useful_phrase';
+    text: string;
+  }): Promise<void> => {
+    if (runtimeStage === 'mock') throw new KoiClientError('AUTH_REQUIRED', 'Sign in before saving a cloud Koi memory.');
+    await gatewayRef.current!.gateway.upsertMemory({ requestId: createKoiUuid(), ...input });
+  }, [runtimeStage]);
+
+  const deleteCloudMemory = React.useCallback(async (memoryId: string): Promise<void> => {
+    if (runtimeStage === 'mock') throw new KoiClientError('AUTH_REQUIRED', 'Sign in before deleting a cloud Koi memory.');
+    await gatewayRef.current!.gateway.deleteMemory({ requestId: createKoiUuid(), memoryId });
+  }, [runtimeStage]);
+
   const resetLocalState = React.useCallback(async () => {
     progressionSyncPausedRef.current = true;
     try {
@@ -514,6 +534,8 @@ export function KoiSenseiProvider({
     exportCloudData,
     deleteCloudAccount,
     reportCloudMessage,
+    saveCloudMemory,
+    deleteCloudMemory,
     completeEligibility,
     revokeAiConsent,
     askKoi,
@@ -536,6 +558,7 @@ export function KoiSenseiProvider({
     completeEmailSignIn,
     completeEligibility,
     deleteCloudAccount,
+    deleteCloudMemory,
     eligibility,
     error,
     exportCloudData,
@@ -544,6 +567,7 @@ export function KoiSenseiProvider({
     ready,
     registerLiveAccount,
     reportCloudMessage,
+    saveCloudMemory,
     resetLocalState,
     revokeAiConsent,
     runtimeStage,

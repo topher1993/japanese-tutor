@@ -61,6 +61,18 @@ function answer() {
 }
 
 describe('Koi mobile gateway boundary', () => {
+  it('requires explicit approval for cloud memory writes and validates deletion', async () => {
+    const invoke = vi.fn()
+      .mockResolvedValueOnce({ schemaVersion: 1, requestId: REQUEST_ID, memoryId: MESSAGE_ID, stored: true, serverTimeMs: 10 })
+      .mockResolvedValueOnce({ schemaVersion: 1, requestId: REQUEST_ID, memoryId: MESSAGE_ID, deleted: true, serverTimeMs: 11 });
+    const gateway = createKoiGateway({ invoke } as KoiCallableTransport, () => activeSession());
+
+    await gateway.upsertMemory({ requestId: REQUEST_ID, memoryId: MESSAGE_ID, category: 'goal', text: 'Practise は and が.' });
+    await gateway.deleteMemory({ requestId: REQUEST_ID, memoryId: MESSAGE_ID });
+    expect(invoke).toHaveBeenNthCalledWith(1, 'upsertKoiMemory', expect.objectContaining({ category: 'goal', text: 'Practise は and が.' }));
+    expect(invoke).toHaveBeenNthCalledWith(2, 'deleteKoiMemory', { schemaVersion: 1, requestId: REQUEST_ID, memoryId: MESSAGE_ID });
+  });
+
   it('sends only the strict text payload and validates a grounded response', async () => {
     const invoke = vi.fn(async () => answer());
     const gateway = createKoiGateway({ invoke } as KoiCallableTransport, () => activeSession());
