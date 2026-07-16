@@ -24,8 +24,10 @@ active accounts.
   included system voice. Raw microphone audio is never uploaded or persisted.
 - Course progress stays on the device by default. A learner must separately opt
   in before a bounded learning summary can be synced to Koi.
-- Koi stars and mastery cosmetics are server-authoritative high-water marks:
-  synchronization may add an earned reward, but it may never remove one.
+- Koi stars and mastery cosmetics are local-first high-water marks in this
+  checkpoint. The backend deliberately exposes no reward-minting callable yet:
+  a server-authoritative sync must wait for a verifiable learning-evidence
+  ledger, so a client cannot forge stars, cosmetics, coins, or league points.
 
 ## Runtime shape
 
