@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Disclosure } from '../components/Disclosure';
@@ -60,6 +60,7 @@ export function HomeScreen({
   onOpenExampleSentences,
   onPracticeWordGroup,
   onOpenPlacement,
+  onOpenKoiSensei,
 }: {
   supportLanguage?: LearnerLanguage;
   onStartLesson?: () => void;
@@ -74,6 +75,7 @@ export function HomeScreen({
   onOpenExampleSentences?: () => void;
   onPracticeWordGroup?: (group: VocabularyLearningGroup) => void;
   onOpenPlacement?: () => void;
+  onOpenKoiSensei?: () => void;
 }) {
   // Phase 30: read progress so the daily lesson copy reflects the
   // learner's actual completion state instead of always defaulting to
@@ -300,7 +302,16 @@ export function HomeScreen({
         <HeroLogo size={120} subtitle="まいにち、にほんごをべんきょうしよう" tone="muted" />
 
         <View style={styles.greetingRow}>
-          <Mascot expression="base" size={64} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open Koi Sensei, your Japanese training companion"
+            disabled={!onOpenKoiSensei}
+            onPress={onOpenKoiSensei}
+            style={({ pressed }) => [styles.mascotButton, pressed && styles.mascotButtonPressed]}
+            testID="home-koi-mascot"
+          >
+            <Mascot expression="base" size={64} />
+          </Pressable>
           <View style={styles.greetingText}>
             <ScreenHeader
               title="Home"
@@ -308,6 +319,26 @@ export function HomeScreen({
             />
           </View>
         </View>
+
+      {onOpenKoiSensei ? (
+        <Card shadow="hero" tone="brand" style={styles.koiCard}>
+          <View style={styles.koiHeader}>
+            <Mascot expression="happy" size={58} />
+            <View style={styles.koiCopy}>
+              <Text style={styles.koiLabel}>NEW IN VERSION 2.0</Text>
+              <Text style={styles.koiTitle}>Meet Koi Sensei</Text>
+              <Text style={styles.koiHint}>Ask Japanese questions and grow your N5–N1 training companion.</Text>
+            </View>
+          </View>
+          <Button
+            label="Open Koi Sensei"
+            icon="chat"
+            onPress={onOpenKoiSensei}
+            variant="secondary"
+            testID="home-open-koi-sensei"
+          />
+        </Card>
+      ) : null}
 
       <StreakFlame days={streak} />
       <AdaptiveDailyPlanCard plan={adaptivePlan} onTaskPress={handleAdaptiveTask} />
@@ -516,6 +547,14 @@ const styles = StyleSheet.create({
   },
   greetingRow: { flexDirection: 'row', alignItems: 'center', gap: ds.spacing.md },
   greetingText: { flex: 1, minWidth: 0 },
+  mascotButton: { minWidth: ds.touch.min, minHeight: ds.touch.min, alignItems: 'center', justifyContent: 'center' },
+  mascotButtonPressed: { opacity: 0.82 },
+  koiCard: { gap: ds.spacing.md, padding: ds.spacing.lg },
+  koiHeader: { flexDirection: 'row', alignItems: 'center', gap: ds.spacing.md },
+  koiCopy: { flex: 1, minWidth: 0 },
+  koiLabel: { color: ds.colors.warmSoft, fontSize: ds.type.micro, fontWeight: '900', letterSpacing: 0.7 },
+  koiTitle: { color: ds.colors.brandInk, fontSize: ds.type.title, fontWeight: '900', marginTop: ds.spacing.xs },
+  koiHint: { color: ds.colors.brandInk, fontSize: ds.type.caption, lineHeight: 19, marginTop: ds.spacing.xs, opacity: 0.92 },
   streakCelebrate: {
     flexDirection: 'row',
     alignItems: 'center',

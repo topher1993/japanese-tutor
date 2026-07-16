@@ -72,4 +72,9 @@ describe('asset manifest', () => {
     expect(manifest.badge.jlptN3.path).toBe('src/assets/source/badges/badge-jlpt-n3.png');
     expect(manifest.badge.jlptN3.maxBytes).toBe(200_000);
   });
+
+  it('Koi Sensei engineering GLB is registered and size-capped', () => {
+    expect(manifest.avatar.koiPlaceholderGlb.path).toBe('assets/koi-sensei/koi-sensei-placeholder.glb');
+    expect(manifest.avatar.koiPlaceholderGlb.maxBytes).toBe(4 * 1_024 * 1_024);
+  });
 });

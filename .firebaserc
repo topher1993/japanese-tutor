@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "development": "REPLACE_WITH_KOI_DEVELOPMENT_PROJECT_ID",
+    "staging": "REPLACE_WITH_KOI_STAGING_PROJECT_ID",
+    "production": "REPLACE_WITH_KOI_PRODUCTION_PROJECT_ID"
+  }
+}
+

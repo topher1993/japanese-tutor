@@ -2,7 +2,8 @@
   "expo": {
     "name": "Japanese Tutor",
     "slug": "japanese-tutor-mobile-app",
-    "version": "1.1.0",
+    "scheme": "japanese-tutor",
+    "version": "2.0.0",
     "orientation": "default",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": [
@@ -11,17 +12,19 @@
     "icon": "./assets/icon-v1.png",
     "ios": {
       "icon": "./assets/icon-v1.png",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "supportsTablet": true,
       "bundleIdentifier": "com.belion.japanesetutor",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": ["audio"],
+        "NSSpeechRecognitionUsageDescription": "Allow Japanese Tutor to turn your speech into text for Koi Sensei.",
+        "NSMicrophoneUsageDescription": "Allow Japanese Tutor to use the microphone only while you dictate a question to Koi Sensei."
       }
     },
     "android": {
       "icon": "./assets/icon-v1.png",
       "package": "com.belion.japanesetutor",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-foreground-v1.png",
         "backgroundImage": "./src/assets/source/adaptive/android-adaptive-background-1080.png",
@@ -43,8 +46,18 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/app-check",
       "expo-screen-orientation",
       "expo-sqlite",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Japanese Tutor to use the microphone only while you dictate a question to Koi Sensei.",
+          "speechRecognitionPermission": "Allow Japanese Tutor to turn your speech into text for Koi Sensei.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ],
       [
         "expo-build-properties",
         {

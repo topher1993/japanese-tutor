@@ -1,0 +1,5 @@
+test/
+emulator-test/
+vitest.config.ts
+vitest.emulator.config.ts
+*.test.ts

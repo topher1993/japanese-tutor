@@ -53,7 +53,7 @@ export function Mascot({ expression = 'base', size = 96, style, framed = false }
           source={source}
           style={[{ width: frameSize, height: frameSize * 1.5 }, style]}
           resizeMode="contain"
-          accessibilityLabel={`Mascot expressing ${expression}`}
+          accessibilityLabel={`Koi Sensei expressing ${expression}`}
         />
       </View>
     );
@@ -64,7 +64,7 @@ export function Mascot({ expression = 'base', size = 96, style, framed = false }
       source={source}
       style={[{ width: size, height }, style]}
       resizeMode="contain"
-      accessibilityLabel={`Mascot expressing ${expression}`}
+      accessibilityLabel={`Koi Sensei expressing ${expression}`}
     />
   );
 }

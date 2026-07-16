@@ -43,6 +43,8 @@ export interface AppNavigation {
   setShowSentenceLab: (v: boolean) => void;
   showJlptExam: boolean;
   setShowJlptExam: (v: boolean) => void;
+  showKoiSensei: boolean;
+  setShowKoiSensei: (v: boolean) => void;
   dueReviewMode: boolean;
   onReviewDue: () => void;
   weakReviewMode: boolean;
@@ -92,6 +94,7 @@ export function useAppNavigation(onTabVisited: (next: AppTab) => void = () => un
   const [showDailyRush, setShowDailyRushState] = useState(requestedDailyRush);
   const [showSentenceLab, setShowSentenceLab] = useState(getParam('screen') === 'sentence-lab');
   const [showJlptExam, setShowJlptExam] = useState(getParam('screen') === 'jlpt-exam');
+  const [showKoiSensei, setShowKoiSensei] = useState(getParam('screen') === 'koi-sensei');
   const [navigationReady, setNavigationReady] = useState(requestedDailyRush);
   // Phase 25 / P1-1: when Home's "Review N due cards now" CTA is pressed,
   // jump to Flashcards with this flag set. Flashcards uses it to pre-filter
@@ -213,6 +216,8 @@ export function useAppNavigation(onTabVisited: (next: AppTab) => void = () => un
     setShowSentenceLab,
     showJlptExam,
     setShowJlptExam,
+    showKoiSensei,
+    setShowKoiSensei,
     dueReviewMode,
     onReviewDue,
     weakReviewMode,

@@ -1,0 +1,44 @@
+appId: com.belion.japanesetutor
+name: Koi Sensei v2 local smoke
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Japanese Tutor for Work"
+- tapOn: "Start setup"
+- assertVisible: "Choose your helper language"
+- tapOn: "English"
+- tapOn: "Continue"
+- tapOn: "Set goal"
+- tapOn: "Open app"
+- extendedWaitUntil:
+    visible:
+      id: "home-open-koi-sensei"
+    timeout: 20000
+- tapOn:
+    id: "home-open-koi-sensei"
+- assertVisible: "Koi Sensei"
+- assertVisible: "N5 · 0 of 8 stars"
+- assertVisible:
+    id: "koi-avatar-3d"
+- tapOn:
+    id: "koi-open-chat"
+- assertVisible: "Before Koi answers questions"
+- tapOn:
+    id: "koi-consent-age-18_plus"
+- tapOn:
+    id: "koi-consent-ai-data"
+- tapOn:
+    id: "koi-consent-us-processing"
+- tapOn:
+    id: "koi-consent-submit"
+- assertVisible: "LOCAL MOCK · ZERO PROVIDER COST"
+- tapOn:
+    id: "koi-chat-input"
+- inputText: "What is the difference between wa and ga?"
+- tapOn:
+    id: "koi-chat-send"
+- extendedWaitUntil:
+    visible: "「は」 marks the topic*"
+    timeout: 15000
+- assertVisible: "Sources: mock.grammar.n5.wa-ga"
+

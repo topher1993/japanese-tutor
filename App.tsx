@@ -13,6 +13,7 @@ import { ScreenScaffold } from './src/components/ScreenScaffold';
 import { ScreenHeader } from './src/components/ScreenHeader';
 import { SenseiReviewScreen } from './src/screens/SenseiReviewScreen';
 import { JlptExamFlowScreen } from './src/screens/JlptExamFlowScreen';
+import { KoiSenseiScreen } from './src/features/koi-sensei/ui/KoiSenseiScreen';
 import { TabBar } from './src/components/TabBar';
 import { CompletionToast, LessonErrorToast } from './src/components/CompletionToast';
 import { ds } from './src/theme/designSystem';
@@ -166,6 +167,17 @@ function AppContent() {
     );
   }
 
+  if (nav.showKoiSensei) {
+    return (
+      <AppShell maxWidth={shellMaxWidth}>
+        <KoiSenseiScreen
+          supportLanguage={supportLanguage}
+          onBack={() => nav.setShowKoiSensei(false)}
+        />
+      </AppShell>
+    );
+  }
+
   if (nav.showFeedback) {
     return (
       <AppShell maxWidth={shellMaxWidth}>
@@ -289,6 +301,7 @@ function AppContent() {
               onOpenSettings: () => nav.setShowSettings(true),
               onOpenProfile: () => nav.setShowProfile(true),
               onOpenPlacement: () => nav.setShowPlacement(true),
+              onOpenKoiSensei: () => nav.setShowKoiSensei(true),
               onStartLesson: () => nav.onOpenLesson(),
               onOpenLesson: nav.onOpenLesson,
               onOpenLessonTool: nav.onOpenLessonTool,

@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Koi Sensei never stores raw microphone audio. Storage remains closed
+    // until a reviewed, narrowly scoped asset workflow is introduced.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

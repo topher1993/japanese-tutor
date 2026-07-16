@@ -57,6 +57,15 @@ export type AnalyticsEvent =
   /** Learner opened a task recommended by Adaptive Daily Plan 2.0. */
   | 'adaptive_plan_task_opened'
   | 'mastery_focus_opened'
+  // Koi Sensei events. Payloads are constructed only by the strict
+  // content-free adapter in features/koi-sensei/analytics.
+  | 'koi_hub_opened'
+  | 'koi_feature_opened'
+  | 'koi_chat_result'
+  | 'koi_allowance_blocked'
+  | 'koi_consent_changed'
+  | 'koi_local_data_action'
+  | 'koi_safety_reported'
   /**
    * Phase 50: per-review telemetry (Beru Q4 must-have).
    * Props shape: { card_id: string; rating: 'again'|'hard'|'good'|'easy';

@@ -57,6 +57,23 @@ Thumbs.db
 .env.*
 !.env.example
 
+# ---- Firebase / Koi backend secrets and generated output -----------------
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+functions/lib/
+functions/.env
+functions/.env.*
+!functions/.env.example
+functions/.secret.local
+.runtimeconfig.json
+**/google-services.json
+**/GoogleService-Info.plist
+**/*service-account*.json
+**/*serviceAccount*.json
+**/firebase-adminsdk-*.json
+
 # ---- Local Hermes / agent runtime scratch --------------------------------
 .hermes/runs/
 .hermes/scratch/

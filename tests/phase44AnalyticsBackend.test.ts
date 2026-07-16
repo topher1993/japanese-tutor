@@ -114,7 +114,7 @@ describe('Phase 44.3 — analytics backend wiring', () => {
 
     expect(context).toMatchObject({
       installId: 'stable-install-id',
-      appVersion: '1.1.0',
+      appVersion: '2.0.0',
       isTest: true,
     });
     expect(getAnalyticsContext()).toEqual(context);

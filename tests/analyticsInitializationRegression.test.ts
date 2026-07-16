@@ -60,7 +60,7 @@ describe('analytics initialization regressions', () => {
     expect(sendToBackend).toHaveBeenCalledTimes(1);
     expect(sendToBackend).toHaveBeenLastCalledWith(
       'onboarding_step_viewed',
-      expect.objectContaining({ install_id: 'stable-install-id', app_version: '1.1.0' }),
+      expect.objectContaining({ install_id: 'stable-install-id', app_version: '2.0.0' }),
     );
 
     analytics.track('tab_visited', { tab: 'Home' });

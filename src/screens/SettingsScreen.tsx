@@ -4,6 +4,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { useKoiSenseiContext } from '../features/koi-sensei/KoiSenseiContext';
 import { useLearningContext } from '../services/learningContext';
 import { useUserProfileContext } from '../services/userProfileContext';
 import { ds } from '../theme/designSystem';
@@ -38,7 +39,8 @@ declare const __DEV__: boolean | undefined;
  *   2. Every persisted lesson-completion (store.reset → repo.deleteAllProgress)
  *   3. Every SRS review card (srs.clearAll)
  *   4. Saved JLPT-style mock attempts and result history (via App.tsx)
- *   5. In-memory caches so the next read returns the cleared state
+ *   5. Koi eligibility, chat, pet, experience, dojo, and queued local claims
+ *   6. In-memory caches so the next read returns the cleared state
  */
 export function SettingsScreen({
   onBack,
@@ -53,6 +55,7 @@ export function SettingsScreen({
 }) {
   const { ready, durable, resetAll } = useLearningContext();
   const { ready: profileReady, resetProfile } = useUserProfileContext();
+  const { ready: koiReady, resetLocalState: resetKoiLocalState } = useKoiSenseiContext();
   const [resetting, setResetting] = useState(false);
   const [lastResetSummary, setLastResetSummary] = useState<string | null>(null);
 
@@ -64,14 +67,19 @@ export function SettingsScreen({
       // via the active on-device stores. Runs BEFORE onReset so the
       // counts the user sees reflect actual persisted state cleared.
       const { srsRowsCleared } = await resetAll();
-      const { profileRowsCleared } = await resetProfile();
-      // App.tsx handles onboarding preference + local React state reset.
+      const [profileResult] = await Promise.all([
+        resetProfile(),
+        resetKoiLocalState(),
+      ]);
+      // App.tsx handles onboarding preference, JLPT attempts, and local
+      // React navigation state only after the durable stores are cleared.
       await onReset();
+      const profileRowsCleared = profileResult.profileRowsCleared;
       const profileSummary = profileRowsCleared > 0 ? ` Profile row reset too.` : '';
       setLastResetSummary(
         srsRowsCleared > 0
-          ? `Cleared ${srsRowsCleared} review card${srsRowsCleared === 1 ? '' : 's'}, lesson progress, and mock-exam history.${profileSummary}`
-          : `Cleared lesson progress and mock-exam history (no review cards to clear).${profileSummary}`,
+          ? `Cleared ${srsRowsCleared} review card${srsRowsCleared === 1 ? '' : 's'}, lesson progress, mock-exam history, and all local Koi Sensei data.${profileSummary}`
+          : `Cleared lesson progress, mock-exam history, and all local Koi Sensei data (no review cards to clear).${profileSummary}`,
       );
     } catch {
       setLastResetSummary('Reset did not finish. Some data may already be cleared; please retry.');
@@ -83,7 +91,7 @@ export function SettingsScreen({
   function confirmReset() {
     Alert.alert(
       'Reset all progress?',
-      'This clears your onboarding choice, completed lessons, review cards, and JLPT-style mock history. There is no undo.',
+      'This clears onboarding, lessons, review cards, mock history, and all local Koi Sensei data (including chat and consent). There is no undo.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Reset everything', style: 'destructive', onPress: doReset },
@@ -121,12 +129,12 @@ export function SettingsScreen({
       <Card shadow="card">
         <Text style={styles.sectionLabel}>Reset progress</Text>
         <Text style={styles.help}>
-          Clears onboarding choice, completed lessons, every SRS review card, and JLPT-style mock history from this device. The next cold start begins from onboarding.
+          Clears onboarding, lessons, every SRS review card, JLPT-style mock history, and all local Koi Sensei data from this device. The next cold start begins from onboarding.
         </Text>
         <Button
           label={resetting ? 'Resetting...' : 'Reset all progress'}
           onPress={confirmReset}
-          disabled={resetting || !ready || !profileReady}
+          disabled={resetting || !ready || !profileReady || !koiReady}
           icon="refresh"
           variant="secondary"
           testID="settings-reset-button"

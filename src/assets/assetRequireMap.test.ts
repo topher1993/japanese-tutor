@@ -17,7 +17,8 @@ vi.mock('./assetRequireMap', async () => {
     if (typeof obj !== 'object' || obj === null) return;
     const record = obj as Record<string, unknown>;
     // Detect a manifest leaf entry: has { key, path } shape.
-    if (typeof record.key === 'string' && typeof record.path === 'string' && record.path.startsWith('src/')) {
+    if (typeof record.key === 'string' && typeof record.path === 'string'
+      && (record.path.startsWith('src/') || record.path.startsWith('assets/'))) {
       flat[record.key] = Math.floor(Math.random() * 1_000_000);
       return; // don't recurse into leaf; the rest are metadata (label, maxBytes, etc.)
     }
@@ -102,7 +103,8 @@ describe('manifest ↔ component wiring', () => {
       if (typeof obj !== 'object' || obj === null) return;
       const record = obj as Record<string, unknown>;
       // Detect a manifest leaf entry: has { key, path } shape.
-      if (typeof record.key === 'string' && typeof record.path === 'string' && record.path.startsWith('src/')) {
+      if (typeof record.key === 'string' && typeof record.path === 'string'
+        && (record.path.startsWith('src/') || record.path.startsWith('assets/'))) {
         flat.push(record.path);
         return;
       }
@@ -144,5 +146,9 @@ describe('manifest ↔ component wiring', () => {
 
   it('Phase 45: assetRequireMap has badge.jlptN3', () => {
     expect(assetRequireMap['badge.jlptN3']).toBeDefined();
+  });
+
+  it('Koi Sensei placeholder GLB is registered for Metro bundling', () => {
+    expect(assetRequireMap['avatar.koiPlaceholderGlb']).toBeDefined();
   });
 });

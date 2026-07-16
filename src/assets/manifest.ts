@@ -20,7 +20,8 @@ export type AssetCategory =
   | 'tabIcon'
   | 'mascot'
   | 'logo'
-  | 'jisho';
+  | 'jisho'
+  | 'avatar';
 
 export interface AssetEntry {
   /** Stable key, e.g. "icon.master", "onboarding.welcome" */
@@ -265,6 +266,13 @@ export const manifest = {
       key: 'jisho.logo',
       path: 'src/assets/source/jisho/jisho-logo-256.png',
       maxBytes: 100_000,
+    },
+  },
+  avatar: {
+    koiPlaceholderGlb: {
+      key: 'avatar.koiPlaceholderGlb',
+      path: 'assets/koi-sensei/koi-sensei-placeholder.glb',
+      maxBytes: 4 * 1_024 * 1_024,
     },
   },
 } as const;

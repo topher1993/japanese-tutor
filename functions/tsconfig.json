@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "zod": ["node_modules/zod"]
+    },
+    "rootDir": "..",
+    "outDir": "lib",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "../shared/koi/**/*.ts",
+    "../src/features/koi-sensei/api/quotaPolicy.ts"
+  ],
+  "exclude": [
+    "test/**",
+    "emulator-test/**"
+  ]
+}

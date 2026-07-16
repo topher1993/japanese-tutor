@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "emulator-test/**/*.ts",
+    "../shared/koi/**/*.ts",
+    "../src/features/koi-sensei/api/quotaPolicy.ts"
+  ],
+  "exclude": []
+}

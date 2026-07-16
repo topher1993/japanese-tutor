@@ -30,6 +30,7 @@ export interface RenderTabProps {
   onOpenSettings: () => void;
   onOpenProfile: () => void;
   onOpenPlacement: () => void;
+  onOpenKoiSensei: () => void;
   onStartLesson: () => void;
   onOpenLesson: (lessonId?: string) => void;
   onOpenLessonTool: (tool: LessonTool) => void;
@@ -93,6 +94,7 @@ export function renderTab(props: RenderTabProps): React.ReactNode {
       onOpenExampleSentences={() => props.onOpenLessonTool('example-sentences')}
       onPracticeWordGroup={props.onPracticeWordGroup}
       onOpenPlacement={props.onOpenPlacement}
+      onOpenKoiSensei={props.onOpenKoiSensei}
     />
   );
 }
