@@ -326,6 +326,9 @@
   "324": "getResponsiveLayout",
   "325": "RatingButtons.tsx",
   "326": "AsyncKeyValueStorage",
-  "328": "FakeDB",
-  "330": "FakeDB"
+  "327": "QuizContentSource",
+  "328": ".setDetailedProgressConsent",
+  "329": "KoiLearningProgressionSubscription",
+  "330": "koiSenseiGateway.test.ts",
+  "331": "phaseUxSimplification.test.ts"
 }

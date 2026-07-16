@@ -3,6 +3,7 @@ export const KOI_CALLABLE_NAMES = [
   'revokeKoiConsent',
   'getKoiAllowance',
   'syncKoiLearningContext',
+  'syncKoiPetPresentation',
   'askKoiSensei',
   'synthesizeKoiReply',
   'upsertKoiMemory',
@@ -171,6 +172,16 @@ export interface KoiGateway {
   deleteMemory(input: { requestId: string; memoryId: string }): Promise<void>;
   ask(input: { requestId: string; conversationId: string; text: string }): Promise<KoiAnswer>;
   syncLearningSummary(input: { requestId: string; context: KoiLearningSummary }): Promise<void>;
+  syncPetPresentation(input: {
+    requestId: string;
+    presentation: {
+      revision: number;
+      avatarMode: '3d' | '2d';
+      effectPreference: 'full' | 'reduced' | 'off';
+      equippedCosmeticIds: Partial<Record<'crest' | 'face' | 'back' | 'hand', string>>;
+      selectedDojoThemeId: string;
+    };
+  }): Promise<void>;
   synthesize(input: { requestId: string; assistantMessageId: string }): Promise<KoiSynthesisResult>;
 }
 
@@ -532,6 +543,29 @@ export function createKoiGateway(
         || response.acceptedRevision !== input.context.revision
         || finiteInteger(response.serverTimeMs, 0, Number.MAX_SAFE_INTEGER) === null) {
         throw new KoiClientError('INVALID_RESPONSE', 'Koi did not confirm the learning summary.');
+      }
+    },
+
+    async syncPetPresentation(input) {
+      requireActiveSession(getSession());
+      const requestId = requireUuid('requestId', input.requestId);
+      if (!Number.isSafeInteger(input.presentation.revision) || input.presentation.revision < 0
+        || !['3d', '2d'].includes(input.presentation.avatarMode)
+        || !['full', 'reduced', 'off'].includes(input.presentation.effectPreference)
+        || typeof input.presentation.selectedDojoThemeId !== 'string'
+        || input.presentation.selectedDojoThemeId.length > 160) {
+        throw new KoiClientError('INVALID_REQUEST', 'The Koi pet presentation is invalid.');
+      }
+      const response = await transport.invoke('syncKoiPetPresentation', {
+        schemaVersion: 1,
+        requestId,
+        presentation: input.presentation,
+      });
+      if (!isRecord(response) || response.schemaVersion !== 1 || response.requestId !== requestId
+        || finiteInteger(response.acceptedRevision, 0, Number.MAX_SAFE_INTEGER) === null
+        || finiteInteger(response.serverTimeMs, 0, Number.MAX_SAFE_INTEGER) === null
+        || (response.acceptedRevision as number) < input.presentation.revision) {
+        throw new KoiClientError('INVALID_RESPONSE', 'Koi did not confirm the pet presentation sync.');
       }
     },
 

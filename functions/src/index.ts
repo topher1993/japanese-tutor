@@ -16,6 +16,7 @@ import {
   revokeKoiConsentRequestSchema,
   setKoiDetailedProgressConsentRequestSchema,
   syncKoiLearningContextRequestSchema,
+  syncKoiPetPresentationRequestSchema,
   synthesizeKoiReplyRequestSchema,
   upsertKoiMemoryRequestSchema,
 } from '../../shared/koi/contracts.js';
@@ -90,6 +91,11 @@ export const getKoiAllowance = onCall(callableOptions, (request) => runCallable(
 export const syncKoiLearningContext = onCall(callableOptions, (request) => runCallable(
   request,
   (uid) => service.syncLearnerContext(uid, parseData(syncKoiLearningContextRequestSchema, request.data)),
+));
+
+export const syncKoiPetPresentation = onCall(callableOptions, (request) => runCallable(
+  request,
+  (uid) => service.syncPetPresentation(uid, parseData(syncKoiPetPresentationRequestSchema, request.data)),
 ));
 
 export const askKoiSensei = onCall(callableOptions, (request) => runCallable(

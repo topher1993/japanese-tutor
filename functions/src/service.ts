@@ -23,6 +23,8 @@ import type {
   SetKoiDetailedProgressConsentResponse,
   SyncKoiLearningContextRequest,
   SyncKoiLearningContextResponse,
+  SyncKoiPetPresentationRequest,
+  SyncKoiPetPresentationResponse,
   SynthesizeKoiReplyRequest,
   SynthesizeKoiReplyResponse,
   UpsertKoiMemoryRequest,
@@ -135,6 +137,16 @@ export class KoiService {
     await this.store.requireActiveRegistration(uid);
     const nowMs = this.now();
     const acceptedRevision = await this.store.syncLearnerContext(uid, input.context, nowMs);
+    return { schemaVersion: 1, requestId: input.requestId, acceptedRevision, serverTimeMs: nowMs };
+  }
+
+  async syncPetPresentation(
+    uid: string,
+    input: SyncKoiPetPresentationRequest,
+  ): Promise<SyncKoiPetPresentationResponse> {
+    await this.store.requireActiveRegistration(uid);
+    const nowMs = this.now();
+    const acceptedRevision = await this.store.syncPetPresentation(uid, input.presentation, nowMs);
     return { schemaVersion: 1, requestId: input.requestId, acceptedRevision, serverTimeMs: nowMs };
   }
 

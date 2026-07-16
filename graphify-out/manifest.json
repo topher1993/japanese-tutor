@@ -3425,8 +3425,8 @@
     "semantic_hash": ""
   },
   "shared/koi/contracts.ts": {
-    "mtime": 1784216599.7646973,
-    "ast_hash": "a7ad7a3c063961e0c7a34b696a021a9e",
+    "mtime": 1784217777.8478422,
+    "ast_hash": "964944c5817a6c31e1078323c4c4cf32",
     "semantic_hash": ""
   },
   "shared/koi/index.ts": {
@@ -3435,13 +3435,13 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/KoiSenseiContext.tsx": {
-    "mtime": 1784217340.1219366,
-    "ast_hash": "0c4834018dae4abe9dc58b2df32915d4",
+    "mtime": 1784217879.5274692,
+    "ast_hash": "ef8539bd6e658f20297eac625eaf8959",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/gateway.ts": {
-    "mtime": 1784217326.555635,
-    "ast_hash": "0fe640b0f19c87a854ede9252e3e436d",
+    "mtime": 1784217866.9971263,
+    "ast_hash": "1456d805f71f7f81b0b1c1df3906ba61",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/index.ts": {
@@ -3565,8 +3565,8 @@
     "semantic_hash": ""
   },
   "tests/koiSenseiGateway.test.ts": {
-    "mtime": 1784217471.1832945,
-    "ast_hash": "6ad68225536ea749d7e9506768c86250",
+    "mtime": 1784217923.7543838,
+    "ast_hash": "804ec207ce2738fb7a5c3c4e19f0ee5d",
     "semantic_hash": ""
   },
   "tests/koiSenseiMediaAvatarRetention.test.ts": {
@@ -3615,8 +3615,8 @@
     "semantic_hash": ""
   },
   "functions/src/store.ts": {
-    "mtime": 1784216702.507576,
-    "ast_hash": "c3c184c7efdc064156da250c43bbd743",
+    "mtime": 1784217841.3246453,
+    "ast_hash": "5d519d44bb96c6cb24a18cfd9d14332f",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/media/placeholder/generatePlaceholderGlb.mjs": {
@@ -3635,8 +3635,8 @@
     "semantic_hash": ""
   },
   "functions/src/service.ts": {
-    "mtime": 1784216747.0762074,
-    "ast_hash": "58fcf48352ab498389ed26b400754b4e",
+    "mtime": 1784217790.1279433,
+    "ast_hash": "0f7f683e2d2020c1ac4ac5a48262e4db",
     "semantic_hash": ""
   },
   "firebase.json": {
@@ -3650,8 +3650,8 @@
     "semantic_hash": ""
   },
   "functions/src/index.ts": {
-    "mtime": 1784216774.4646003,
-    "ast_hash": "4f56712a30e8ef22c7c5f6436a95abe4",
+    "mtime": 1784217791.562709,
+    "ast_hash": "b4d57894a6adc20a6ed53db2bc3eaa86",
     "semantic_hash": ""
   },
   "functions/src/retention.ts": {

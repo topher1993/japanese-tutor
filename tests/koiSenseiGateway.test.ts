@@ -73,6 +73,25 @@ describe('Koi mobile gateway boundary', () => {
     expect(invoke).toHaveBeenNthCalledWith(2, 'deleteKoiMemory', { schemaVersion: 1, requestId: REQUEST_ID, memoryId: MESSAGE_ID });
   });
 
+  it('syncs presentation-only pet state without sending progression or coins', async () => {
+    const invoke = vi.fn(async () => ({ schemaVersion: 1, requestId: REQUEST_ID, acceptedRevision: 3, serverTimeMs: 12 }));
+    const gateway = createKoiGateway({ invoke } as KoiCallableTransport, () => activeSession());
+    await gateway.syncPetPresentation({
+      requestId: REQUEST_ID,
+      presentation: {
+        revision: 3,
+        avatarMode: '3d',
+        effectPreference: 'reduced',
+        equippedCosmeticIds: { crest: 'starter-crest' },
+        selectedDojoThemeId: 'default',
+      },
+    });
+    expect(invoke).toHaveBeenCalledWith('syncKoiPetPresentation', expect.objectContaining({
+      presentation: expect.objectContaining({ revision: 3, equippedCosmeticIds: { crest: 'starter-crest' } }),
+    }));
+    expect(JSON.stringify(invoke.mock.calls[0])).not.toMatch(/coins|bond|progression|claims/i);
+  });
+
   it('sends only the strict text payload and validates a grounded response', async () => {
     const invoke = vi.fn(async () => answer());
     const gateway = createKoiGateway({ invoke } as KoiCallableTransport, () => activeSession());

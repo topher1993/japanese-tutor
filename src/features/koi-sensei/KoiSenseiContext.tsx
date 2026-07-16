@@ -514,6 +514,22 @@ export function KoiSenseiProvider({
     return result;
   }, []);
 
+  const savePetSnapshot = React.useCallback(async (snapshot: KoiCachedPetSnapshotV1 | null) => {
+    await withRepository(repository => repository.savePetSnapshot(snapshot));
+    if (runtimeStage !== 'mock' && snapshot) {
+      await gatewayRef.current!.gateway.syncPetPresentation({
+        requestId: createKoiUuid(),
+        presentation: {
+          revision: snapshot.revision,
+          avatarMode: stateRef.current?.preferences.avatarMode ?? '3d',
+          effectPreference: stateRef.current?.preferences.effectPreference ?? 'full',
+          equippedCosmeticIds: snapshot.equippedCosmeticIds,
+          selectedDojoThemeId: snapshot.selectedDojoThemeId,
+        },
+      }).catch(cause => setError(cause instanceof Error ? cause.message : 'Koi pet sync is unavailable.'));
+    }
+  }, [runtimeStage, withRepository]);
+
   const value = React.useMemo<KoiSenseiContextValue>(() => ({
     ready,
     error,
@@ -542,7 +558,7 @@ export function KoiSenseiProvider({
     synthesizeKoiReply,
     saveDraft: draft => withRepository(repository => repository.saveDraft(draft)),
     savePreferences: patch => withRepository(repository => repository.savePreferences(patch)),
-    savePetSnapshot: snapshot => withRepository(repository => repository.savePetSnapshot(snapshot)),
+    savePetSnapshot,
     saveExperience: experience => withRepository(repository => repository.saveExperience(experience)),
     saveActivityState: (snapshot, experience, activeDojoSession) => withRepository(
       repository => repository.saveActivityState(snapshot, experience, activeDojoSession),
@@ -574,6 +590,7 @@ export function KoiSenseiProvider({
     sendEmailSignInLink,
     state,
     synthesizeKoiReply,
+    savePetSnapshot,
     withRepository,
   ]);
 

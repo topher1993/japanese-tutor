@@ -128,6 +128,32 @@ export const syncKoiLearningContextResponseSchema = z.object({
   serverTimeMs: z.number().int().nonnegative(),
 }).strict();
 
+export const koiPetPresentationSchema = z.object({
+  revision: z.number().int().nonnegative(),
+  avatarMode: z.enum(['3d', '2d']),
+  effectPreference: z.enum(['full', 'reduced', 'off']),
+  equippedCosmeticIds: z.object({
+    crest: z.string().trim().max(160).optional(),
+    face: z.string().trim().max(160).optional(),
+    back: z.string().trim().max(160).optional(),
+    hand: z.string().trim().max(160).optional(),
+  }).strict(),
+  selectedDojoThemeId: z.string().trim().max(160),
+}).strict();
+
+export const syncKoiPetPresentationRequestSchema = z.object({
+  schemaVersion: koiSchemaVersion,
+  requestId: koiRequestId,
+  presentation: koiPetPresentationSchema,
+}).strict();
+
+export const syncKoiPetPresentationResponseSchema = z.object({
+  schemaVersion: koiSchemaVersion,
+  requestId: koiRequestId,
+  acceptedRevision: z.number().int().nonnegative(),
+  serverTimeMs: z.number().int().nonnegative(),
+}).strict();
+
 export const askKoiSenseiRequestSchema = z.object({
   schemaVersion: koiSchemaVersion,
   requestId: koiRequestId,
@@ -321,6 +347,9 @@ export type GetKoiAllowanceResponse = z.infer<typeof getKoiAllowanceResponseSche
 export type KoiLearnerContext = z.infer<typeof koiLearnerContextSchema>;
 export type SyncKoiLearningContextRequest = z.infer<typeof syncKoiLearningContextRequestSchema>;
 export type SyncKoiLearningContextResponse = z.infer<typeof syncKoiLearningContextResponseSchema>;
+export type KoiPetPresentation = z.infer<typeof koiPetPresentationSchema>;
+export type SyncKoiPetPresentationRequest = z.infer<typeof syncKoiPetPresentationRequestSchema>;
+export type SyncKoiPetPresentationResponse = z.infer<typeof syncKoiPetPresentationResponseSchema>;
 export type AskKoiSenseiRequest = z.infer<typeof askKoiSenseiRequestSchema>;
 export type AskKoiSenseiResponse = z.infer<typeof askKoiSenseiResponseSchema>;
 export type KoiCitation = z.infer<typeof koiCitationSchema>;

@@ -23,6 +23,7 @@ import {
   type CompleteKoiRegistrationResponse,
   type ExportKoiDataResponse,
   type KoiLearnerContext,
+  type KoiPetPresentation,
   type ReportKoiMessageRequest,
   type RevokeKoiConsentResponse,
   type RevokeKoiConsentRequest,
@@ -826,6 +827,31 @@ export class KoiStore {
         updatedAtMs: nowMs,
       });
       return context.revision;
+    });
+  }
+
+  /** Syncs presentation-only pet state. It intentionally excludes coins,
+   * bond, progression, and claims so this endpoint cannot mint rewards. */
+  async syncPetPresentation(uid: string, presentation: KoiPetPresentation, nowMs: number): Promise<number> {
+    const ref = this.userRef(uid).collection('private').doc('petPresentation');
+    return this.db.runTransaction(async (transaction) => {
+      const [registrationSnapshot, snapshot] = await Promise.all([
+        transaction.get(this.userRef(uid)),
+        transaction.get(ref),
+      ]);
+      const registration = requireActiveRegistrationData(registrationSnapshot.data());
+      const currentRevision = typeof snapshot.data()?.presentation?.revision === 'number'
+        && Number.isSafeInteger(snapshot.data()?.presentation?.revision)
+        ? snapshot.data()?.presentation?.revision as number
+        : -1;
+      if (presentation.revision < currentRevision) return currentRevision;
+      transaction.set(ref, {
+        schemaVersion: 1,
+        consentEpoch: registration.consentEpoch,
+        presentation,
+        updatedAtMs: nowMs,
+      });
+      return presentation.revision;
     });
   }
 
