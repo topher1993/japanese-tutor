@@ -1,7 +1,7 @@
 # Graph Report - japanese-tutor-mobile-app  (2026-07-17)
 
 ## Corpus Check
-- 657 files · ~1,236,803 words
+- 657 files · ~1,236,823 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1b4b40a6`
+- Built from commit: `b3c74df8`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -1411,7 +1411,7 @@ Cohesion: 0.08
 Nodes (32): DEFAULT_KOI_LOCAL_PREFERENCES, getKoiDomainGate(), applyKoiMilestone(), createDefaultKoiProgression(), KoiProgressionStateV1, auditKoiContentEvidence(), allReviewedVocabularyIds(), bestScoreByLesson() (+24 more)
 
 ## Knowledge Gaps
-- **2145 isolated node(s):** `KoiSenseiContext`, `KoiClientErrorReason`, `KoiClientSession`, `KoiAllowanceView`, `KoiLearningSummary` (+2140 more)
+- **2145 isolated node(s):** `Non-negotiable boundaries`, `Runtime shape`, `Progression`, `Current provider facts to re-check before live activation`, `KoiSenseiContext` (+2140 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **39 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -1419,12 +1419,12 @@ Nodes (32): DEFAULT_KOI_LOCAL_PREFERENCES, getKoiDomainGate(), applyKoiMilestone
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `item()` connect `Community 14` to `Community 0`, `Community 3`, `Community 9`, `Community 10`, `jlptExamContentService.ts`, `quiz.ts`, `Community 18`, `Community 86`, `Community 120`?**
-  _High betweenness centrality (0.035) - this node is a cross-community bridge._
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
 - **Why does `dependencies` connect `Community 62` to `Community 116`, `Community 39`?**
   _High betweenness centrality (0.027) - this node is a cross-community bridge._
 - **Why does `react` connect `Community 39` to `n5KanjiCandidatePack.ts`, `getResponsiveLayout`, `Community 73`, `auditKoiMediaPersistence`, `Community 53`, `Community 92`, `Community 62`?**
   _High betweenness centrality (0.027) - this node is a cross-community bridge._
-- **What connects `KoiSenseiContext`, `KoiClientErrorReason`, `KoiClientSession` to the rest of the system?**
+- **What connects `Non-negotiable boundaries`, `Runtime shape`, `Progression` to the rest of the system?**
   _2158 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.05878332194121668 - nodes in this community are weakly interconnected._
