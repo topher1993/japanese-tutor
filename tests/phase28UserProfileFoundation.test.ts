@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { createSqliteKeyValueStorage } from '../src/services/keyValueStorage';
+import { createInMemoryKeyValueStorage, createSqliteKeyValueStorage } from '../src/services/keyValueStorage';
 import { getOnboardingStorageKey } from '../src/services/onboardingPreferenceService';
 import { createDefaultUserProfile, createUserProfileService } from '../src/services/userProfileService';
-import { createInMemoryUserProfileRepository, createSqliteUserProfileRepository } from '../src/repositories/userProfileRepository';
+import {
+  createInMemoryUserProfileRepository,
+  createKeyValueUserProfileRepository,
+  createSqliteUserProfileRepository,
+} from '../src/repositories/userProfileRepository';
 import type { SqliteLikeDatabase } from '../src/repositories/sqliteLearningRepository';
 
 type Row = { key: string; value: string; updated_at?: string };
@@ -99,6 +103,36 @@ describe('Phase 28 user profile foundation', () => {
     expect(await service.load()).toEqual(profile);
   });
 
+  it('reconciles onboarding saved after an existing default profile was created', async () => {
+    const repository = createInMemoryUserProfileRepository(createDefaultUserProfile());
+    const legacyStorage = createInMemoryKeyValueStorage();
+    await legacyStorage.setItem(
+      getOnboardingStorageKey(),
+      JSON.stringify({ onboarded: true, language: 'tl' }),
+    );
+    const service = createUserProfileService(repository, legacyStorage);
+
+    const profile = await service.load();
+
+    expect(profile.onboarded).toBe(true);
+    expect(profile.static.supportLanguage).toBe('tl');
+    expect(await legacyStorage.getItem(getOnboardingStorageKey())).toBeNull();
+  });
+
+  it('persists the browser profile through the async key-value repository', async () => {
+    const storage = createInMemoryKeyValueStorage();
+    const first = createUserProfileService(createKeyValueUserProfileRepository(storage), storage);
+    await first.update({ onboarded: true, static: { supportLanguage: 'vi' } });
+
+    const reloaded = await createUserProfileService(
+      createKeyValueUserProfileRepository(storage),
+      storage,
+    ).load();
+
+    expect(reloaded.onboarded).toBe(true);
+    expect(reloaded.static.supportLanguage).toBe('vi');
+  });
+
   it('updates profile preferences in the single profile row without rewriting the legacy key', async () => {
     const db = createFakeSqliteDatabase();
     const legacyStorage = createSqliteKeyValueStorage(db);
@@ -110,6 +144,58 @@ describe('Phase 28 user profile foundation', () => {
     expect(updated.static.supportLanguage).toBe('tl');
     expect(updated.static.dailyStudyMinutes).toBe(15);
     expect(await legacyStorage.getItem(getOnboardingStorageKey())).toBeNull();
+  });
+
+  it('persists a placement result separately from the JLPT target', async () => {
+    const repository = createInMemoryUserProfileRepository(createDefaultUserProfile());
+    const service = createUserProfileService(repository);
+
+    const updated = await service.update({
+      dynamic: {
+        placement: {
+          level: 'N4',
+          scorePercent: 53,
+          completedAt: '2026-07-14T00:00:00.000Z',
+          testVersion: 'v1',
+        },
+        placementPromptDismissed: true,
+      },
+    });
+
+    expect(updated.static.jlptTarget).toBe('N5');
+    expect(updated.dynamic.placement?.level).toBe('N4');
+    expect(updated.dynamic.placement?.scorePercent).toBe(53);
+    expect(updated.dynamic.placementPromptDismissed).toBe(true);
+    expect((await service.load()).dynamic.placement?.testVersion).toBe('v1');
+  });
+
+  it('serializes rapid updates so later writes preserve earlier preference changes', async () => {
+    const repository = createInMemoryUserProfileRepository(createDefaultUserProfile());
+    const service = createUserProfileService(repository);
+
+    await Promise.all([
+      service.update({ static: { supportLanguage: 'vi' } }),
+      service.update({ static: { dailyStudyMinutes: 30 } }),
+    ]);
+
+    const profile = await service.load();
+    expect(profile.static.supportLanguage).toBe('vi');
+    expect(profile.static.dailyStudyMinutes).toBe(30);
+  });
+
+  it('replaces a structurally corrupted profile row with safe defaults', async () => {
+    const db = createFakeSqliteDatabase();
+    await db.runAsync(
+      'INSERT OR REPLACE INTO user_profile (key, value, updated_at) VALUES (?, ?, ?)',
+      'primary',
+      JSON.stringify({ static: null, dynamic: null, meta: { schemaVersion: 1 } }),
+      new Date().toISOString(),
+    );
+    const service = createUserProfileService(createSqliteUserProfileRepository(db));
+
+    const profile = await service.load();
+    expect(profile.static.supportLanguage).toBe('en');
+    expect(profile.dynamic.xp).toBe(0);
   });
 
   it('normalizes workplace profile text and keeps workplace data only for workplace-survival goal', async () => {

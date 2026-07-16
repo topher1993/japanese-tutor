@@ -74,13 +74,7 @@ export function buildProfileProgression(
   //        existing `n4-unlocked` volume-based rule so N4 truly requires
   //        both breadth AND volume).
   //   N3 = N4 earned + completion of the weekly-review feature for four
-  //        consecutive weeks. NOTE: `weeklyReviewCompletions` is NOT a
-  //        field on `LearnerProgress` today (it lives only as a forward
-  //        pointer in Beru's pick-list). Per audit-fabrication-prevention
-  //        pitfall #15, we ship the entry with the predicate stubbed to
-  //        `false` and an explicit TODO comment so ProfileScreen does NOT
-  //        silently mark it earned. The counter wiring + predicate belongs
-  //        to a separate Phase 46 work-card (see JT-CARRY-FORWARD.md §2.1).
+  //        consecutive ISO weeks, using persisted completion stamps.
   const n5TrackLessonIds = [
     'lesson-workplace-greetings',
     'lesson-safety-stop',

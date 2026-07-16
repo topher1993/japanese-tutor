@@ -1,5 +1,8 @@
 # Internal Beta Known Issues
 
+> Historical Pack 1 snapshot. Its Week 1/Expo Go limits do not describe the
+> current app. See `../production-readiness-audit.md` for current release risks.
+
 Project: Japanese Tutor Mobile App  
 Beta: Internal Beta Pack 1 — N5 Workplace Survival
 

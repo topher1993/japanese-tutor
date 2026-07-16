@@ -1,5 +1,8 @@
 # Internal Beta Tester Instructions
 
+> Historical tester instructions. Any embedded Expo/LAN URL is expired; use
+> `../current-ios-qa-access.md` to create a fresh QA session.
+
 Project: Japanese Tutor Mobile App  
 Beta: Internal Beta Pack 1 — N5 Workplace Survival  
 Owner: Igris / Engineering Division

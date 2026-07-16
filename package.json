@@ -1,34 +1,55 @@
 {
   "name": "japanese-tutor-mobile-app",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "private": true,
+  "packageManager": "npm@11.12.1",
+  "engines": {
+    "node": ">=20.19.4",
+    "npm": ">=10"
+  },
+  "expo": {
+    "doctor": {
+      "appConfigFieldsNotSyncedCheck": {
+        "enabled": false
+      }
+    }
+  },
   "main": "expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "validate:v11": "npm run typecheck && npm test -- --run",
     "setup:romanizer": "python -m pip install -r scripts/requirements-romanizer.txt",
     "romanize:examples": "python scripts/romanize-japanese.py --level N4 --check",
     "romanize:examples:write": "python scripts/romanize-japanese.py --level N4 --write --check",
     "import:jmdict": "node scripts/import-jmdict-vocab.mjs",
+    "generate:verbs": "node scripts/generate-verb-candidates.mjs",
     "import:kanjidic2": "node scripts/import-kanjidic2.mjs",
     "audit:deps": "npm audit --omit=dev --audit-level=moderate",
     "audit:report": "node scripts/audit-report.mjs"
+  },
+  "overrides": {
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "3.15.0"
+    }
   },
   "dependencies": {
     "@expo/metro-runtime": "6.1.2",
     "expo": "54.0.35",
     "expo-build-properties": "1.0.10",
     "expo-haptics": "15.0.8",
+    "expo-screen-orientation": "~9.0.9",
+    "expo-speech": "~14.0.8",
     "expo-splash-screen": "31.0.13",
     "expo-sqlite": "16.0.10",
     "posthog-react-native": "4.54.4",
-    "react": "19.1.8",
-    "react-dom": "19.1.8",
-    "react-native": "0.81.6",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
     "react-native-reanimated": "4.1.7",
     "react-native-safe-area-context": "5.6.2",
     "react-native-svg": "15.12.1",

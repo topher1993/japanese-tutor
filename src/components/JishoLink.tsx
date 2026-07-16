@@ -1,5 +1,4 @@
-import React from 'react';
-import { Alert, Linking, Pressable, StyleSheet, Text, View, Image, type ImageSourcePropType } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, Text, Image, type ImageSourcePropType } from 'react-native';
 import { Icon } from './Icon';
 import { ds } from '../theme/designSystem';
 import { getAsset } from '../assets/assetRequireMap';

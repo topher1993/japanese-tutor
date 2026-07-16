@@ -19,7 +19,10 @@
  * onboarding, profile, or future per-feature keys.
  */
 
-import type { AsyncKeyValueStorage } from '../services/keyValueStorage';
+export interface InstallIdStorage {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+}
 
 const STORAGE_KEY = 'analytics.installId';
 
@@ -40,8 +43,8 @@ function generateId(): string {
   }
   // Fallback: 32 hex chars + dashes. Not RFC 4122 compliant, but
   // stable enough for an analytics install ID.
-  const hex = (n: number) => Math.floor(Math.random() * 0x100000000).toString(16).padStart(8, '0');
-  return `${hex(0)}-${hex(1)}-4${hex(2).slice(1)}-${hex(3)}-${hex(4)}${hex(5)}`;
+  const hex = () => Math.floor(Math.random() * 0x100000000).toString(16).padStart(8, '0');
+  return `${hex()}-${hex()}-4${hex().slice(1)}-${hex()}-${hex()}${hex()}`;
 }
 
 /**
@@ -51,7 +54,7 @@ function generateId(): string {
  *                  owns the storage lifecycle (typically the same store
  *                  used for onboarding preferences).
  */
-export async function getInstallId(storage: AsyncKeyValueStorage): Promise<string> {
+export async function getInstallId(storage: InstallIdStorage): Promise<string> {
   if (cachedId) return cachedId;
   try {
     const existing = await storage.getItem(STORAGE_KEY);

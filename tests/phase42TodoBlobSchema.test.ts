@@ -179,8 +179,8 @@ describe('Phase 42 — todo blob schema-version envelope', () => {
     expect(progress.weekTodosInitialized).toEqual({ 1: true });
 
     // The mismatch produced a warning that identifies the field and the version
-    const warnMessages = warnSpy.mock.calls.map(c => String(c[0] ?? ''));
-    expect(warnMessages.some(m => m.includes('progress.todo_states') && m.includes('99'))).toBe(true);
+    const warnMessages = warnSpy.mock.calls.map((c: unknown[]) => String(c[0] ?? ''));
+    expect(warnMessages.some((m: string) => m.includes('progress.todo_states') && m.includes('99'))).toBe(true);
   });
 
   it('round-trips a populated todo blob across save + cold-start', async () => {
@@ -203,7 +203,7 @@ describe('Phase 42 — todo blob schema-version envelope', () => {
       weekTodosInitialized: { 1: true, 2: false },
       todoEventCounts: { flashcardReviews: { 1: ['c1', 'c2', 'c3'] }, quizAttempts: { 1: 95 } },
     };
-    await repo1.saveExtendedProgress(snapshot as never);
+    await repo1.saveExtendedProgress!(snapshot as never);
 
     // Cold start: fresh repo over the same underlying DB
     const db2 = createInMemoryDb();
@@ -218,6 +218,34 @@ describe('Phase 42 — todo blob schema-version envelope', () => {
 
     expect(restored.todoStates).toEqual(snapshot.todoStates);
     expect(restored.weekTodosInitialized).toEqual(snapshot.weekTodosInitialized);
+    expect(restored.todoEventCounts).toEqual(snapshot.todoEventCounts);
+  });
+
+  it('persists and hydrates a todo-only snapshot before any lesson is completed', async () => {
+    const db = createInMemoryDb();
+    delete db.tables; // exercise the native SQLite path (UPDATE changes=0)
+    const repo = createSqliteLearningRepository(db);
+    await repo.initialize();
+    const snapshot = {
+      startedAt: '2026-07-10',
+      completedLessonIds: [],
+      quizScores: [],
+      streak: { currentStreak: 0, longestStreak: 0 },
+      todoStates: { 'n5-w1-daily-rush': { todoId: 'n5-w1-daily-rush', weekNumber: 1, progress: 1, target: 1 } },
+      weekTodosInitialized: { 1: true },
+      todoEventCounts: { dailyRushDates: { 1: ['2026-07-10'] } },
+      weeklyReviewCompletions: [],
+    };
+
+    await repo.saveExtendedProgress!(snapshot as never);
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0].completed).toBe(0);
+
+    const coldRepo = createSqliteLearningRepository(db);
+    await coldRepo.initialize();
+    const restored = await coldRepo.getProgress() as unknown as typeof snapshot;
+    expect(restored.completedLessonIds).toEqual([]);
+    expect(restored.todoStates['n5-w1-daily-rush']).toMatchObject({ progress: 1, target: 1 });
     expect(restored.todoEventCounts).toEqual(snapshot.todoEventCounts);
   });
 });

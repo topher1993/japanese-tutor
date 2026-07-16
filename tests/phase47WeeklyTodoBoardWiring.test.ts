@@ -130,8 +130,8 @@ describe('phase 47 — Weekly Todo Board wiring (all 6 kinds tappable)', () => {
       // The component signature must widen to accept both callbacks.
       expect(src).toMatch(/onOpenTab\?:[\s\S]*?\(tab:\s*AppTab\)\s*=>\s*void/);
       expect(src).toMatch(/onOpenDailyRush\?:[\s]*\(\)\s*=>\s*void/);
-      // The `import type { AppTab }` from src/types/navigation.
-      expect(src).toMatch(/import\s+type\s*\{\s*AppTab\s*\}\s+from\s+['"]\.\.\/types\/navigation['"]/);
+      // Navigation types remain sourced from src/types/navigation.
+      expect(src).toMatch(/import\s+type\s*\{[^}]*AppTab[^}]*\}\s+from\s+['"]\.\.\/types\/navigation['"]/);
     });
 
     it('onTodoPress uses a switch on ctaRoute.screen (not a one-line if)', () => {
@@ -159,20 +159,18 @@ describe('phase 47 — Weekly Todo Board wiring (all 6 kinds tappable)', () => {
       }
     });
 
-    it('tab-based kinds route via onOpenTab?.(...) with the right AppTab', () => {
+    it('routes tabs normally and opens nested lesson tools directly', () => {
       const src = read(SCREEN_PATH);
       const match = src.match(
         /onTodoPress=\{\(ctaRoute\)[\s\S]*?switch\s*\(ctaRoute\.screen\)[\s\S]*?\}\s*\}/,
       );
       expect(match).toBeTruthy();
       const body = match![0];
-      // Per brief: flashcards -> Flashcards, quiz -> Quiz, kanji ->
-      // Progress, example-sentences -> Progress. We assert the dispatch
-      // calls and the target tab string together.
       expect(body).toMatch(/onOpenTab\?\.\(\s*['"]Flashcards['"]\s*\)/);
       expect(body).toMatch(/onOpenTab\?\.\(\s*['"]Quiz['"]\s*\)/);
-      // 'Progress' is the target for both kanji and example-sentences.
-      expect(body).toMatch(/onOpenTab\?\.\(\s*['"]Progress['"]\s*\)/);
+      expect(body).toMatch(/case\s+['"]kanji['"]:[\s\S]*?setShowKanji\(true\)/);
+      expect(body).toMatch(/case\s+['"]example-sentences['"]:[\s\S]*?setShowExamples\(true\)/);
+      expect(body).not.toMatch(/onOpenTab\?\.\(\s*['"]Progress['"]\s*\)/);
     });
 
     it('daily-rush case routes via onOpenDailyRush?.(...)', () => {

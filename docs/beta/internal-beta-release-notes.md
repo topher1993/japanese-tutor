@@ -1,5 +1,8 @@
 # Internal Beta Release Notes
 
+> Historical beta-pack notes. Any embedded Expo/LAN URL is expired; these are
+> not the current v1.1 release notes.
+
 Project: Japanese Tutor Mobile App  
 Release: Internal Beta Pack 1 — N5 Workplace Survival  
 Status: Ready for internal beta testers

@@ -27,7 +27,7 @@ import {
   createInMemorySrsStore,
 } from '../src/services/persistentSrsStore';
 import { createSqliteLearningRepository } from '../src/repositories/sqliteLearningRepository';
-import { getAllLessons } from '../src/services/lessonService';
+import { getPhraseLessons } from '../src/services/lessonService';
 
 describe('Phase 25 / P0-2 — Real native reset path', () => {
   it('practiceProgressStore has a reset() method', () => {
@@ -51,7 +51,7 @@ describe('Phase 25 / P0-2 — Real native reset path', () => {
   it('practiceProgressStore.reset() actually wipes via repo.deleteAllProgress()', async () => {
     const repo = createInMemoryLearningRepository() as unknown as PersistentLearningRepository;
     const store = createPracticeProgressStore(repo);
-    await repo.saveCompletedLesson(getAllLessons()[0].id, 95, '2026-06-25');
+    await repo.saveCompletedLesson(getPhraseLessons()[0].id, 95, '2026-06-25');
     const before = await store.getDashboard();
     expect(before.completedLessons).toBeGreaterThanOrEqual(1);
     await store.reset();
@@ -64,9 +64,9 @@ describe('Phase 25 / P0-2 — Real native reset path', () => {
     const store = createPracticeProgressStore(repo);
     const dashboard = await store.getDashboard();
     expect(dashboard.completedLessons).toBe(0);
-    expect(dashboard.totalLessons).toBe(getAllLessons().length);
+    expect(dashboard.totalLessons).toBe(getPhraseLessons().length);
     expect(dashboard.totalLessons).toBeGreaterThan(0);
-    expect(dashboard.nextRecommendedLesson?.id).toBe(getAllLessons()[0].id);
+    expect(dashboard.nextRecommendedLesson?.id).toBe(getPhraseLessons()[0].id);
   });
 
   it('PersistentSpacedRepetitionScheduler has clearAll()', () => {

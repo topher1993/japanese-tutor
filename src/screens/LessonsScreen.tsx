@@ -1,28 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { getAllLessons, getDailyLesson } from '../services/lessonService';
+import { useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { getGrammarLessons, getPhraseLessons } from '../services/lessonService';
 // Phase 44.2: analytics — fires lesson_opened when the learner opens a
 // lesson detail view. Lets us measure lesson engagement and which
 // lessons get opened most.
 import { track } from '../services/analyticsService';
 import { createLessonNavigator } from '../services/lessonNavigatorService';
-import { buildLessonProgression } from '../services/lessonProgressionService';
-import { buildLessonInteractionPath, type LessonPathItem } from '../services/lessonInteractionPathService';
+import { buildLessonProgression, type LessonProgression, type LessonWeek } from '../services/lessonProgressionService';
+import { buildLessonInteractionPath } from '../services/lessonInteractionPathService';
 import { KanjiSectionPanel } from './KanjiSectionPanel';
 import { getAdditionalLessonCategoryContent, getLocalizedAdditionalLessonPhrase } from '../services/additionalLessonContentService';
-import { getSupportLanguageDisplayName, getVisibleTranslations } from '../services/supportLanguageService';
+import { getVisibleTranslations } from '../services/supportLanguageService';
 import { getLessonCategoryCards, type LessonCategoryCardId } from '../services/lessonCategoryService';
 import type { LearnerLanguage } from '../types/onboarding';
 import type { LearnerProgress } from '../types/progress';
 import { WorkplaceSurvivalScreen } from './WorkplaceSurvivalScreen';
 import { ExampleSentencesScreen } from './ExampleSentencesScreen';
+import { SentenceLabScreen } from './SentenceLabScreen';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
-import { notifyLessonCompleted, notifyLessonError } from '../components/CompletionToast';
 import { Disclosure } from '../components/Disclosure';
 import { EmptyStateArt } from '../components/EmptyStateArt';
-import { Icon, type IconName } from '../components/Icon';
 import { Mascot } from '../components/Mascot';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -34,36 +33,92 @@ import { ToolRow } from './lessons/ToolRow';
 import { useMarkComplete } from './lessons/useMarkComplete';
 import { useWeeklyTodoGate } from './lessons/useWeeklyTodoGate';
 import { useLearningContext } from '../services/learningContext';
+import { useUserProfileContext } from '../services/userProfileContext';
+import { lessonsForPlacementLevel, placementLevelToCourseLevel, type CourseLevel } from '../services/placementPathService';
 import { isTodoFeatureEnabled } from '../services/practiceProgressStore';
 import {
   isWeekUnlocked,
-  type TodoPayload,
+  type WeeklyTodoBoard,
 } from '../services/weeklyTodoService';
-import { emptyTodoEventCounts } from '../types/weeklyTodo';
-import type { AppTab } from '../types/navigation';
+import type { AppTab, LessonTool } from '../types/navigation';
 import { ds } from '../theme/designSystem';
+
+type GrammarFilter = 'all' | 'adjectives' | 'particles' | 'verbs' | 'conjugations';
+type GrammarLevel = 'all' | 'N5' | 'N4' | 'N3';
+
+function grammarLessonMatchesFilter(lesson: { title: string; objective: string; summary: string }, filter: GrammarFilter): boolean {
+  if (filter === 'all') return true;
+  const text = `${lesson.title} ${lesson.objective} ${lesson.summary}`.toLowerCase();
+  if (filter === 'adjectives') return text.includes('adjective');
+  if (filter === 'particles') return /particle|topic|subject|destination|location|demonstrative/.test(text);
+  if (filter === 'verbs') return /verb|masu|dictionary|potential|passive|causative|keigo/.test(text);
+  return /form|conjugat|past|present|negative|conditional|te-/.test(text);
+}
 
 export function LessonsScreen({
   supportLanguage = 'en',
   pendingLessonId,
+  pendingLessonTool,
+  onPendingDestinationHandled,
+  initialTrack,
   onOpenTab,
   onOpenDailyRush,
+  onOpenSentenceLab,
 }: {
   supportLanguage?: LearnerLanguage;
   pendingLessonId?: string;
+  pendingLessonTool?: LessonTool;
+  onPendingDestinationHandled?: () => void;
+  initialTrack?: 'phrases' | 'grammar';
   onOpenTab?: (tab: AppTab) => void;
   onOpenDailyRush?: () => void;
+  onOpenSentenceLab?: () => void;
 }) {
-  const lessons = getAllLessons();
+    const { profile } = useUserProfileContext();
+    const placementLevel = profile?.dynamic.placement?.level;
+    const recommendedCourseLevel = placementLevelToCourseLevel(placementLevel);
+    const grammarRecommendedLevel: GrammarLevel = recommendedCourseLevel === 'Absolute Beginner' ? 'N5' : recommendedCourseLevel;
+    // `null` means the placement-aware forward curriculum (start at the
+    // recommended level, then continue upward). Selecting a level chip enters
+    // an explicit single-level review view without changing placement.
+    const [phraseReviewLevel, setPhraseReviewLevel] = useState<CourseLevel | null>(null);
+    const phraseLessons = phraseReviewLevel
+      ? getPhraseLessons().filter(lesson => lesson.level === phraseReviewLevel)
+      : lessonsForPlacementLevel(getPhraseLessons(), placementLevel);
+    const grammarTrackLessons = getGrammarLessons();
     const { ready, store } = useLearningContext();
     const categories = getLessonCategoryCards();
     const [progress, setProgress] = useState<LearnerProgress | null>(null);
-    const dailyLesson = getDailyLesson(progress ?? undefined);
+    const [lessonTrack, setLessonTrack] = useState<'phrases' | 'grammar'>(initialTrack ?? 'phrases');
+    const [grammarFilter, setGrammarFilter] = useState<GrammarFilter>('all');
+    const [grammarLevel, setGrammarLevel] = useState<GrammarLevel>(placementLevel ? grammarRecommendedLevel : 'all');
+    const [grammarWeek, setGrammarWeek] = useState<number | 'all'>('all');
+    const grammarWeeks = Array.from(new Set(grammarTrackLessons.map(lesson => lesson.week))).sort((left, right) => left - right);
+    const filteredGrammarLessons = grammarTrackLessons.filter(lesson =>
+      grammarLessonMatchesFilter(lesson, grammarFilter)
+      && (grammarLevel === 'all' || lesson.level === grammarLevel)
+      && (grammarWeek === 'all' || lesson.week === grammarWeek),
+    );
+    const lessons = lessonTrack === 'grammar' ? filteredGrammarLessons : phraseLessons;
     const [selectedCategory, setSelectedCategory] = useState<LessonCategoryCardId | undefined>(undefined);
     const [selected, setSelected] = useState<string | undefined>(undefined);
     const [showExamples, setShowExamples] = useState(false);
+    const [showSentenceLab, setShowSentenceLab] = useState(false);
     const nav = createLessonNavigator(lessons, selected);
-    const lessonPath = buildLessonInteractionPath(lessons, progress ?? { startedAt: '', completedLessonIds: [], quizScores: [], streak: { currentStreak: 0, longestStreak: 0 } });
+    const lessonPath = buildLessonInteractionPath(
+      lessons,
+      progress ?? { startedAt: '', completedLessonIds: [], quizScores: [], streak: { currentStreak: 0, longestStreak: 0 } },
+      lessonTrack === 'phrases' && phraseReviewLevel === null ? placementLevel : null,
+    );
+    const currentTrackLesson = lessonPath.currentLesson ?? lessons[0];
+    const dailyLesson = currentTrackLesson ? {
+      lesson: currentTrackLesson,
+      weekLabel: lessonPath.courseComplete ? 'Course complete' : `Week ${currentTrackLesson.week} — Day ${currentTrackLesson.day}`,
+      lessonsDoneThisWeek: lessonPath.currentWeek.completedCount,
+      lessonsTotalThisWeek: lessonPath.currentWeek.totalCount,
+      isWeekPreview: false,
+      isCourseComplete: lessonPath.courseComplete,
+    } : null;
     let progression = buildLessonProgression(lessonPath.currentWeek.week);
     const [showKanji, setShowKanji] = useState(false);
     const [showMore, setShowMore] = useState(false);
@@ -84,21 +139,25 @@ export function LessonsScreen({
                   progression,
                   currentWeek,
                   progress,
+                  track: lessonTrack,
                 });
                 const todoPayload = gate.todoPayload;
-                const todoBoards = gate.todoBoards;
-                const todoBoard = gate.todoBoard;
+                const todoBoards = gate.todoBoards as Record<number, WeeklyTodoBoard>;
+                const todoBoard = gate.todoBoard as WeeklyTodoBoard | undefined;
                 const nextWeekNumber = gate.nextWeekNumber;
                 const nextWeekUnlocked = gate.nextWeekUnlocked;
-                const todoGateBlocksCurrentLessonWeek = gate.todoGateBlocksCurrentLessonWeek;
-                const displayLessonPathWeek = gate.displayLessonPathWeek as typeof lessonPath.weeks[number];
+                const masteryPrerequisite = gate.masteryPrerequisite;
+                const todoGateBlocksCurrentLessonWeek = lessonTrack === 'phrases' && gate.todoGateBlocksCurrentLessonWeek;
+                const displayLessonPathWeek = lessonTrack === 'grammar'
+                  ? lessonPath.currentWeek
+                  : gate.displayLessonPathWeek as typeof lessonPath.weeks[number];
                 // Phase 43: if the gate is active, the hook has re-derived
                 // progression/currentWeek/weekProgress for the blocking week.
                 // Reflect those re-derived values into the parent `let` bindings
                 // so the rest of the function body (and the JSX below) uses them.
-                if (gate.todoGateBlocksCurrentLessonWeek) {
-                  progression = gate.progression;
-                  currentWeek = gate.currentWeek;
+                if (lessonTrack === 'phrases' && gate.todoGateBlocksCurrentLessonWeek) {
+                  progression = gate.progression as LessonProgression;
+                  currentWeek = gate.currentWeek as LessonWeek;
                   weekProgress = gate.weekProgress;
                 }
 
@@ -114,14 +173,41 @@ export function LessonsScreen({
       return () => { cancelled = true; };
     }, [ready, store]);
 
-  useEffect(() => {
+    useEffect(() => {
+      if (initialTrack) setLessonTrack(initialTrack);
+    }, [initialTrack]);
+
+    useEffect(() => {
+      setPhraseReviewLevel(null);
+      setGrammarLevel(placementLevel ? grammarRecommendedLevel : 'all');
+    }, [placementLevel, recommendedCourseLevel]);
+
+    useEffect(() => {
       if (pendingLessonId) {
         setSelected(pendingLessonId);
         setSelectedCategory(undefined);
         setShowKanji(false);
         setShowMore(false);
+        onPendingDestinationHandled?.();
       }
-    }, [pendingLessonId]);
+    }, [onPendingDestinationHandled, pendingLessonId]);
+
+    useEffect(() => {
+      if (!pendingLessonTool) return;
+      setSelected(undefined);
+      setSelectedCategory(undefined);
+      setShowKanji(pendingLessonTool === 'kanji');
+      setShowExamples(pendingLessonTool === 'example-sentences');
+      setShowMore(false);
+      onPendingDestinationHandled?.();
+    }, [onPendingDestinationHandled, pendingLessonTool]);
+
+    useEffect(() => {
+      setSelected(undefined);
+      setSelectedCategory(undefined);
+      setShowKanji(false);
+      setShowMore(false);
+    }, [lessonTrack, phraseReviewLevel, grammarFilter, grammarLevel, grammarWeek]);
 
     // Phase 44.2: fire lesson_opened when the learner transitions from
     // the lesson list (no selection) into a lesson detail view. We only
@@ -153,13 +239,23 @@ export function LessonsScreen({
     lessons,
     setProgress,
     setSelected,
+    todoTrack: lessonTrack,
   });
 
   if (showExamples) {
     return (
       <ScreenScaffold>
         <ScreenHeader title="Back" onBack={() => setShowExamples(false)} titleStyle={styles.backHeader} />
-        <ExampleSentencesScreen />
+        <ExampleSentencesScreen supportLanguage={supportLanguage} />
+      </ScreenScaffold>
+    );
+  }
+
+  if (showSentenceLab) {
+    return (
+      <ScreenScaffold>
+        <ScreenHeader title="Back" onBack={() => setShowSentenceLab(false)} titleStyle={styles.backHeader} />
+        <SentenceLabScreen />
       </ScreenScaffold>
     );
   }
@@ -221,12 +317,14 @@ export function LessonsScreen({
   if (nav.selectedLesson) {
     const lesson = nav.selectedLesson;
     const selectedLessonCompleted = (progress?.completedLessonIds ?? []).includes(lesson.id);
-    const selectedLessonUnlockedByTodos = !isTodoFeatureEnabled()
+    const selectedLessonUnlockedByTodos = lessonTrack === 'grammar'
+      || !isTodoFeatureEnabled()
       || selectedLessonCompleted
       || isWeekUnlocked(lesson.week, todoBoards, todoPayload);
     const selectedLessonLockedByTodos = !selectedLessonCompleted && !selectedLessonUnlockedByTodos;
     const nextLesson = nav.nextLesson();
-    const nextLessonUnlockedByTodos = !nextLesson
+    const nextLessonUnlockedByTodos = lessonTrack === 'grammar'
+      || !nextLesson
       || !isTodoFeatureEnabled()
       || nextLesson.week === lesson.week
       || isWeekUnlocked(nextLesson.week, todoBoards, todoPayload);
@@ -237,30 +335,49 @@ export function LessonsScreen({
           <Text style={styles.lessonBadge}>{lesson.level} • Week {lesson.week}</Text>
           <Text style={styles.lessonTitle}>{lesson.title}</Text>
           <Text style={styles.lessonObjective}>{lesson.objective}</Text>
+          {lesson.summary ? <Text style={styles.lessonSummary}>{lesson.summary}</Text> : null}
         </Card>
-        <Text style={styles.sectionTitle}>{lesson.items.length} phrases</Text>
+        <Text style={styles.sectionTitle}>{lesson.items.length} {lesson.category === 'grammar' ? 'rules' : 'phrases'}</Text>
         {lesson.items.map((item, idx) => {
-          const translations = getVisibleTranslations(item, supportLanguage);
+          const vocabulary = item.vocabulary;
+          const japanese = vocabulary?.japanese ?? item.japanese;
+          const romaji = vocabulary?.romaji ?? item.romaji;
+          const example = vocabulary?.examples?.[0];
           return (
             <Card key={item.id} shadow="card">
               <View style={styles.itemHeaderRow}>
-                <Text style={styles.itemIndex}>Phrase {idx + 1}</Text>
+                <Text style={styles.itemIndex}>{lesson.category === 'grammar' ? 'Rule' : 'Phrase'} {idx + 1}</Text>
                 <TranslationStatusBadge status={item.translationReviewStatus} supportLanguage={supportLanguage} />
               </View>
-              <Text style={styles.jp}>{item.japanese}</Text>
-              <View style={styles.jpMetaRow}>
-                <Text style={styles.romaji}>{item.romaji}</Text>
-                <JishoLink japanese={item.japanese} />
-              </View>
-              <View style={styles.divider} />
-              {translations.map(translation => (
-                <Text
-                  key={translation.label}
-                  style={translation.label === 'English' ? styles.translation : styles.secondaryTranslation}
-                >
-                  {translation.label}: {translation.text}
-                </Text>
-              ))}
+              {lesson.category === 'grammar' ? (
+                <>
+                  <Text style={styles.rulePattern}>{japanese}</Text>
+                  <Text style={styles.ruleFormation}>Formation: {item.formation ?? romaji}</Text>
+                  <View style={styles.divider} />
+                  <Text style={styles.translation}>Rule: {vocabulary?.meanings.en.join('; ') ?? item.english}</Text>
+                  <Text style={styles.exampleJapanese}>{example?.japanese ?? item.exampleJapanese}</Text>
+                  {(example?.romaji ?? item.exampleRomaji) ? <Text style={styles.exampleRomaji}>{example?.romaji ?? item.exampleRomaji}</Text> : null}
+                  <Text style={styles.exampleEnglish}>Example: {example?.en ?? item.exampleEnglish}</Text>
+                  {item.commonMistake ? <Text style={styles.commonMistake}>Common mistake: {item.commonMistake}</Text> : null}
+                </>
+              ) : (
+                <>
+                  <Text style={styles.jp}>{japanese}</Text>
+                  <View style={styles.jpMetaRow}>
+                    <Text style={styles.romaji}>{romaji}</Text>
+                    <JishoLink japanese={japanese} />
+                  </View>
+                  <View style={styles.divider} />
+                  {getVisibleTranslations(vocabulary ?? item, supportLanguage).map(translation => (
+                    <Text
+                      key={translation.label}
+                      style={translation.label === 'English' ? styles.translation : styles.secondaryTranslation}
+                    >
+                      {translation.label}: {translation.text}
+                    </Text>
+                  ))}
+                </>
+              )}
             </Card>
           );
         })}
@@ -274,9 +391,13 @@ export function LessonsScreen({
                 ) : null}
                 {selectedLessonLockedByTodos ? (
                   <Card tone="warm" shadow="none" style={styles.todoLockedCard}>
-                    <Text style={styles.todoLockedTitle}>Finish this week’s todos first</Text>
+                    <Text style={styles.todoLockedTitle}>
+                      {masteryPrerequisite.allowed ? 'Finish this week’s todos first' : 'Strengthen prerequisite mastery first'}
+                    </Text>
                     <Text style={styles.completedDetailBody}>
-                      Week {lesson.week} is open for preview, but completion is locked until the previous week’s todos are done.
+                      {masteryPrerequisite.allowed
+                        ? `Week ${lesson.week} is open for preview, but completion is locked until the previous week's todos are done.`
+                        : `${masteryPrerequisite.reason} Current overall mastery: ${masteryPrerequisite.score}%.`}
                     </Text>
                   </Card>
                 ) : null}
@@ -299,28 +420,36 @@ export function LessonsScreen({
                     disabled={markInFlight}
                     testID="lesson-mark-complete-button"
                   />
-                ) : (
+                ) : selectedLessonCompleted ? (
                   <Card tone="success" shadow="none">
                     <Text style={styles.completedDetailTitle}>Completed</Text>
                     <Text style={styles.completedDetailBody}>This lesson is saved. Review it any time, or continue with the next unlocked lesson.</Text>
                   </Card>
-                )}
+                ) : null}
               </ScreenScaffold>
             );
           }
 
-  if (lessons.length === 0) {
+  if (!currentTrackLesson || !dailyLesson) {
     return (
       <ScreenScaffold>
         <ScreenHeader title="Lessons" />
         <View style={styles.emptyWrap}>
           <EmptyStateArt screen="lessons" size={220} />
-          <Text style={styles.emptyTitle}>No lessons yet</Text>
-          <Text style={styles.emptyBody}>Lessons will appear here once your placement test is complete.</Text>
+          <Text style={styles.emptyTitle}>No lessons match these filters</Text>
+          <Text style={styles.emptyBody}>Choose another level, week, or grammar topic to continue.</Text>
         </View>
       </ScreenScaffold>
     );
   }
+
+  const heroObjectives = lessonTrack === 'grammar'
+    ? [
+        currentTrackLesson.objective,
+        currentTrackLesson.summary,
+        'Study each formation, example, and common mistake before moving on.',
+      ]
+    : currentWeek.objectives;
 
   return (
       <ScreenScaffold>
@@ -328,6 +457,49 @@ export function LessonsScreen({
           title="Lessons"
           subtitle={`Week ${weekProgress.index} of ${weekProgress.total} • ${dailyLesson.lessonsDoneThisWeek} of ${dailyLesson.lessonsTotalThisWeek} lessons done • ${weekProgress.minutes} min`}
         />
+
+        <View style={styles.trackSwitcher} accessibilityRole="tablist">
+          <Chip label="Phrases" selected={lessonTrack === 'phrases'} onPress={() => setLessonTrack('phrases')} />
+          {placementLevel !== 'absolute-beginner' ? (
+            <Chip label="Grammar rules" selected={lessonTrack === 'grammar'} onPress={() => setLessonTrack('grammar')} />
+          ) : null}
+        </View>
+        {lessonTrack === 'phrases' ? (
+          <View style={styles.filterPanel} accessibilityRole="tablist">
+            <Text style={styles.filterLabel}>Lesson level</Text>
+            <View style={styles.chipRow}>
+              <Chip label="My path" selected={phraseReviewLevel === null} onPress={() => setPhraseReviewLevel(null)} />
+              {(['Absolute Beginner', 'N5', 'N4', 'N3'] as CourseLevel[]).map(level => (
+                <Chip key={level} label={level === 'Absolute Beginner' ? 'Start here' : level} selected={phraseReviewLevel === level} onPress={() => setPhraseReviewLevel(level)} />
+              ))}
+            </View>
+          </View>
+        ) : null}
+        {lessonTrack === 'grammar' ? (
+          <View style={styles.filterPanel} accessibilityRole="tablist">
+            <Text style={styles.filterLabel}>Filter grammar lessons</Text>
+            <View style={styles.chipRow}>
+              {([
+                ['all', 'All rules'],
+                ['adjectives', 'Adjectives'],
+                ['particles', 'Particles'],
+                ['verbs', 'Verb forms'],
+                ['conjugations', 'Conjugations'],
+              ] as Array<[GrammarFilter, string]>).map(([value, label]) => (
+                <Chip key={value} label={label} selected={grammarFilter === value} onPress={() => setGrammarFilter(value)} />
+              ))}
+            </View>
+            <View style={styles.chipRow}>
+              {(['all', 'N5', 'N4', 'N3'] as GrammarLevel[]).map(level => (
+                <Chip key={level} label={level === 'all' ? 'All levels' : level} selected={grammarLevel === level} onPress={() => setGrammarLevel(level)} />
+              ))}
+              <Chip label="All weeks" selected={grammarWeek === 'all'} onPress={() => setGrammarWeek('all')} />
+              {grammarWeeks.map(week => (
+                <Chip key={week} label={`Week ${week}`} selected={grammarWeek === week} onPress={() => setGrammarWeek(week)} />
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         <Card tone="brand" shadow="hero" style={styles.heroCard}>
                 <View style={styles.heroHeader}>
@@ -345,13 +517,15 @@ export function LessonsScreen({
                       </Text>
                     </View>
                     <Text style={styles.heroTitle}>
-                      {dailyLesson.isCourseComplete
+                      {lessonTrack === 'grammar'
+                        ? 'Grammar Rules & Conjugations'
+                        : dailyLesson.isCourseComplete
                         ? 'You finished every lesson!'
                         : currentWeek.label.replace(/^Week \d+ — /, '')}
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.heroMeta}>Theme: {currentWeek.theme}</Text>
+                <Text style={styles.heroMeta}>Theme: {lessonTrack === 'grammar' ? 'grammar and conjugation' : currentWeek.theme}</Text>
                 {dailyLesson.isCourseComplete ? (
                   <Text style={styles.heroMeta}>
                     {dailyLesson.lessonsDoneThisWeek} of {dailyLesson.lessonsTotalThisWeek} lessons done. Keep reviewing!
@@ -367,7 +541,7 @@ export function LessonsScreen({
                     You finished Week {weekProgress.index - 1}. Tap below to start Week {weekProgress.index}.
                   </Text>
                 ) : null}
-                {currentWeek.objectives.map((objective, idx) => (
+                {heroObjectives.map((objective, idx) => (
                   <View key={idx} style={styles.objectiveRow}>
                     <Text style={styles.bullet}>•</Text>
                     <Text style={styles.objectiveText}>{objective}</Text>
@@ -386,7 +560,7 @@ export function LessonsScreen({
                     all done. */}
                 {isTodoFeatureEnabled() && todoBoard ? (
                   <View style={styles.todoBoardWrap}>
-                    <Text style={styles.sectionTitle}>Weekly todos</Text>
+                    <Text style={styles.sectionTitle}>{lessonTrack === 'grammar' ? 'Grammar weekly goals' : 'Weekly todos'}</Text>
                     <WeeklyTodoBoardView
                       board={todoBoard}
                       onTodoPress={(ctaRoute) => {
@@ -404,16 +578,13 @@ export function LessonsScreen({
                             onOpenTab?.('Quiz');
                             return;
                           case 'kanji':
-                            // Kanji screen is mounted under Progress tab (More tools).
-                            onOpenTab?.('Progress');
+                            setShowKanji(true);
                             return;
                           case 'daily-rush':
                             onOpenDailyRush?.();
                             return;
                           case 'example-sentences':
-                            // Reachable from Progress (More tools). For Phase 47 we route to
-                            // the Progress tab; a dedicated sub-route can come in a later phase.
-                            onOpenTab?.('Progress');
+                            setShowExamples(true);
                             return;
                         }
                       }}
@@ -462,13 +633,15 @@ export function LessonsScreen({
                     the learner what is blocking them — but the prior week's
                     lesson list (above) is still visible per §11.1 strategy B
                     (preview-but-locked). */}
-                {isTodoFeatureEnabled() && !dailyLesson.isCourseComplete ? (
+                {lessonTrack === 'phrases' && isTodoFeatureEnabled() && !dailyLesson.isCourseComplete ? (
                   <View style={styles.ctaWrapper}>
                     <Button
                       label={
                         nextWeekUnlocked
                           ? `Start Week ${nextWeekNumber}`
-                          : `Finish Week ${weekProgress.index}'s todos to unlock Week ${nextWeekNumber}`
+                          : masteryPrerequisite.allowed
+                            ? `Finish Week ${weekProgress.index}'s todos to unlock Week ${nextWeekNumber}`
+                            : `Reach prerequisite mastery to unlock Week ${nextWeekNumber}`
                       }
                       disabled={!nextWeekUnlocked}
                       onPress={() => {
@@ -482,25 +655,34 @@ export function LessonsScreen({
                   </View>
                 ) : null}
 
-      <Text style={styles.sectionTitle}>Topics</Text>
-      <View style={styles.chipRow}>
-        {categories.map(category => (
-          <Chip
-            key={category.id}
-            label={`${category.title} (${category.phraseCount})`}
-            selected={selectedCategory === category.id}
-            onPress={() => category.status === 'available' ? setSelectedCategory(category.id) : undefined}
-          />
-        ))}
-      </View>
+      {lessonTrack === 'phrases' ? <>
+        <Text style={styles.sectionTitle}>Topics</Text>
+        <View style={styles.chipRow}>
+          {categories.map(category => (
+            <Chip
+              key={category.id}
+              label={`${category.title} (${category.phraseCount})`}
+              selected={selectedCategory === category.id}
+              onPress={() => category.status === 'available' ? setSelectedCategory(category.id) : undefined}
+            />
+          ))}
+        </View>
 
       <Disclosure title="More tools" icon="more" open={showMore} onToggle={() => setShowMore(v => !v)}>
         <ToolRow
-          icon="kanji"
-          label="Kanji section"
-          hint="Learn the characters"
-          onPress={() => setShowKanji(true)}
+          icon="play"
+          label="Listening & Sentence Lab"
+          hint="Listen, rebuild sentences, and review mistakes"
+          onPress={() => onOpenSentenceLab ? onOpenSentenceLab() : setShowSentenceLab(true)}
         />
+        {placementLevel !== 'absolute-beginner' ? (
+          <ToolRow
+            icon="kanji"
+            label="Kanji section"
+            hint="Learn the characters"
+            onPress={() => setShowKanji(true)}
+          />
+        ) : null}
         <ToolRow
           icon="chat"
           label="Example sentences"
@@ -520,6 +702,7 @@ export function LessonsScreen({
                   onPress={() => setSelected(dailyLesson.lesson.id)}
                 />
       </Disclosure>
+      </> : null}
     </ScreenScaffold>
   );
 }
@@ -533,6 +716,9 @@ const styles = StyleSheet.create({
   heroBadgeText: { fontSize: ds.type.micro, fontWeight: '900', color: ds.colors.brandInk, textTransform: 'uppercase' },
   heroTitle: { fontSize: ds.type.title, fontWeight: '900', color: ds.colors.brandInk, flexShrink: 1, lineHeight: 28 },
   heroMeta: { fontSize: ds.type.caption, fontWeight: '800', color: ds.colors.brandInk, opacity: 0.85 },
+  trackSwitcher: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.sm },
+  filterPanel: { gap: ds.spacing.xs, padding: ds.spacing.sm, borderRadius: ds.radius.md, backgroundColor: ds.colors.surfaceAlt },
+  filterLabel: { fontSize: ds.type.micro, fontWeight: '900', color: ds.colors.primary, textTransform: 'uppercase' },
   objectiveRow: { flexDirection: 'row', alignItems: 'flex-start', gap: ds.spacing.xs, marginTop: ds.spacing.xs },
   bullet: { color: ds.colors.brandInk, opacity: 0.8 },
   objectiveText: { color: ds.colors.brandInk, fontSize: ds.type.body, flexShrink: 1, lineHeight: 22 },
@@ -552,7 +738,14 @@ const styles = StyleSheet.create({
   lessonBadge: { fontSize: ds.type.micro, fontWeight: '900', color: ds.colors.brandInk, opacity: 0.85, textTransform: 'uppercase' },
   lessonTitle: { fontSize: ds.type.display - 2, fontWeight: '900', color: ds.colors.brandInk, marginTop: ds.spacing.xs, flexShrink: 1 },
   lessonObjective: { fontSize: ds.type.body, color: ds.colors.brandInk, opacity: 0.85, marginTop: ds.spacing.xs, flexShrink: 1 },
+  lessonSummary: { fontSize: ds.type.caption, color: ds.colors.brandInk, opacity: 0.78, marginTop: ds.spacing.sm, lineHeight: 19, flexShrink: 1 },
   itemIndex: { fontSize: ds.type.micro, fontWeight: '900', color: ds.colors.primary, textTransform: 'uppercase' },
+  rulePattern: { fontSize: ds.type.heading, fontWeight: '900', color: ds.colors.text, flexShrink: 1 },
+  ruleFormation: { fontSize: ds.type.caption, color: ds.colors.primary, fontWeight: '800', marginTop: ds.spacing.xs, flexShrink: 1 },
+  exampleJapanese: { fontSize: ds.type.body, color: ds.colors.text, fontWeight: '900', marginTop: ds.spacing.sm, flexShrink: 1 },
+  exampleRomaji: { fontSize: ds.type.caption, color: ds.colors.primary, fontWeight: '800', marginTop: ds.spacing.xs, flexShrink: 1 },
+  exampleEnglish: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.xs, flexShrink: 1 },
+  commonMistake: { fontSize: ds.type.caption, color: ds.colors.warmInkStrong, marginTop: ds.spacing.sm, lineHeight: 18, flexShrink: 1 },
   itemHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,14 +1,14 @@
-import React from 'react';
 import { Text, View, StyleSheet } from 'react-native';
 import type { LessonItem } from '../types/lesson';
 import { ds } from '../theme/designSystem';
 
 export function Flashcard({ item }: { item: LessonItem }) {
+  const vocabulary = item.vocabulary;
   return (
     <View style={styles.card}>
-      <Text style={styles.japanese}>{item.japanese}</Text>
-      <Text>{item.romaji}</Text>
-      <Text style={styles.meaning}>{item.english}</Text>
+      <Text style={styles.japanese}>{vocabulary?.japanese ?? item.japanese}</Text>
+      <Text>{vocabulary?.romaji ?? item.romaji}</Text>
+      <Text style={styles.meaning}>{vocabulary?.meanings.en.join('; ') ?? item.english}</Text>
     </View>
   );
 }

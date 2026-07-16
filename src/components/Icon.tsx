@@ -1,6 +1,4 @@
-import React from 'react';
 import { Text, StyleSheet, type TextStyle } from 'react-native';
-import { ds } from '../theme/designSystem';
 
 // Lightweight emoji icon set. Avoids adding a vector-icons dependency.
 // Each name maps to a single emoji glyph rendered at a consistent size.

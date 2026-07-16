@@ -27,7 +27,7 @@
 // inline let-blocks, plus the re-derived progression/currentWeek/weekProgress
 // when the gate is active.
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import { isTodoFeatureEnabled } from '../../services/practiceProgressStore';
 import { getAllWeekPlans } from '../../services/weeklyPlansService';
@@ -42,6 +42,9 @@ import type { LearnerProgress } from '../../types/progress';
 import type {
   LessonInteractionPath,
 } from '../../services/lessonInteractionPathService';
+import { evaluatePersistedMasteryGate } from '../../services/masteryService';
+import type { MasteryPrerequisiteResult } from '../../types/mastery';
+import type { TodoTrack } from '../../types/weeklyTodo';
 
 // Type shapes mirror what LessonsScreen uses inline. We don't import the
 // concrete return types of buildLessonProgression / buildLessonInteractionPath
@@ -54,7 +57,11 @@ export interface WeekProgressView {
 }
 
 export interface UseWeeklyTodoGateParams {
-  store: { getExtendedProgress(): unknown } | null;
+  store: {
+    getExtendedProgress(): unknown;
+    getExtendedProgressRevision?: () => number;
+    subscribeExtendedProgress?: (listener: () => void) => () => void;
+  } | null;
   lessonPath: LessonInteractionPath;
   weekProgress: WeekProgressView;
   // The caller passes the current progression + currentWeek so the hook can
@@ -62,6 +69,7 @@ export interface UseWeeklyTodoGateParams {
   progression: { currentWeekDetails(): unknown; weeks: { length: number } };
   currentWeek: unknown;
   progress: LearnerProgress | null;
+  track?: TodoTrack;
 }
 
 export interface UseWeeklyTodoGateResult {
@@ -76,6 +84,7 @@ export interface UseWeeklyTodoGateResult {
   progression: UseWeeklyTodoGateParams['progression'];
   currentWeek: unknown;
   weekProgress: WeekProgressView;
+  masteryPrerequisite: MasteryPrerequisiteResult;
 }
 
 export function useWeeklyTodoGate({
@@ -85,7 +94,21 @@ export function useWeeklyTodoGate({
   progression,
   currentWeek,
   progress,
+  track = 'all',
 }: UseWeeklyTodoGateParams): UseWeeklyTodoGateResult {
+  // The practice store mutates its extended todo cache after async writes.
+  // Subscribe to that revision so completing one todo immediately rebuilds
+  // the board and unlock state instead of waiting for a tab remount.
+  const subscribe = useCallback(
+    (listener: () => void) => store?.subscribeExtendedProgress?.(listener) ?? (() => undefined),
+    [store],
+  );
+  const getRevision = useCallback(
+    () => store?.getExtendedProgressRevision?.() ?? 0,
+    [store],
+  );
+  const extendedRevision = useSyncExternalStore(subscribe, getRevision, () => 0);
+
   // todoPayload: derived from store + progress.
   const todoPayload = useMemo<TodoPayload>(() => {
     const extended = (store?.getExtendedProgress() as
@@ -105,19 +128,24 @@ export function useWeeklyTodoGate({
       todoEventCounts: extended.todoEventCounts as TodoPayload['todoEventCounts'],
       completedLessonIds: progress?.completedLessonIds ?? [],
     };
-  }, [progress?.completedLessonIds, store]);
+  }, [progress?.completedLessonIds, store, extendedRevision]);
 
   // todoBoards: derived from todoPayload + weekProgress.index.
   const todoBoards = useMemo(
-    () => buildAllTodoBoards(getAllWeekPlans(), todoPayload, 'all', weekProgress.index),
-    [todoPayload, weekProgress.index],
+    () => buildAllTodoBoards(getAllWeekPlans(track), todoPayload, 'all', weekProgress.index, track),
+    [todoPayload, weekProgress.index, track],
   );
 
   const todoBoard = todoBoards[weekProgress.index];
   const nextWeekNumber = weekProgress.index + 1;
   const nextWeekUnlocked = isWeekUnlocked(nextWeekNumber, todoBoards, todoPayload);
+  const masteryPrerequisite = evaluatePersistedMasteryGate(
+    todoPayload.todoEventCounts.masteryEvidence,
+    todoPayload.todoEventCounts.masterySnapshots,
+  );
 
   const todoGateBlocksCurrentLessonWeek = isTodoFeatureEnabled()
+    && track !== 'grammar'
     && lessonPath.currentWeek.week > 1
     && !isWeekUnlocked(lessonPath.currentWeek.week, todoBoards, todoPayload);
 
@@ -151,6 +179,7 @@ export function useWeeklyTodoGate({
       progression: reProgression,
       currentWeek: reCurrentWeek,
       weekProgress: reWeekProgress,
+      masteryPrerequisite,
     };
   }
 
@@ -165,5 +194,6 @@ export function useWeeklyTodoGate({
     progression,
     currentWeek,
     weekProgress,
+    masteryPrerequisite,
   };
 }

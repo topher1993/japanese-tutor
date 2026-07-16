@@ -21,7 +21,8 @@ const profileSource = readFileSync('src/screens/ProfileScreen.tsx', 'utf8');
 describe('Phase 28 profile screen integration', () => {
   it('registers a ProfileScreen route in the app shell without changing bottom-tab IDs', () => {
     expect(appSource).toContain("import { ProfileScreen } from './src/screens/ProfileScreen';");
-    expect(appSource).toContain('<ProfileScreen onBack={() => nav.setShowProfile(false)} />');
+    expect(appSource).toMatch(/<ProfileScreen[\s\S]*onBack=\{\(\) => nav\.setShowProfile\(false\)\}/);
+    expect(appSource).toContain('nav.setShowPlacement(true)');
     expect(appSource).toContain('nav.setShowProfile(true)');
     // The showProfile state itself now lives in the navigation hook.
     expect(navHookSource).toContain("useState(getParam('screen') === 'profile')");

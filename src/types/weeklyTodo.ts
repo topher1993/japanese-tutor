@@ -5,6 +5,7 @@
 // file for the 37b phase. Widening src/types/progress.ts to declare these
 // fields directly belongs to a later phase — until then consumers use the
 // ExtendedLearnerProgress cast pattern from sqliteLearningRepository.ts.
+import type { QuizContentSource, QuizPracticeMode } from './quiz';
 
 export type WeekTodoKind =
   | 'flashcards'
@@ -13,6 +14,7 @@ export type WeekTodoKind =
   | 'lesson'
   | 'example-sentences'
   | 'kanji';
+export type TodoTrack = 'all' | 'phrases' | 'grammar';
 
 export interface WeekTodo {
   /** Stable identifier, e.g. "n5-w1-lessons". */
@@ -30,6 +32,8 @@ export interface WeekTodo {
   lessonIds?: string[];
   /** For kanji-kind todos. */
   kanjiSet?: string[];
+  /** Optional content track filter for track-specific lesson boards. */
+  track?: Exclude<TodoTrack, 'all'>;
 }
 
 export interface WeekPlan {
@@ -53,6 +57,16 @@ export interface TodoState {
   skipped?: boolean;
 }
 
+export interface QuizHistoryEntry {
+  id: string;
+  completedAt: string;
+  weekNumber: number;
+  mode: QuizPracticeMode;
+  source: QuizContentSource;
+  score: number;
+  total: number;
+}
+
 /** Append-only event log the store writes when actions happen on screen. */
 export interface TodoEventCounts {
   /** weekNumber → distinct card ids reviewed. */
@@ -65,6 +79,38 @@ export interface TodoEventCounts {
   exampleSentencesViewed: Record<number, string[]>;
   /** weekNumber → distinct kanji card ids marked Good. */
   kanjiGoodAnswers: Record<number, string[]>;
+  /**
+   * Phase 51 (Q6d) — distinct refIds per week whose Daily Rush answer
+   * advanced them from `seen` → `memorized` or `seen` → `recognized`.
+   * The daily-rush weekly todo's progress is weighted by this log
+   * (cumulative, deduplicated across weeks) so a learner with prior
+   * Daily Rush work shows non-zero progress even if no new transitions
+   * happened this week. See practiceProgressStore.recordCardStageAdvanced.
+   */
+  seenStageAdvancedRefIds: Record<number, string[]>;
+  /**
+   * Date-keyed activity used by the daily Todo board. This is additive and
+   * optional at runtime so older persisted todo blobs remain compatible.
+   */
+  dailyActivity: Record<string, DailyTodoActivity>;
+  /** Personalized Mastery System evidence. Optional for legacy progress blobs. */
+  masteryEvidence?: import('./mastery').MasteryEvidence[];
+  /** One compact daily mastery snapshot, retained for weekly change reporting. */
+  masterySnapshots?: import('./mastery').MasterySnapshot[];
+  /** Recent quiz results retained for mode-specific progress feedback. */
+  quizHistory?: QuizHistoryEntry[];
+}
+
+export interface DailyTodoActivity {
+  /** Course week active when this day's activity was recorded. */
+  weekNumber?: number;
+  lessonIds?: string[];
+  flashcardReviewIds?: string[];
+  dailyRushCompleted?: boolean;
+  /** Date-scoped signals consumed by Adaptive Daily Plan 2.0. */
+  quizCompleted?: boolean;
+  quizBestScore?: number;
+  sentenceLabReviewIds?: string[];
 }
 
 /** Defaults every newly empty TodoEventCounts should start from. */
@@ -75,5 +121,8 @@ export function emptyTodoEventCounts(): TodoEventCounts {
     dailyRushDates: {},
     exampleSentencesViewed: {},
     kanjiGoodAnswers: {},
+    seenStageAdvancedRefIds: {},
+    dailyActivity: {},
+    quizHistory: [],
   };
 }

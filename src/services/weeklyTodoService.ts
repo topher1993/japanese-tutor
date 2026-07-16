@@ -14,11 +14,16 @@
 import type { LearnerProgress } from '../types/progress';
 import type {
   TodoEventCounts,
+  TodoTrack,
   TodoState,
   WeekPlan,
   WeekTodo,
 } from '../types/weeklyTodo';
 import { recordWeeklyReviewCompletion } from './weeklyReviewService';
+import { evaluatePersistedMasteryGate } from './masteryService';
+import { resolveCardPool, resolveKanjiSet } from './weeklyCardPoolService';
+import { getAllCourseLessons } from './lessonService';
+import { createFlashcardDeck } from './flashcardService';
 
 /** Minimal extended shape so this service compiles without widening progress.ts. */
 export interface TodoPayload {
@@ -87,7 +92,7 @@ function helperTextForTodo(
 ): string {
   if (status.isLegacyWeek) return 'Completed before weekly todos were introduced';
   if (status.completed) return `Done — ${status.progress} / ${status.target} ${todo.unit ?? ''}`.trim();
-  if (status.target === 0) return 'No requirements — open the lesson to mark this todo complete.';
+  if (status.target === 0) return 'Open this activity to load its requirements.';
   return `${status.progress} / ${status.target} ${todo.unit ?? ''}`.trim();
 }
 
@@ -134,6 +139,7 @@ export function buildWeeklyTodoBoard(
   isInitialized: boolean,
   strategy: 'all' | 'majority' = 'all',
   currentWeek: number = Number.POSITIVE_INFINITY,
+  track: TodoTrack = 'all',
 ): WeeklyTodoBoard {
   if (!weekPlan || weekPlan.todos.length === 0) {
     // No plan authored: this is only "legacy" if it is a prior week that was
@@ -150,7 +156,21 @@ export function buildWeeklyTodoBoard(
       isLegacyWeek,
     };
   }
-  const statuses = weekPlan.todos.map(todo =>
+  const trackTodos = track === 'all'
+    ? weekPlan.todos
+    : weekPlan.todos.filter(todo => !todo.track || todo.track === track);
+  if (trackTodos.length === 0) {
+    return {
+      weekNumber,
+      todos: [],
+      completedCount: 0,
+      totalCount: 0,
+      allDone: true,
+      canAdvance: true,
+      isLegacyWeek: false,
+    };
+  }
+  const statuses = trackTodos.map(todo =>
     statusForTodo(weekNumber, todo, todoStates[todo.id], isInitialized, currentWeek),
   );
   // Legacy-week rule: only prior weeks (weekNumber < currentWeek) that were
@@ -186,6 +206,7 @@ export function buildAllTodoBoards(
   progress: TodoPayload,
   strategy: 'all' | 'majority' = 'all',
   currentWeek: number = Number.POSITIVE_INFINITY,
+  track: TodoTrack = 'all',
 ): Record<number, WeeklyTodoBoard> {
   const result: Record<number, WeeklyTodoBoard> = {};
   for (const plan of weekPlans) {
@@ -196,6 +217,7 @@ export function buildAllTodoBoards(
       Boolean(progress.weekTodosInitialized[plan.weekNumber]),
       strategy,
       currentWeek,
+      track,
     );
   }
   return result;
@@ -214,14 +236,42 @@ export function isWeekUnlocked(
   weekNumber: number,
   todoBoards: Record<number, WeeklyTodoBoard>,
   progress: TodoPayload,
-  strategy: 'all' | 'majority' = 'all',
+  _strategy: 'all' | 'majority' = 'all',
 ): boolean {
   if (weekNumber <= 1) return true;
   const prior = weekNumber - 1;
   const priorBoard = todoBoards[prior];
-  if (priorBoard) return priorBoard.canAdvance;
+  // Mastery evidence is global storage, but progression prerequisites are
+  // week-specific. Build the exact card set represented by the prior board so
+  // unrelated Sentence Lab items or work from another placed level cannot
+  // block advancement.
+  const prerequisiteRefIds = new Set<string>();
+  for (const status of priorBoard?.todos ?? []) {
+    const todo = status.todo;
+    if (todo.kind === 'flashcards') {
+      for (const id of resolveCardPool(todo.pool, prior).cardIds) prerequisiteRefIds.add(id);
+    } else if (todo.kind === 'kanji') {
+      for (const id of resolveKanjiSet(todo.kanjiSet).cardIds) prerequisiteRefIds.add(id);
+    } else if (todo.kind === 'lesson') {
+      const lessonIds = new Set(todo.lessonIds ?? []);
+      const lessons = getAllCourseLessons().filter(lesson => lessonIds.has(lesson.id));
+      for (const card of createFlashcardDeck(lessons).cards) prerequisiteRefIds.add(card.id);
+    } else if (todo.kind === 'daily-rush') {
+      for (const id of resolveCardPool('week', prior).cardIds) prerequisiteRefIds.add(id);
+    }
+  }
+  const prerequisiteEvidence = (progress.todoEventCounts.masteryEvidence ?? [])
+    .filter(item => prerequisiteRefIds.has(item.refId));
+  const masteryGate = evaluatePersistedMasteryGate(
+    prerequisiteEvidence,
+    progress.todoEventCounts.masterySnapshots,
+  );
+  if (priorBoard) return priorBoard.canAdvance && masteryGate.allowed;
   // No board was built for the prior week (no plan authored). If it was
   // never initialized either, treat as legacy and unlock.
+  // Placement learners can start at a later authored week. With no prior
+  // board and no initialization, unrelated global mastery evidence is not a
+  // valid prerequisite for a week the learner was intentionally placed past.
   if (!progress.weekTodosInitialized[prior]) return true;
   return false;
 }
@@ -261,7 +311,10 @@ export function recomputeTodoStatesForWeek(
       // (those are populated by 37d-N methods, NOT by this helper).
       progressCount = prior?.progress ?? 0;
     }
-    const target = prior?.target ?? todo.target;
+    // Daily-linked weekly targets may be raised when the daily plan changes.
+    // Preserve a previously resolved content target when it is larger, but
+    // never keep an obsolete lower target after a scaling update.
+    const target = Math.max(prior?.target ?? 0, todo.target);
     const clamped = Math.min(progressCount, target);
     const reached = clamped >= target && target > 0;
     const state: TodoState = {

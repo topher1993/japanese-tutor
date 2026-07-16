@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { buildKanjiSection, mergeKanjiCardPool, type KanjiLevel } from '../services/kanjiSectionService';
 import { buildCandidateKanjiSection, getCandidateKanjiCounts } from '../services/candidateKanjiAdapter';
@@ -11,6 +11,7 @@ import { JishoLink } from '../components/JishoLink';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { ds } from '../theme/designSystem';
+import { speakJapanese } from '../services/speechPracticeService';
 
 interface KanjiSection { cards: ReturnType<typeof buildKanjiSection>['cards']; lessons: ReturnType<typeof buildKanjiSection>['lessons']; }
 
@@ -57,6 +58,7 @@ export function KanjiSectionPanel({ onBack }: { onBack?: () => void }) {
   const cardsInLevel = section.cards.filter(c => c.jlptLevel === level);
   const safeCardIndex = Math.min(cardIndex, Math.max(0, cardsInLevel.length - 1));
   const card = cardsInLevel[safeCardIndex];
+  const primaryReading = card?.readings.find(reading => /[ぁ-ん]/.test(reading)) ?? card?.readings[0] ?? '';
 
   function showNextCard() {
     setIncomingDirection('left');
@@ -94,8 +96,11 @@ export function KanjiSectionPanel({ onBack }: { onBack?: () => void }) {
             <View style={styles.cardFace}>
               <Badge label={card.jlptLevel} tone="info" />
               <Text style={styles.kanji}>{card.kanji}</Text>
+              <Text style={styles.sectionLabel}>Common reading</Text>
+              <Text style={styles.primaryReading}>{primaryReading}</Text>
               <Text style={styles.sectionLabel}>On / Kun readings</Text>
               <Text style={styles.readings}>{card.readings.join(' / ')}</Text>
+              <Button label="Listen to reading" variant="soft" icon="play" accessibilityLabel={`Listen to the reading ${primaryReading}`} onPress={() => speakJapanese(primaryReading)} />
               <View style={styles.divider} />
               <Text style={styles.sectionLabel}>Meanings</Text>
               <Text style={styles.meanings}>{card.meanings.join(', ')}</Text>
@@ -136,6 +141,7 @@ const styles = StyleSheet.create({
   cardFace: { alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' },
   kanji: { fontSize: 96, lineHeight: 110, fontWeight: '900', color: ds.colors.text, marginTop: ds.spacing.sm },
   readings: { color: ds.colors.primary, fontWeight: '900', fontSize: ds.type.heading, marginTop: ds.spacing.xs, flexShrink: 1, textAlign: 'center' },
+  primaryReading: { color: ds.colors.success, fontWeight: '900', fontSize: ds.type.title, marginBottom: ds.spacing.xs, textAlign: 'center' },
   divider: { height: 1, backgroundColor: ds.colors.divider, marginVertical: ds.spacing.sm, alignSelf: 'stretch' },
   meanings: { color: ds.colors.text, fontWeight: '800', fontSize: ds.type.body, textAlign: 'center', flexShrink: 1 },
   sectionLabel: { marginBottom: ds.spacing.sm, fontWeight: '900', color: ds.colors.primary, fontSize: ds.type.caption, textTransform: 'uppercase', alignSelf: 'flex-start' },

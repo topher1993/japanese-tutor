@@ -9,11 +9,26 @@ const createNavigationState = (): NavigationState => ({ activeTab: 'Home', histo
 const goToTab = (state: NavigationState, tab: NavigationState['activeTab']): NavigationState => ({ ...state, activeTab: tab, history: [...state.history, tab] });
 const openLesson = (state: NavigationState, lessonId: string): NavigationState => ({ ...state, activeTab: 'Lessons', currentLessonId: lessonId, history: [...state.history, `LessonDetail:${lessonId}`] });
 import { createFlashcardDeck, answerFlashcard, getDueFlashcards } from '../src/services/flashcardService';
-import { createQuizSession, answerCurrentQuestion, finishQuizSession } from '../src/services/quizSessionService';
+import { createQuizSession, answerCurrentQuestion, finishQuizSession, QUIZ_SESSION_SIZE } from '../src/services/quizSessionService';
+import { getQuickQuiz } from '../src/services/quizService';
 import { buildProgressDashboard } from '../src/services/progressDashboardService';
 import { createInMemoryLearningRepository } from '../src/repositories/inMemoryLearningRepository';
 
 describe('Phase 3 learning core', () => {
+  it('builds a short randomized quiz with valid remapped correct answers', () => {
+    const session = createQuizSession(() => 0);
+    const sourceById = new Map(getQuickQuiz().questions.map(question => [question.id, question]));
+    expect(session.questions).toHaveLength(QUIZ_SESSION_SIZE);
+    expect(new Set(session.questions.map(question => question.id)).size).toBe(QUIZ_SESSION_SIZE);
+    for (const question of session.questions) {
+      expect(question.choices.map(choice => choice.id)).toEqual(['A', 'B', 'C', 'D']);
+      expect(question.choices.some(choice => choice.id === question.correctChoice)).toBe(true);
+      const source = sourceById.get(question.id)!;
+      const expectedText = source.choices.find(choice => choice.id === source.correctChoice)!.text;
+      expect(question.choices.find(choice => choice.id === question.correctChoice)!.text).toBe(expectedText);
+    }
+  });
+
   it('provides multiple mock Sensei lessons and a weekly lesson summary', () => {
     const lessons = getAllLessons();
     expect(lessons.length).toBeGreaterThanOrEqual(5);

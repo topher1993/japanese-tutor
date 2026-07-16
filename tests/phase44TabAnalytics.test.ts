@@ -1,84 +1,32 @@
-/**
- * Phase 44.2 — Tab-change analytics wiring tests.
- *
- * Verifies that App.tsx's tab-routing layer fires `track('tab_visited', { tab })`
- * on every tab change AND on initial mount. We test the wrapper directly
- * (extract it to a tiny pure function so the test doesn't need to render
- * React) and rely on visual inspection of App.tsx for the actual mount call.
- *
- * The wrapper contract:
- *   - Returns a function that:
- *       1. Calls the original onTabChange(next)
- *       2. Calls track('tab_visited', { tab: next }) — except in test mode
- *   - Tab name is the AppTab id (string literal union)
- *   - Does not throw if the original handler throws
- */
+import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+describe('Phase 44.2 — complete tab-change analytics wiring', () => {
+  const app = readFileSync('App.tsx', 'utf8');
+  const navigation = readFileSync('src/app/useAppNavigation.ts', 'utf8');
 
-import {
-  track,
-  resetAnalyticsForTests,
-} from '../src/services/analyticsService';
-import { wrapTabChangeForAnalytics } from '../src/utils/wrapTabChangeForAnalytics';
-
-describe('Phase 44.2 — wrapTabChangeForAnalytics', () => {
-  beforeEach(() => {
-    resetAnalyticsForTests();
+  it('injects one analytics callback into the navigation owner', () => {
+    expect(app).toContain('const trackTabVisit = React.useCallback((tab: AppTab) => {');
+    expect(app).toContain("track('tab_visited', { tab, initial: false })");
+    expect(app).toContain('useAppNavigation(trackTabVisit)');
+    expect(navigation).toContain('onTabVisited: (next: AppTab) => void');
   });
 
-  it('returns a function that calls the original onTabChange', () => {
-    const inner = vi.fn();
-    const wrapped = wrapTabChangeForAnalytics(inner);
-    wrapped('Home');
-    expect(inner).toHaveBeenCalledWith('Home');
+  it('routes raw and programmatic transitions through the same setter', () => {
+    expect(navigation).toContain('const [tab, setTabState]');
+    expect(navigation).toMatch(/const setTab = useCallback\([\s\S]*?setTabState\(next\);[\s\S]*?onTabVisited\(next\);/);
+    for (const callback of ['onReviewDue', 'onPracticeWeak', 'onOpenGrammar', 'onOpenLesson', 'onOpenLessonTool', 'onPracticeWordGroup', 'onPracticeTopic', 'onTabChange']) {
+      const body = navigation.match(new RegExp(`const ${callback} = useCallback\\([\\s\\S]*?\\n  \\}, \\[setTab\\]\\);`))?.[0];
+      expect(body, `${callback} must use the centralized tab setter`).toContain('setTab(');
+    }
   });
 
-  it('forwards the tab name unchanged', () => {
-    const inner = vi.fn();
-    const wrapped = wrapTabChangeForAnalytics(inner);
-    wrapped('Lessons');
-    expect(inner).toHaveBeenCalledWith('Lessons');
+  it('lets both TabBar layouts use the centralized navigation handler', () => {
+    expect(app.match(/onSelect=\{nav\.onTabChange\}/g)).toHaveLength(2);
+    expect(app).not.toContain('onTabChangeWithAnalytics');
   });
 
-  it('returns void (does not propagate the original return value)', () => {
-    // React's onTabChange expects () => void. If we accidentally
-    // returned the inner handler's value, downstream useCallback
-    // memoization could break.
-    const inner = vi.fn(() => 'should-be-discarded');
-    const wrapped = wrapTabChangeForAnalytics(inner);
-    const result = wrapped('Home');
-    expect(result).toBeUndefined();
-  });
-
-  it('does not throw if the original handler throws', () => {
-    const inner = vi.fn(() => { throw new Error('boom'); });
-    const wrapped = wrapTabChangeForAnalytics(inner);
-    // track() is a no-op in test mode, so we can't verify it was
-    // called — but the wrapper must NOT swallow the inner error,
-    // because that would mask real navigation bugs.
-    expect(() => wrapped('Home')).toThrow('boom');
-  });
-
-  it('still calls the original handler synchronously', () => {
-    // Order matters: nav state must update BEFORE track() in case
-    // track() ever synchronously reads nav state.
-    const calls: string[] = [];
-    const inner = vi.fn(() => { calls.push('inner'); });
-    const wrapped = wrapTabChangeForAnalytics(inner);
-    wrapped('Home');
-    expect(calls).toEqual(['inner']);
-  });
-
-  it('test mode: track() is a no-op (cannot assert on call count)', () => {
-    // This is a documentation test — track() doesn't enqueue in test
-    // mode, so we can't assert that the wrapper called it. We just
-    // assert that wrapping doesn't throw and doesn't break the inner.
-    const inner = vi.fn();
-    const wrapped = wrapTabChangeForAnalytics(inner);
-    expect(() => wrapped('Home')).not.toThrow();
-    expect(inner).toHaveBeenCalled();
-    // Confirm track() is genuinely no-op here (queue is empty)
-    expect(track).toBeDefined(); // static import check
+  it('still records the initial visible tab separately', () => {
+    expect(app).toMatch(/initialTabTracked\.current\s*=\s*true;[\s\S]*?track\(\s*['"]tab_visited['"][\s\S]*?initial:\s*true/);
   });
 });

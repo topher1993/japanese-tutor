@@ -2,7 +2,6 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 import {
   buildWeeklyTodoBoard,
-  type TodoPayload,
 } from '../src/services/weeklyTodoService';
 import type {
   TodoEventCounts,
@@ -10,7 +9,6 @@ import type {
   WeekPlan,
   WeekTodo,
 } from '../src/types/weeklyTodo';
-import { emptyTodoEventCounts } from '../src/types/weeklyTodo';
 import { WEEKLY_PLANS } from '../src/data/weeklyPlans';
 import { createSqliteLearningRepository, type SqliteLikeDatabase } from '../src/repositories/sqliteLearningRepository';
 import { createPracticeProgressStore, setTodoFeatureEnabled, isTodoFeatureEnabled } from '../src/services/practiceProgressStore';
@@ -26,15 +24,6 @@ import { createPracticeProgressStore, setTodoFeatureEnabled, isTodoFeatureEnable
 //   f) recordKanjiGood is no-op when repo lacks saveExtendedProgress (legacy)
 //   g) regression: 37d-2 flashcards tests still pass (covered by focused
 //      vitest invocation in the task brief — they re-run alongside this file)
-
-function makeEmptyPayload(): TodoPayload {
-  return {
-    todoStates: {},
-    weekTodosInitialized: {},
-    todoEventCounts: emptyTodoEventCounts(),
-    completedLessonIds: [],
-  };
-}
 
 function createInMemoryDb(): SqliteLikeDatabase {
   const tables = new Map<string, unknown[]>();

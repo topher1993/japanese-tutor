@@ -7,7 +7,7 @@
  * the source of truth remains git-tracked.
  */
 
-import { getAllLessons } from './lessonService';
+import { getAllCourseLessons } from './lessonService';
 import { getSurvivalCategories, getSurvivalTopicDetail } from './workplaceSurvivalService';
 import { getAllAdditionalLessonCategoryContent } from './additionalLessonContentService';
 import { supplementalFlashcards } from '../data/supplementalFlashcards';
@@ -141,17 +141,18 @@ export async function getAllReviewablePhrases(): Promise<ReviewablePhrase[]> {
   const phrases: Omit<ReviewablePhrase, 'effectiveStatus' | 'hasOverride' | 'overrides' | 'key'>[] = [];
 
   // Sensei lessons
-  for (const lesson of getAllLessons()) {
+  for (const lesson of getAllCourseLessons()) {
     for (const item of lesson.items) {
+      const vocabulary = item.vocabulary;
       phrases.push({
         source: 'sensei-lesson',
         sourceId: item.id,
         sourceLabel: `Lessons > ${lesson.title}`,
-        japanese: item.japanese,
-        romaji: item.romaji,
-        english: item.english,
-        vietnamese: item.vietnamese,
-        filipino: item.filipino,
+        japanese: vocabulary?.japanese ?? item.japanese,
+        romaji: vocabulary?.romaji ?? item.romaji,
+        english: vocabulary?.meanings.en.join('; ') ?? item.english,
+        vietnamese: vocabulary?.meanings.vi.join('; ') ?? item.vietnamese,
+        filipino: vocabulary?.meanings.tl.join('; ') ?? item.filipino,
         baseStatus: item.translationReviewStatus,
       });
     }

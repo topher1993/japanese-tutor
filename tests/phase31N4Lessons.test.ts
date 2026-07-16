@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { mockSenseiLessons } from '../src/data/mockSenseiLessons';
-import { getDailyLesson, getAllLessons } from '../src/services/lessonService';
+import { getDailyLesson, getPhraseLessons } from '../src/services/lessonService';
 import { completeLesson, createInitialProgress } from '../src/services/progressService';
 import { buildProgressDashboard } from '../src/services/progressDashboardService';
 
@@ -31,10 +31,16 @@ import { buildProgressDashboard } from '../src/services/progressDashboardService
 
 const N5_LESSONS = mockSenseiLessons.filter((l) => l.level === 'N5');
 const N4_LESSONS = mockSenseiLessons.filter((l) => l.level === 'N4');
+const N3_LESSONS = mockSenseiLessons.filter((l) => l.level === 'N3');
+const DAILY_PHRASE_LESSONS = getPhraseLessons().filter(
+  lesson => lesson.level !== 'Absolute Beginner',
+);
+const N5_PHRASE_LESSONS = DAILY_PHRASE_LESSONS.filter(lesson => lesson.level === 'N5');
+const FIRST_N4_PHRASE_LESSON = DAILY_PHRASE_LESSONS.find(lesson => lesson.level === 'N4');
 
 function progressWithAllN5(): ReturnType<typeof createInitialProgress> {
   let p = createInitialProgress('2026-06-28');
-  for (const lesson of N5_LESSONS) {
+  for (const lesson of N5_PHRASE_LESSONS) {
     p = completeLesson(p, lesson.id, 100, '2026-06-28');
   }
   return p;
@@ -46,6 +52,20 @@ describe('Phase 31 N4 lesson content', () => {
     const weeks = new Set(N4_LESSONS.map((l) => l.week));
     expect(weeks).toEqual(new Set([4, 5, 6]));
     expect(N5_LESSONS.length).toBe(18); // N5 untouched
+  });
+
+  it('ships an N3 starter week for placement-routed learners', () => {
+    expect(N3_LESSONS.length).toBe(5);
+    expect(new Set(N3_LESSONS.map(lesson => lesson.week))).toEqual(new Set([7]));
+    for (const lesson of N3_LESSONS) {
+      expect(lesson.items.length, `${lesson.id} item count`).toBeGreaterThanOrEqual(3);
+      for (const item of lesson.items) {
+        expect(item.japanese.length, `${item.id}.japanese`).toBeGreaterThan(0);
+        expect(item.english.length, `${item.id}.english`).toBeGreaterThan(0);
+        expect(item.exampleJapanese.length, `${item.id}.exampleJapanese`).toBeGreaterThan(0);
+        expect(item.exampleEnglish.length, `${item.id}.exampleEnglish`).toBeGreaterThan(0);
+      }
+    }
   });
 
   it('every N4 lesson has 3-6 learner items', () => {
@@ -80,19 +100,21 @@ describe('Phase 31 N4 lesson content', () => {
     }
   });
 
-  it('daily lesson advances into week 4 once all N5 lessons are done', () => {
+  it('daily lesson advances to the first N4 phrase lesson once all N5 phrase lessons are done', () => {
     const progress = progressWithAllN5();
     const view = getDailyLesson(progress);
     expect(view.isCourseComplete).toBe(false);
-    expect(view.lesson.week).toBe(4);
-    expect(view.lesson.level).toBe('N4');
+    expect(FIRST_N4_PHRASE_LESSON).toBeDefined();
+    expect(view.lesson.id).toBe(FIRST_N4_PHRASE_LESSON?.id);
   });
 
   it('dashboard nextRecommendedLesson points at the first N4 lesson after N5 completes', () => {
     const progress = progressWithAllN5();
-    const dashboard = buildProgressDashboard(progress, getAllLessons());
-    expect(dashboard.nextRecommendedLesson?.level).toBe('N4');
-    expect(dashboard.nextRecommendedLesson?.week).toBe(4);
-    expect(dashboard.completionPercent).toBe(50); // 18/36 = 50%
+    const dashboard = buildProgressDashboard(progress, DAILY_PHRASE_LESSONS);
+    expect(FIRST_N4_PHRASE_LESSON).toBeDefined();
+    expect(dashboard.nextRecommendedLesson?.id).toBe(FIRST_N4_PHRASE_LESSON?.id);
+    expect(dashboard.completionPercent).toBe(
+      Math.round((N5_PHRASE_LESSONS.length / DAILY_PHRASE_LESSONS.length) * 100),
+    );
   });
 });

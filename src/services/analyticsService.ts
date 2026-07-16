@@ -1,47 +1,21 @@
-// Phase 44 — Analytics service (telemetry setup-only).
-//
-// This module is the SETUP for Phase 44 telemetry. It does NOT yet
-// instrument any screen — that comes in Phase 44.2+ after the event
-// taxonomy is reviewed.
-//
-// Design choices:
-//
-//   1. **No external SDK yet.** Phase 44 setup-only ships with no
-//      external dependency. The `track()` function currently logs
-//      to the dev console (gated by __DEV__) and queues events in
-//      memory. A future commit can swap the in-memory queue for a
-//      real PostHog/Amplitude/Firebase SDK call without touching
-//      any call site.
-//
-//   2. **No-op by default.** If `process.env.EXPO_PUBLIC_ANALYTICS_KEY`
-//      is unset (or the app is running in test mode), `track()` is a
-//      no-op. No events are logged, queued, or transmitted. This means
-//      Phase 44 setup-only is safe to ship before any privacy review.
-//
-//   3. **Strongly-typed event names.** `AnalyticsEvent` is a string
-//      union, not a free string. Adding a new event requires updating
-//      this type, which gives the typechecker a chance to flag any
-//      caller that passes an unknown event. Properties are typed
-//      `Record<string, unknown>` for now — Phase 44.2 will add
-//      per-event prop schemas.
-//
-//   4. **Privacy.** No PII (names, emails, exact lesson text) is
-//      captured by this setup. Future instrumentation must add
-//      `scrubPii()` calls before any event reaches this service.
+// Typed, privacy-scrubbed analytics. Events remain local when no public
+// PostHog key is configured; otherwise they are delivered after durable
+// per-install identity has initialized. Analytics must never block learning.
 
 // React Native injects __DEV__ at runtime (true in dev, false in prod).
 // Node test environment gets it from tests/setup.ts (true for parity).
 declare const __DEV__: boolean | undefined;
 
-// Phase 44.2: scrub PII out of every props bag before it reaches the
-// in-memory queue. Callers must not need to remember to scrub — the
+// Scrub PII out of every props bag before it reaches any output. Callers must
+// not need to remember to scrub; the
 // contract is "track() never sends PII, period".
 import { scrubPii } from '../utils/scrubPii';
 
-// Phase 44.3: route events to the configured backend. The backend
-// module is the ONLY place posthog-react-native is imported; track()
+// The backend module is the only place posthog-react-native is imported; track()
 // just fires the named export and stays decoupled from the SDK.
 import { sendToBackend } from './analyticsBackend';
+import appConfig from '../../app.json';
+import { getInstallId, type InstallIdStorage } from '../utils/installId';
 
 export type AnalyticsEvent =
   // Navigation events
@@ -54,10 +28,23 @@ export type AnalyticsEvent =
   | 'lesson_mark_complete_attempt'
   | 'lesson_mark_complete_success'
   | 'lesson_mark_complete_failure'
+  // Listening & Sentence Lab events
+  | 'sentence_lab_answered'
   // Onboarding events
   | 'onboarding_started'
   | 'onboarding_completed'
   | 'onboarding_step_viewed'
+  // Placement evaluation events
+  | 'placement_started'
+  | 'placement_completed'
+  | 'placement_skipped'
+  // Unofficial JLPT-style mock exam events. Never attach prompts or answers.
+  | 'jlpt_exam_started'
+  | 'jlpt_exam_resumed'
+  | 'jlpt_exam_section_submitted'
+  | 'jlpt_exam_completed'
+  | 'jlpt_exam_abandoned'
+  | 'jlpt_exam_audio_failed'
   // Settings events
   | 'settings_reset_app'
   | 'settings_open_reviewer_tools'
@@ -67,6 +54,9 @@ export type AnalyticsEvent =
   // Discovery events
   | 'disclosure_opened'
   | 'disclosure_closed'
+  /** Learner opened a task recommended by Adaptive Daily Plan 2.0. */
+  | 'adaptive_plan_task_opened'
+  | 'mastery_focus_opened'
   /**
    * Phase 50: per-review telemetry (Beru Q4 must-have).
    * Props shape: { card_id: string; rating: 'again'|'hard'|'good'|'easy';
@@ -80,7 +70,46 @@ export type AnalyticsEvent =
    * Props shape: { lapse_count: number; average_ef: number;
    *   cards_due_at_session_start: number }.
    */
-  | 'srs_session_summary';
+  | 'srs_session_summary'
+  /**
+   * Phase 51: card flipped to back face with the 1.5s soft dwell
+   * gate passed (Beru Q1.1). Emitted from FlashcardsScreen on
+   * `mouseleave`/`blur` of the back face, not on unmount.
+   * Props shape: { card_id: string; dwell_ms: number;
+   *   stage_before: 'seen' | 'recognized' | 'memorized' }.
+   */
+  | 'card_flipped_back'
+  /**
+   * Phase 51: stage transition driven by a Daily Rush outcome
+   * (Beru Q3). Includes both the from→to pair and the latency
+   * numbers that drove the decision so telemetry can
+   * verify baseline seeds against observed p50/p75.
+   * Props shape: { card_id: string;
+   *   from_stage: 'seen' | 'recognized' | 'memorized';
+   *   to_stage: 'seen' | 'recognized' | 'memorized';
+   *   answer_ms: number; baseline_ms: number }.
+   */
+  | 'card_stage_advanced'
+  /**
+   * Phase 51: long-press "didn't know it" gesture fired in
+   * Flashcards or Daily Rush (Beru Q4). Maps to srs.review(q=2)
+   * and resets stage to `seen`.
+   * Props shape: { card_id: string;
+   *   stage_before: 'seen' | 'recognized' | 'memorized';
+   *   from_screen: 'flashcards' | 'daily_rush' }.
+   */
+  | 'card_skipped'
+  /**
+   * Phase 51: per-session cap reached for a single card (Beru Q6
+   * Failure mode A). After 2 consecutive Daily Rush misses the
+   * card is deferred to tomorrow and this event is emitted so
+   * telemetry can spot stubborn-card patterns.
+   * Props shape: { card_id: string; attempts_in_session: number;
+   *   defer_to_next_session: boolean }.
+   */
+  | 'card_session_capped'
+  | 'japanese_audio_played'
+  | 'japanese_shadowing_attempt';
 
 export interface AnalyticsContext {
   /** Stable per-install identifier (UUID v4). Generated on first call. */
@@ -94,23 +123,78 @@ export interface AnalyticsContext {
 }
 
 let cachedContext: AnalyticsContext | null = null;
-const eventQueue: Array<{ event: AnalyticsEvent; props: Record<string, unknown>; ts: number }> = [];
+type AnalyticsQueueEntry = { event: AnalyticsEvent; props: Record<string, unknown>; ts: number };
 
-function getContext(): AnalyticsContext {
-  if (cachedContext) return cachedContext;
+// `eventQueue` is the bounded debug history exposed by getQueuedEvents().
+// `pendingQueue` contains only events that have not yet been handed to the
+// backend. Keeping those concerns separate makes boot flushing idempotent:
+// previously every flush replayed the entire debug history, including events
+// that track() had already sent live.
+const eventQueue: AnalyticsQueueEntry[] = [];
+const pendingQueue: AnalyticsQueueEntry[] = [];
+let backendDeliveryReady = false;
+
+function runtimeFlags(): Pick<AnalyticsContext, 'isDev' | 'isTest'> {
   const isTest = typeof process !== 'undefined' &&
     (process.env?.NODE_ENV === 'test' || process.env?.VITEST === 'true' ||
      process.env?.VITEST_WORKER_ID !== undefined);
-  // Lazy-load installId from localStorage on web, or a module-level random on native.
-  // For Phase 44 setup we use a stable per-process id; persistence comes in Phase 44.2.
-  const installId = isTest ? 'test-install' : `dev-${Math.random().toString(36).slice(2, 12)}`;
-  cachedContext = {
-    installId,
-    appVersion: '0.1.0',
+  return {
     isDev: typeof __DEV__ !== 'undefined' ? __DEV__ : false,
     isTest,
   };
+}
+
+/** Initialize stable analytics identity from the app's shared durable store. */
+export async function initializeAnalyticsContext(storage: InstallIdStorage): Promise<AnalyticsContext> {
+  const flags = runtimeFlags();
+  const installId = await getInstallId(storage);
+  cachedContext = {
+    installId,
+    appVersion: appConfig.expo.version,
+    ...flags,
+  };
   return cachedContext;
+}
+
+export function getAnalyticsContext(): AnalyticsContext | null {
+  return cachedContext ? { ...cachedContext } : null;
+}
+
+function backendProps(props: Record<string, unknown>): Record<string, unknown> {
+  if (!cachedContext) return props;
+  return {
+    ...props,
+    install_id: cachedContext.installId,
+    app_version: cachedContext.appVersion,
+    is_dev: cachedContext.isDev,
+  };
+}
+
+/** Send events collected before async identity/backend initialization. */
+export function flushQueuedAnalytics(): void {
+  if (!cachedContext || cachedContext.isTest || !isAnalyticsEnabled()) return;
+  backendDeliveryReady = true;
+  const pending = pendingQueue.splice(0, pendingQueue.length);
+  for (const entry of pending) {
+    void sendToBackend(entry.event, backendProps(entry.props));
+  }
+}
+
+/**
+ * The initial tab event is meaningful only after the app has finished both
+ * persistence bootstraps and is actually rendering an onboarded tab. Keeping
+ * this predicate pure makes the Splash/onboarding exclusion regression-testable.
+ */
+export function shouldTrackInitialTab(input: {
+  profileReady: boolean;
+  navigationReady: boolean;
+  onboarded: boolean;
+  alreadyTracked: boolean;
+}): boolean {
+  return input.profileReady
+    && input.navigationReady
+    && input.onboarded
+    && !input.alreadyTracked;
 }
 
 /**
@@ -118,7 +202,7 @@ function getContext(): AnalyticsContext {
  *
  * Enabled when `EXPO_PUBLIC_ANALYTICS_KEY` is set.
  *
- * NOTE: This does NOT depend on `isTest` — that flag only affects
+ * This does not depend on `isTest`; that flag only affects
  * `track()` behavior (no-op vs queue). Tests that want to verify
  * the "enabled" gate can set the env var and call this function
  * without having to bypass the test-environment check.
@@ -137,19 +221,16 @@ export function isAnalyticsEnabled(): boolean {
  *                before transmission. Pass `{}` if no properties.
  *
  * Behavior:
- * - In test mode: no-op (events are not queued, not logged, not transmitted).
- * - In dev mode without API key: logs to console (gated by __DEV__) and queues in memory.
- * - In dev/prod with API key: logs to console AND queues for future transport.
- *
- * Phase 44.2 will replace the `queueEvent()` call below with a real
- * SDK invocation.
+ * - In test mode: no-op (events are not queued, logged, or transmitted).
+ * - Without an API key: retains bounded local debug history only.
+ * - With an API key: queues until identity/backend initialization, then sends.
  */
 export function track(event: AnalyticsEvent, props: Record<string, unknown> = {}): void {
-  const ctx = getContext();
+  const flags = cachedContext ?? runtimeFlags();
   // Test mode: completely silent.
-  if (ctx.isTest) return;
-  // Phase 44.2: scrub PII before the entry ever enters the queue. This
-  // is the single chokepoint — every event passes through here, so
+  if (flags.isTest) return;
+  // Scrub before the entry reaches the queue, console, or backend. This is the
+  // single chokepoint: every event passes through here, so
   // every event is scrubbed.
   const scrubbed = scrubPii(props);
   const entry = { event, props: scrubbed, ts: Date.now() };
@@ -157,17 +238,17 @@ export function track(event: AnalyticsEvent, props: Record<string, unknown> = {}
   // Cap queue at 100 events to avoid unbounded memory growth in dev mode.
   if (eventQueue.length > 100) eventQueue.shift();
   // Dev console echo — gated so it never leaks to production.
-  if (ctx.isDev && typeof console !== 'undefined') {
+  if (flags.isDev && typeof console !== 'undefined') {
     // eslint-disable-next-line no-console
-    console.log(`[analytics] ${event}`, props);
+    console.log(`[analytics] ${event}`, scrubbed);
   }
-  // Phase 44.3: fire to the configured backend. sendToBackend is a
-  // no-op when the backend hasn't been initialised (no API key set),
-  // so the in-memory queue remains the source of truth for the dev
-  // debug card. We do NOT await — track() must stay synchronous to
-  // keep call sites cheap. Errors are swallowed inside sendToBackend.
-  if (isAnalyticsEnabled()) {
-    void sendToBackend(event, scrubbed);
+  // Keep track() synchronous. The backend wrapper contains delivery failures
+  // so analytics can never break a user-facing action.
+  if (cachedContext && isAnalyticsEnabled() && backendDeliveryReady) {
+    void sendToBackend(event, backendProps(scrubbed));
+  } else {
+    pendingQueue.push(entry);
+    if (pendingQueue.length > 100) pendingQueue.shift();
   }
 }
 
@@ -184,6 +265,7 @@ export function getQueuedEvents(): ReadonlyArray<{ event: AnalyticsEvent; props:
  */
 export function clearQueuedEvents(): void {
   eventQueue.length = 0;
+  pendingQueue.length = 0;
 }
 
 /**
@@ -192,4 +274,6 @@ export function clearQueuedEvents(): void {
 export function resetAnalyticsForTests(): void {
   cachedContext = null;
   eventQueue.length = 0;
+  pendingQueue.length = 0;
+  backendDeliveryReady = false;
 }

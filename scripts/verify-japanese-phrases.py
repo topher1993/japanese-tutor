@@ -4,9 +4,12 @@ Verify Japanese phrases against Jisho.org (JMDICT-backed) API.
 
 For each phrase in the 4 draft data files:
   - Hit https://jisho.org/api/v1/search/words?keyword=<phrase>
-  - If status=200 and data[0] has any sense AND the API-reading fuzzy-matches
-    the romaji we have on file, mark as VERIFIED.
+  - If status=200 and a defined entry's kana reading romanizes exactly to the
+    romaji on file, mark it as VERIFIED.
   - Otherwise mark as NEEDS_REVIEW with the reason.
+
+Reading verification uses jaconv from requirements-romanizer.txt. If that
+dependency is unavailable, results conservatively remain unverified.
 
 Outputs:
   - Console summary table
@@ -15,7 +18,6 @@ Outputs:
 """
 
 import json
-import os
 import re
 import sys
 import time
@@ -23,7 +25,12 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-ROOT = Path('C:/Users/tophe/japanese-tutor-mobile-app')
+try:
+    import jaconv
+except ModuleNotFoundError:  # The verifier remains safe before optional setup.
+    jaconv = None
+
+ROOT = Path(__file__).resolve().parents[1]
 DATA_FILES = [
     'src/data/workplaceSurvivalPhrases.ts',
     'src/data/additionalLessonCategoryContent.ts',
@@ -40,16 +47,30 @@ PHRASE_RE = re.compile(
 )
 
 JISHO_API = 'https://jisho.org/api/v1/search/words'
-CACHE_PATH = Path('.hermes/verification-cache.json')
-REPORT_PATH = Path('docs/translation-verification.md')
+CACHE_PATH = ROOT / '.hermes' / 'verification-cache.json'
+REPORT_PATH = ROOT / 'docs' / 'translation-verification.md'
 
 
-def romanize_roughly(reading: str) -> str:
-    """Convert Jisho kana reading to a romaji approximation by stripping spaces."""
-    # Jisho returns kana with spaces between tokens (e.g. "お は よ う ご ざ い ま す").
-    # Our romaji has no spaces (e.g. "ohayou gozaimasu"). For fuzzy matching, just
-    # normalize whitespace on both sides.
-    return re.sub(r'\s+', ' ', reading.strip()).lower()
+def normalize_romaji(value: str) -> str:
+    """Normalize learner-facing romaji without pretending kana is Latin text."""
+    normalized = value.strip().lower().translate(str.maketrans({
+        'ā': 'aa', 'ī': 'ii', 'ū': 'uu', 'ē': 'ee', 'ō': 'ou',
+    }))
+    # The app presents the object particle as "o" while dictionary romanizers
+    # commonly emit the literal kana spelling "wo".
+    normalized = normalized.replace('wo', 'o')
+    return re.sub(r'[^a-z]', '', normalized)
+
+
+def romanize_reading(reading: str) -> str | None:
+    """Romanize a Jisho kana reading with the project's installed romanizer."""
+    if jaconv is None:
+        return None
+    romanized = jaconv.kata2alphabet(jaconv.hira2kata(reading)).lower()
+    # jaconv can preserve a katakana long-vowel mark as a dash.
+    for vowel in 'aeiou':
+        romanized = romanized.replace(vowel + '-', vowel * 2)
+    return normalize_romaji(romanized)
 
 
 def fetch_jisho(phrase: str, cache: dict) -> dict:
@@ -88,9 +109,9 @@ def verify_phrase(phrase: str, romaji: str, cache: dict) -> dict:
     if data.get('meta', {}).get('status') != 200 or not data.get('data'):
         return {'status': 'NOT_FOUND', 'reason': 'no jisho entries', 'candidates': []}
 
-    # Look at top 3 candidates. A phrase is VERIFIED if:
+    # Look at the top candidates. A phrase is VERIFIED only if:
     #   1. At least one candidate has a sense with non-empty english_definitions, AND
-    #   2. The candidate's japanese[].reading fuzzy-matches our romaji (loose).
+    #   2. A real kana romanizer confirms the complete reading on file.
     candidates = []
     for entry in data['data'][:5]:
         readings = [r.get('reading', '') for r in entry.get('japanese', [])]
@@ -113,38 +134,30 @@ def verify_phrase(phrase: str, romaji: str, cache: dict) -> dict:
     if not candidates:
         return {'status': 'NO_DEFINITION', 'reason': 'all candidates had no definitions', 'candidates': []}
 
-    # Heuristic match: check if our romaji substring appears in any candidate reading
-    # after stripping spaces. Most N5 phrases are exact matches but kanji compounds may
-    # have multiple readings.
-    norm_romaji = romanize_roughly(romaji)
-    norm_no_space = norm_romaji.replace(' ', '')
+    if jaconv is None:
+        return {
+            'status': 'READING_UNVERIFIED',
+            'reason': 'jaconv is not installed; run npm run setup:romanizer before verification',
+            'candidates': candidates[:3],
+        }
 
-    best = None
+    expected = normalize_romaji(romaji)
+    partial_match = False
     for c in candidates:
-        for r in c['readings']:
-            r_norm = romanize_roughly(r).replace(' ', '')
-            # Strip particles / okurigana at the end to allow partial matches
-            if norm_no_space == r_norm:
-                best = c
-                break
-            if norm_no_space in r_norm or r_norm in norm_no_space:
-                if best is None:
-                    best = c
-        if best and norm_no_space == romanize_pretty(best):
-            break
+        for reading in c['readings']:
+            actual = romanize_reading(reading)
+            if actual == expected:
+                return {'status': 'VERIFIED', 'reason': '', 'candidates': candidates[:3]}
+            if actual and expected and (expected in actual or actual in expected):
+                partial_match = True
 
-    if best is None:
-        # If we have an exact jmdict match, accept it even if romaji fuzzy fails
-        # (kanji compounds may have multiple valid readings).
-        if any(c['jmdict'] for c in candidates[:2]):
-            return {'status': 'VERIFIED_KANJI_FUZZY', 'reason': 'kanji compound, romaji fuzzy', 'candidates': candidates[:3]}
-        return {'status': 'ROMAJI_MISMATCH', 'reason': f'romaji "{romaji}" not in any reading', 'candidates': candidates[:3]}
-
-    return {'status': 'VERIFIED', 'reason': '', 'candidates': candidates[:3]}
-
-
-def romanize_pretty(c):
-    return c['readings'][0].lower().replace(' ', '') if c['readings'] else ''
+    if partial_match:
+        return {
+            'status': 'READING_PARTIAL_MATCH',
+            'reason': f'romaji "{romaji}" only partially matches a dictionary reading',
+            'candidates': candidates[:3],
+        }
+    return {'status': 'ROMAJI_MISMATCH', 'reason': f'romaji "{romaji}" does not match any romanized reading', 'candidates': candidates[:3]}
 
 
 def main():
@@ -203,8 +216,11 @@ def main():
     print(f"  {'TOTAL':25s} {len(results):4d}")
     print()
 
-    # Show actual failures with reasons (kanji-fuzzy is a pass, not a failure).
-    needs_review = [r for r in results if r['status'] in ('NOT_FOUND', 'NO_DEFINITION', 'ROMAJI_MISMATCH', 'ERROR')]
+    needs_review_statuses = {
+        'NOT_FOUND', 'NO_DEFINITION', 'ROMAJI_MISMATCH', 'READING_PARTIAL_MATCH',
+        'READING_UNVERIFIED', 'ERROR',
+    }
+    needs_review = [r for r in results if r['status'] in needs_review_statuses]
     if needs_review:
         print("PHRASES NEEDING HUMAN REVIEW:")
         print("-" * 60)
@@ -232,7 +248,8 @@ def main():
     ]
     meaning = {
         'VERIFIED': 'Exact match in JMDICT, romaji matches reading',
-        'VERIFIED_KANJI_FUZZY': 'Kanji compound in JMDICT, romaji fuzzy (e.g. multiple readings)',
+        'READING_PARTIAL_MATCH': 'Romanized reading only partially matches; human review required',
+        'READING_UNVERIFIED': 'Local kana romanizer unavailable; human review required',
         'NOT_FOUND': 'Phrase not in Jisho (could be grammar-pattern example, not a word)',
         'NO_DEFINITION': 'Found entries but no definitions',
         'ROMAJI_MISMATCH': 'Phrase exists but romaji on file does not match any reading',
@@ -242,7 +259,7 @@ def main():
         lines.append(f'| {s} | {len(items)} | {meaning.get(s, "")} |')
 
     lines += ['', '## Phrases needing human review', '',
-      '_Only phrases that failed verification appear here. Kanji-fuzzy matches (438) are listed in `docs/translation-verification-detail.md` if you want to spot-check.', '']
+      '_Only exact, romanizer-confirmed reading matches pass automatically. All other results appear here._', '']
     if not needs_review:
         lines.append('_None — all phrases verified._')
     else:

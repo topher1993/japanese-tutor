@@ -127,7 +127,7 @@ describe('Phase 29 kanji / vocab pack split', () => {
   });
 
   it('new vocab entries flow through the flashcard adapter', async () => {
-    const cards = await buildCandidateFlashcardCards();
+    const cards = await buildCandidateFlashcardCards('N4');
     for (const compound of COMPOUNDS_THAT_MUST_BE_IN_VOCAB_FILE) {
       const found = cards.some((c) => c.japanese === compound);
       expect(found, `compound "${compound}" not reachable from Flashcards`).toBe(true);

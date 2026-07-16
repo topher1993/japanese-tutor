@@ -2,7 +2,6 @@
  * EmptyStateArt — illustrated empty-state art for Home / Lessons / Progress
  * plus the Phase 45 Tier-2 keys (flashcards / quiz / survival).
  */
-import React from 'react';
 import { Image, View, StyleSheet, ImageStyle } from 'react-native';
 import { getAsset } from '../assets/assetRequireMap';
 

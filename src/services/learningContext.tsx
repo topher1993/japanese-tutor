@@ -1,10 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import { createSharedSqliteAdapter, openSharedNativeDatabase } from '../db/nativeDatabase';
 import { createPracticeProgressStore, type PracticeProgressStore } from './practiceProgressStore';
 import { createInMemoryLearningRepository, type LearningRepository } from '../repositories/inMemoryLearningRepository';
 import { createSqliteLearningRepository, type PersistentLearningRepository, type SqliteLikeDatabase } from '../repositories/sqliteLearningRepository';
-import { createTablesSql } from '../db/schema';
-import { createPersistentSrsStore, createInMemorySrsStore, type PersistentSpacedRepetitionScheduler } from './persistentSrsStore';
+import { createKeyValueLearningRepository } from '../repositories/keyValueLearningRepository';
+import { createWebOnboardingStorage } from './onboardingPreferenceService';
+import {
+  createKeyValueSrsStore,
+  createPersistentSrsStore,
+  createInMemorySrsStore,
+  type PersistentSpacedRepetitionScheduler,
+} from './persistentSrsStore';
+import { createLearningRuntimeWithSrsFallback, makeResetAll } from './learningRuntimeService';
 
 // React Native injects `__DEV__` at runtime; declare it for TS so we don't
 // get an implicit-any error when guarding console.warn calls.
@@ -13,7 +21,7 @@ declare const __DEV__: boolean | undefined;
 interface LearningContextValue {
   /** True once the underlying repository is open and ready. */
   ready: boolean;
-  /** Whether persistence is durable (SQLite) or session-only (in-memory fallback). */
+  /** Whether persistence is durable (SQLite/localStorage) or session-only. */
   durable: boolean;
   /** The practice-progress façade the screens use. */
   store: PracticeProgressStore | null;
@@ -47,8 +55,8 @@ export function useLearningContext(): LearningContextValue {
  * SRS scheduler into the running app via React Context. Both are opened
  * asynchronously; children render only after `ready` is true.
  *
- * On native we use the SQLite-backed implementations. On web we use the
- * in-memory variants (browser has no SQLite via expo-sqlite).
+ * On native we use SQLite. On web we use versioned localStorage snapshots so
+ * lessons, weekly progress, streaks, and SRS state survive a browser reload.
  */
 export function LearningRepositoryProvider({ children }: { children: React.ReactNode }) {
   const [value, setValue] = useState<LearningContextValue>({
@@ -66,29 +74,41 @@ export function LearningRepositoryProvider({ children }: { children: React.React
     async function openRepo() {
       try {
         if (Platform.OS === 'web') {
-          const repo = createInMemoryLearningRepository();
-          const store = createPracticeProgressStore(toPersistentShape(repo));
-          const srs = createInMemorySrsStore();
+          const storage = createWebOnboardingStorage();
+          if (!storage) {
+            const repo = createInMemoryLearningRepository();
+            const store = createPracticeProgressStore(toPersistentShape(repo));
+            const srs = createInMemorySrsStore();
+            if (cancelled) return;
+            setValue({ ready: true, durable: false, store, srs, repo, resetAll: makeResetAll(store, srs) });
+            return;
+          }
+          const repo = createKeyValueLearningRepository(storage);
+          await repo.initialize();
+          const { store, srs } = await createLearningRuntimeWithSrsFallback(
+            repo,
+            () => createKeyValueSrsStore(storage),
+            err => { if (__DEV__) console.warn('[learning] SRS open failed; using in-memory reviews', err); },
+          );
           if (cancelled) return;
-          setValue({ ready: true, durable: false, store, srs, repo, resetAll: makeResetAll(store, srs) });
+          setValue({ ready: true, durable: true, store, srs, repo, resetAll: makeResetAll(store, srs) });
           return;
         }
 
         // Native: open SQLite, ensure schema, build both stores.
-        const SQLite = await import('expo-sqlite');
-        const db = await SQLite.openDatabaseAsync('japanese-tutor.db');
-        for (const sql of createTablesSql) await db.execAsync(sql);
+        const db = await openSharedNativeDatabase();
+        const sharedAdapter = createSharedSqliteAdapter(db);
         const sqliteAdapter: SqliteLikeDatabase = {
-          execAsync: (sql: string) => db.execAsync(sql),
-          runAsync: (sql: string, ...params: unknown[]) => db.runAsync(sql, ...(params as never[])),
-          getAllAsync: ((sql: string, ...params: unknown[]) =>
-            db.getAllAsync(sql, ...(params as never[]))) as SqliteLikeDatabase['getAllAsync'],
+          ...sharedAdapter,
+          getAllAsync: sharedAdapter.getAllAsync as SqliteLikeDatabase['getAllAsync'],
         };
         const repo = createSqliteLearningRepository(sqliteAdapter);
         await repo.initialize();
-        const store = createPracticeProgressStore(repo);
-        const srs = createPersistentSrsStore(sqliteAdapter);
-        await srs.hydrate();
+        const { store, srs } = await createLearningRuntimeWithSrsFallback(
+          repo,
+          () => createPersistentSrsStore(sqliteAdapter),
+          err => { if (__DEV__) console.warn('[learning] SRS open failed; using in-memory reviews', err); },
+        );
         if (cancelled) return;
         setValue({ ready: true, durable: true, store, srs, repo, resetAll: makeResetAll(store, srs) });
       } catch (err) {
@@ -106,23 +126,6 @@ export function LearningRepositoryProvider({ children }: { children: React.React
   }, []);
 
   return <LearningContext.Provider value={value}>{children}</LearningContext.Provider>;
-}
-
-/**
- * Build a `resetAll` closure that wipes practice-progress + SRS via the live
- * store/srs refs. Called fresh each time the provider value updates so the
- * closure always sees the latest refs.
- */
-function makeResetAll(
-  store: PracticeProgressStore,
-  srs: PersistentSpacedRepetitionScheduler,
-): () => Promise<{ srsRowsCleared: number }> {
-  return async () => {
-    // Count SRS rows BEFORE clearing so the UI can confirm what happened.
-    const before = await srs.listCards();
-    await Promise.all([store.reset(), srs.clearAll()]);
-    return { srsRowsCleared: before.length };
-  };
 }
 
 function toPersistentShape(repo: LearningRepository): PersistentLearningRepository {

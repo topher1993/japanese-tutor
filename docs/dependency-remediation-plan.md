@@ -1,46 +1,29 @@
-# Japanese Tutor Mobile App — Dependency Remediation Plan
+# Dependency remediation plan
 
-**Status:** Plan-only. No dependency fix applied.
+Status: current for Expo SDK 54 / app v1.1.0 (2026-07-14).
 
-## Current Audit Summary
+## Audit boundary
 
-```text
-moderate: 10
-high: 0
-critical: 0
-total: 10
-```
+The live production-dependency audit scans 830 dependencies and reports 12
+moderate advisories, with zero high or critical findings. The chain is in Expo
+CLI/config/prebuild tooling (`postcss` and `uuid` through `xcode`), not in an
+application HTTP server or an app-controlled rendering path. The authoritative
+generated detail is `phase-22-dependency-audit.md`.
 
-## Allowed Next Actions
+npm's supported fix is Expo 57, a semver-major SDK migration. Forcing that
+upgrade into the v1.1 repair pass would also change React Native, native build
+configuration, and store/runtime compatibility, so it is a separate migration
+rather than a safe patch-level cleanup.
 
-- Inspect the full npm audit report.
-- Identify direct vs transitive vulnerable packages.
-- Check Expo SDK 56 compatibility before changing versions.
-- Create a controlled dependency-remediation work card.
-- Run tests/typecheck/export after each dependency change.
+## Migration plan
 
-## Forbidden Without Approval
+1. Create a dedicated Expo 57 branch.
+2. Follow Expo's SDK upgrade sequence and use `npx expo install --fix`.
+3. Regenerate native projects only after diffing the committed custom Android
+   audio service, signing policy, manifest, and backup/export settings.
+4. Run strict TypeScript, all tests, Expo Doctor, web/Android exports, Android
+   Gradle builds, and the full physical-device matrix.
+5. Regenerate `phase-22-dependency-audit.md`; require zero high/critical and
+   explicitly disposition any remaining moderate findings.
 
-- Do not run `npm audit fix --force`.
-- Do not upgrade Expo SDK without approval.
-- Do not change lockfile outside a controlled dependency pass.
-- Do not deploy or publish.
-- Do not touch secrets, tokens, env vars, Sensei systems, cron jobs, or automations.
-
-## Recommended Approach
-
-1. Read full `npm audit --json` output.
-2. Identify if the vulnerabilities come from Expo-managed dependencies.
-3. Prefer Expo-compatible patch upgrades.
-4. If fixes require major upgrades, defer to a dedicated Phase 6.5/7 dependency pass.
-5. Validate with:
-
-```bash
-npm test
-npm run typecheck
-npx expo export --platform web --output-dir dist-web-depcheck
-```
-
-## Approval Needed
-
-Chris approval required before dependency changes beyond normal project-local installs.
+Do not use `npm audit fix --force` on the v1.1 branch.

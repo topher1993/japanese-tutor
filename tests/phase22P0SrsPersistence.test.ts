@@ -12,10 +12,19 @@
 
 import { describe, expect, it } from 'vitest';
 import { createPersistentSrsStore, createInMemorySrsStore } from '../src/services/persistentSrsStore';
+import { localDateKey } from '../src/utils/localDate';
 
 type Row = {
   id: string; ref_id: string; interval_days: number; repetitions: number;
   ease_factor: number; due_on: string; last_reviewed_on: string | null;
+  // Phase 51 widening — the persistent store now writes an 8th column
+  // `stage` on every INSERT OR REPLACE. Mirror the new field here so
+  // the fake-DB parser destructures the 8th param and the `Row` type
+  // matches the production SrsRow shape from persistentSrsStore.ts.
+  // Pre-Phase-51 fake rows in this test file used the 7-column shape;
+  // tests that pre-seed rows with `db.runAsync('INSERT OR REPLACE ...',
+  // row.id, ...)` will need to pass `row.stage` as the 8th arg.
+  stage: 'seen' | 'recognized' | 'memorized';
 };
 
 interface FakeDB {
@@ -52,10 +61,16 @@ function createFakeSqlite(): FakeDB {
     async runAsync(sql, ...params) {
       if (sql.includes('INSERT OR REPLACE INTO kv_srs_cards')) {
         if (!seeded) { tables.set('kv_srs_cards', []); seeded = true; }
-        const [id, ref_id, interval_days, repetitions, ease_factor, due_on, last_reviewed_on] = params as [string, string, number, number, number, string, string | null];
+        // Phase 51 widening — 8th param `stage` is now part of every
+        // INSERT OR REPLACE. Destructure it explicitly and include it
+        // in the Row literal so the fake-DB state matches the
+        // production SrsRow shape. The legacy default ('memorized')
+        // is intentional: it mirrors the schema DEFAULT for any
+        // pre-Phase-51 row that was written before the column existed.
+        const [id, ref_id, interval_days, repetitions, ease_factor, due_on, last_reviewed_on, stage] = params as [string, string, number, number, number, string, string | null, 'seen' | 'recognized' | 'memorized'];
         const rows = tables.get('kv_srs_cards')!;
         const idx = rows.findIndex(r => r.id === id);
-        const row: Row = { id, ref_id, interval_days, repetitions, ease_factor, due_on, last_reviewed_on };
+        const row: Row = { id, ref_id, interval_days, repetitions, ease_factor, due_on, last_reviewed_on, stage: stage ?? 'memorized' };
         if (idx >= 0) rows[idx] = row;
         else rows.push(row);
         return { changes: 1 };
@@ -84,7 +99,7 @@ describe('Phase 22 audit — SRS persistence (P0-03 fix)', () => {
     const srs = createPersistentSrsStore(db);
     const card = srs.createCard('card-japanese-hello');
     expect(card.refId).toBe('card-japanese-hello');
-    expect(card.dueOn).toBe(new Date().toISOString().slice(0, 10));
+    expect(card.dueOn).toBe(localDateKey());
     // AWAIT the review's persist write so the row is durably visible before
     // we read. Phase 25 / P3-2 fix: the previous `setTimeout(5)` race pattern
     // surfaced intermittently on slow CI runners.
@@ -113,6 +128,7 @@ describe('Phase 22 audit — SRS persistence (P0-03 fix)', () => {
     // dueCount reads from the DB — so we assert via Session A's persistence
     // already works. Cold-start is verified by P0-01 test; the SRS persistence
     // surface is verified by createCard+review round-trip.
+    expect(await srsB.dueCount()).toBe(0);
     expect(await srsA.dueCount()).toBeGreaterThanOrEqual(0);
   });
 
@@ -134,11 +150,25 @@ describe('Phase 22 audit — SRS persistence (P0-03 fix)', () => {
   it('in-memory store has the same surface (used on web)', async () => {
     const srs = createInMemorySrsStore();
     const card = srs.createCard('card-x');
+    await srs.setStage(card.id, 'memorized');
     await expect(srs.dueCount()).resolves.toBe(1);
     await srs.review(card.id, 'easy');
     const list = await srs.listCards();
     expect(list).toHaveLength(1);
     expect(list[0].repetitions).toBe(1);
+  });
+
+  it('persists a Daily Rush stage transition', async () => {
+    const db = createFakeSqlite();
+    const srs = createPersistentSrsStore(db);
+    const card = srs.createCard('card-stage-transition');
+    const updated = await srs.setStage(card.id, 'memorized');
+
+    expect(updated.stage).toBe('memorized');
+    await flushMicrotasks();
+    await expect(srs.listCards()).resolves.toEqual([
+      expect.objectContaining({ id: card.id, stage: 'memorized' }),
+    ]);
   });
 
   it('rating "again" resets repetitions to 0', async () => {

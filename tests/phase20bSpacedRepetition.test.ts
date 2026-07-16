@@ -31,10 +31,12 @@ describe('Phase 20B spaced repetition review', () => {
     expect(reviewed.intervalDays).toBeLessThanOrEqual(1);
   });
 
-  it('returns due cards based on today', () => {
+  it('returns only graduated cards that are due today', () => {
     const scheduler = createSpacedRepetitionScheduler();
-    scheduler.createCard('c-1');
-    scheduler.createCard('c-2');
+    const first = scheduler.createCard('c-1');
+    const second = scheduler.createCard('c-2');
+    scheduler.setStage(first.id, 'memorized');
+    scheduler.setStage(second.id, 'memorized');
     const due = scheduler.dueCards();
     expect(due.length).toBe(2);
   });

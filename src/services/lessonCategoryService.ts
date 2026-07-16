@@ -1,4 +1,4 @@
-import { getAllLessons } from './lessonService';
+import { getPhraseLessons } from './lessonService';
 import { getAllAdditionalLessonCategoryContent } from './additionalLessonContentService';
 import { getSurvivalCategories } from './workplaceSurvivalService';
 
@@ -15,7 +15,7 @@ export interface LessonCategoryCard {
 }
 
 export function getLessonCategoryCards(): LessonCategoryCard[] {
-  const lessons = getAllLessons();
+  const lessons = getPhraseLessons();
   const survivalPhraseCount = getSurvivalCategories().reduce((total, category) => total + category.phraseCount, 0);
   const additionalContent = getAllAdditionalLessonCategoryContent();
 

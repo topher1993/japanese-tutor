@@ -6,6 +6,7 @@ import { createLessonNavigator } from '../src/services/lessonNavigatorService';
 import { createPracticeProgressStore } from '../src/services/practiceProgressStore';
 import { createFlashcardDeck, filterFlashcardsByCategory, getFlashcardStudySummary } from '../src/services/flashcardService';
 import { createQuizSession, answerCurrentQuestion, getCurrentQuestion, getQuizSessionProgress } from '../src/services/quizSessionService';
+import { localDateKey } from '../src/services/dailyTodoService';
 
 describe('Phase 4 persistence and practice systems', () => {
   it('persists lessons and progress through a SQLite-style repository', async () => {
@@ -35,7 +36,7 @@ describe('Phase 4 persistence and practice systems', () => {
     const safety = filterFlashcardsByCategory(deck, 'safety');
     expect(safety.every(card => card.category === 'safety')).toBe(true);
     // Phase 25 / P2-1: cards now use todayIso() so query the summary for today.
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateKey();
     const summary = getFlashcardStudySummary(deck, today);
     expect(summary.totalCards).toBe(deck.cards.length);
     expect(summary.dueToday).toBe(deck.cards.length);
@@ -56,8 +57,11 @@ describe('Phase 4 persistence and practice systems', () => {
     await repo.initialize();
     await repo.saveLessons(getAllLessons());
     const store = createPracticeProgressStore(repo);
-    await store.completeCurrentLesson('lesson-workplace-greetings', 2, '2026-06-18');
-    await store.completeCurrentLesson('lesson-safety-stop', 3, '2026-06-19');
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    await store.completeCurrentLesson('lesson-workplace-greetings', 2, localDateKey(yesterday));
+    await store.completeCurrentLesson('lesson-safety-stop', 3, localDateKey(today));
     const dashboard = await store.getDashboard();
     expect(dashboard.completedLessons).toBe(2);
     expect(dashboard.currentStreak).toBe(2);

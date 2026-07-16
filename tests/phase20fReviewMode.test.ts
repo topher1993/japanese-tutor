@@ -27,7 +27,7 @@ describe('Phase 20F review mode', () => {
 
   it('produces 0% score when all wrong', () => {
     const session = buildReviewSession();
-    const responses = session.items.map((it, idx) => (it.correctIndex + 1) % 4);
+    const responses = session.items.map((it) => (it.correctIndex + 1) % 4);
     const result = session.score(responses);
     expect(result.correctCount).toBe(0);
     expect(result.percent).toBe(0);

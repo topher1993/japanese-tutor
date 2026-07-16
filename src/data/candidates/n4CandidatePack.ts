@@ -2,6 +2,7 @@ export type N4ReviewStatus = 'candidate' | 'sensei-review-needed' | 'approved-fo
 
 export interface N4Source {
   id: string;
+  sourceId?: string;
   license: string;
 }
 
@@ -29,9 +30,13 @@ export interface N4KanjiCandidateEntry {
 
 import { n4VocabularyCandidateData } from './n4VocabularyCandidateData';
 import { n4KanjiCandidateData } from './n4KanjiCandidateData';
+import { getVerbVocabularyCandidatePack } from './verbVocabularyCandidatePack';
 
 export function getN4VocabularyCandidatePack(): N4VocabularyCandidateEntry[] {
-  return n4VocabularyCandidateData;
+  return [
+    ...n4VocabularyCandidateData,
+    ...getVerbVocabularyCandidatePack('N4'),
+  ];
 }
 
 export function getN4KanjiCandidatePack(): N4KanjiCandidateEntry[] {

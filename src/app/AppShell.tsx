@@ -16,6 +16,7 @@ import { StyleSheet } from 'react-native';
 
 import { ds } from '../theme/designSystem';
 import { appSafeAreaEdges, createAppShellPadding } from '../services/appSafeAreaLayoutService';
+import { getResponsiveLayout } from '../services/responsiveLayoutService';
 
 export function AppShell({
   children,
@@ -26,9 +27,9 @@ export function AppShell({
 }) {
   // Phase 22 audit fix P1-05: only cap width on tablet/foldable breakpoints.
   // On phones (the actual target device), use full width.
-  const { width: windowWidth } = useWindowDimensions();
-  const isTabletOrFoldable = windowWidth >= 600;
-  const shellMaxWidth = maxWidth ?? (isTabletOrFoldable ? 480 : undefined);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { isTablet, isTabletLandscape } = getResponsiveLayout(windowWidth, windowHeight);
+  const shellMaxWidth = maxWidth ?? (isTablet && !isTabletLandscape ? 480 : undefined);
 
   const containerStyle = shellMaxWidth
     ? [styles.app, styles.safeAreaPadding, { maxWidth: shellMaxWidth, alignSelf: 'center' as const }]

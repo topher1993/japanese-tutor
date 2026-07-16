@@ -32,7 +32,7 @@ describe('Phase 33 helper language translations across learner lessons', () => {
   });
 
   it('candidate flashcards never surface pending helper-language placeholders through the app path', async () => {
-    const cards = await buildCandidateFlashcardCards();
+    const cards = await buildCandidateFlashcardCards('N4');
     const surfacedPending = cards
       .flatMap(card => [
         getSupportTranslation(card, 'vi'),
@@ -46,7 +46,7 @@ describe('Phase 33 helper language translations across learner lessons', () => {
   });
 
   it('candidate N4 flashcards with missing helper translations fall back with the English label', async () => {
-    const n4Card = (await buildCandidateFlashcardCards()).find(card => card.lessonId === 'candidate-n4');
+    const n4Card = (await buildCandidateFlashcardCards('N4')).find(card => card.lessonId === 'candidate-n4');
     expect(n4Card).toBeDefined();
     if (!n4Card) return;
 

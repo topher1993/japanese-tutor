@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   clearAllReviewDecisions,
@@ -48,16 +48,37 @@ export function SenseiReviewScreen({ onBack }: Props) {
   const [editVietnamese, setEditVietnamese] = useState('');
   const [editFilipino, setEditFilipino] = useState('');
   const [toast, setToast] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+  const actionBusyRef = useRef(false);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function refresh() {
     setLoading(true);
-    const [all, prog] = await Promise.all([getAllReviewablePhrases(), getReviewProgress()]);
-    setPhrases(all);
-    setProgress(prog);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const [all, prog] = await Promise.all([getAllReviewablePhrases(), getReviewProgress()]);
+      if (!mountedRef.current) return;
+      setPhrases(all);
+      setProgress(prog);
+    } catch {
+      if (mountedRef.current) setLoadError('Could not load the review queue. Please retry.');
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
   }
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    void refresh();
+    return () => {
+      mountedRef.current = false;
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     return phrases.filter(p => {
@@ -78,30 +99,53 @@ export function SenseiReviewScreen({ onBack }: Props) {
 
   function showToast(msg: string) {
     setToast(msg);
-    setTimeout(() => setToast(null), 1800);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      if (mountedRef.current) setToast(null);
+      toastTimerRef.current = null;
+    }, 1800);
+  }
+
+  async function runReviewAction(work: () => Promise<void>) {
+    if (actionBusyRef.current) return;
+    actionBusyRef.current = true;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await work();
+    } catch {
+      if (mountedRef.current) setActionError('That review change could not be saved. Please retry.');
+    } finally {
+      actionBusyRef.current = false;
+      if (mountedRef.current) setActionBusy(false);
+    }
   }
 
   async function handleApprove() {
     if (!active) return;
-    await recordReviewDecision(active.key, {
-      status: 'approved',
-      editedEnglish: editEnglish !== active.english ? editEnglish : undefined,
-      editedVietnamese: editVietnamese !== active.vietnamese ? editVietnamese : undefined,
-      editedFilipino: editFilipino !== active.filipino ? editFilipino : undefined,
-      decidedAt: new Date().toISOString(),
+    await runReviewAction(async () => {
+      await recordReviewDecision(active.key, {
+        status: 'approved',
+        editedEnglish: editEnglish !== active.english ? editEnglish : undefined,
+        editedVietnamese: editVietnamese !== active.vietnamese ? editVietnamese : undefined,
+        editedFilipino: editFilipino !== active.filipino ? editFilipino : undefined,
+        decidedAt: new Date().toISOString(),
+      });
+      showToast('✅ Approved');
+      setEditing(false);
+      await refresh();
+      if (activeIndex >= filtered.length - 1) setActiveIndex(0);
     });
-    showToast('✅ Approved');
-    setEditing(false);
-    await refresh();
-    if (activeIndex >= filtered.length - 1) setActiveIndex(0);
   }
 
   async function handleReject() {
     if (!active) return;
-    await clearReviewDecision(active.key);
-    showToast('↩ Reset to draft');
-    setEditing(false);
-    await refresh();
+    await runReviewAction(async () => {
+      await clearReviewDecision(active.key);
+      showToast('↩ Reset to draft');
+      setEditing(false);
+      await refresh();
+    });
   }
 
   async function handleNext() {
@@ -118,23 +162,27 @@ export function SenseiReviewScreen({ onBack }: Props) {
 
   async function handleSaveEdits() {
     if (!active) return;
-    await recordReviewDecision(active.key, {
-      status: active.effectiveStatus,
-      editedEnglish: editEnglish !== active.english ? editEnglish : undefined,
-      editedVietnamese: editVietnamese !== active.vietnamese ? editVietnamese : undefined,
-      editedFilipino: editFilipino !== active.filipino ? editFilipino : undefined,
-      decidedAt: new Date().toISOString(),
+    await runReviewAction(async () => {
+      await recordReviewDecision(active.key, {
+        status: active.effectiveStatus,
+        editedEnglish: editEnglish !== active.english ? editEnglish : undefined,
+        editedVietnamese: editVietnamese !== active.vietnamese ? editVietnamese : undefined,
+        editedFilipino: editFilipino !== active.filipino ? editFilipino : undefined,
+        decidedAt: new Date().toISOString(),
+      });
+      showToast('💾 Saved edits');
+      setEditing(false);
+      await refresh();
     });
-    showToast('💾 Saved edits');
-    setEditing(false);
-    await refresh();
   }
 
   async function handleResetAll() {
-    await clearAllReviewDecisions();
-    showToast('🔄 All overrides cleared');
-    await refresh();
-    setActiveIndex(0);
+    await runReviewAction(async () => {
+      await clearAllReviewDecisions();
+      showToast('🔄 All overrides cleared');
+      await refresh();
+      setActiveIndex(0);
+    });
   }
 
   if (loading) {
@@ -142,6 +190,19 @@ export function SenseiReviewScreen({ onBack }: Props) {
       <ScreenScaffold>
         <ScreenHeader title="Sensei Review" onBack={onBack} />
         <Text style={styles.muted}>Loading phrases…</Text>
+      </ScreenScaffold>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ScreenScaffold>
+        <ScreenHeader title="Sensei Review" onBack={onBack} />
+        <Card tone="danger" shadow="card">
+          <Text style={styles.emptyTitle}>Review queue unavailable</Text>
+          <Text style={styles.emptyBody}>{loadError}</Text>
+          <Button label="Retry" onPress={() => { void refresh(); }} variant="primary" />
+        </Card>
       </ScreenScaffold>
     );
   }
@@ -179,6 +240,7 @@ export function SenseiReviewScreen({ onBack }: Props) {
           <Text style={styles.fieldLabel}>EN</Text>
           {editing ? (
             <TextInput
+              accessibilityLabel="English translation"
               style={styles.input}
               value={editEnglish}
               onChangeText={setEditEnglish}
@@ -194,6 +256,7 @@ export function SenseiReviewScreen({ onBack }: Props) {
           <Text style={styles.fieldLabel}>VI</Text>
           {editing ? (
             <TextInput
+              accessibilityLabel="Vietnamese translation"
               style={styles.input}
               value={editVietnamese}
               onChangeText={setEditVietnamese}
@@ -209,6 +272,7 @@ export function SenseiReviewScreen({ onBack }: Props) {
           <Text style={styles.fieldLabel}>TL</Text>
           {editing ? (
             <TextInput
+              accessibilityLabel="Filipino translation"
               style={styles.input}
               value={editFilipino}
               onChangeText={setEditFilipino}
@@ -228,22 +292,24 @@ export function SenseiReviewScreen({ onBack }: Props) {
               setEditFilipino(active.overrides.filipino ?? active.filipino);
               setEditing(false);
             }} variant="soft" />
-            <Button label="Save edits" onPress={handleSaveEdits} variant="primary" testID="review-save-edits" />
+            <Button label="Save edits" onPress={handleSaveEdits} variant="primary" testID="review-save-edits" disabled={actionBusy} />
           </View>
         ) : (
           <View style={styles.actionRow}>
-            <Button label="Reset" onPress={handleReject} variant="ghost" />
+            <Button label="Reset" onPress={handleReject} variant="ghost" disabled={actionBusy} />
             <Button label="Edit" onPress={() => setEditing(true)} variant="soft" />
-            <Button label="Approve ✓" onPress={handleApprove} variant="primary" testID="review-approve" />
+            <Button label="Approve ✓" onPress={handleApprove} variant="primary" testID="review-approve" disabled={actionBusy} />
           </View>
         )}
+
+        {actionError ? <Text style={styles.actionError} accessibilityLiveRegion="assertive">{actionError}</Text> : null}
 
         <View style={styles.navRow}>
           <Button label="← Prev" onPress={handlePrev} variant="soft" />
           <Button label="Skip →" onPress={handleNext} variant="soft" />
         </View>
 
-        {toast ? <View style={styles.toast}><Text style={styles.toastText}>{toast}</Text></View> : null}
+        {toast ? <View style={styles.toast} accessibilityLiveRegion="polite"><Text style={styles.toastText}>{toast}</Text></View> : null}
       </ScreenScaffold>
     );
   }
@@ -267,7 +333,8 @@ export function SenseiReviewScreen({ onBack }: Props) {
           <Text style={styles.statLabel}>Overrides saved locally</Text>
           <Text style={styles.statValue}>{progress?.overrides ?? 0}</Text>
         </Card>
-        <Button label="Reset all overrides" onPress={handleResetAll} variant="danger" testID="review-reset-all" />
+        <Button label="Reset all overrides" onPress={handleResetAll} variant="danger" testID="review-reset-all" disabled={actionBusy} />
+        {actionError ? <Text style={styles.actionError} accessibilityLiveRegion="assertive">{actionError}</Text> : null}
       </ScreenScaffold>
     );
   }
@@ -287,7 +354,7 @@ export function SenseiReviewScreen({ onBack }: Props) {
         <Button label="Progress" onPress={() => setMode('progress')} variant="soft" />
       </View>
 
-      <Disclosure title="Filters" icon="settings" open={false} onToggle={() => {}}>
+      <Disclosure title="Filters" icon="settings" open={showFilters} onToggle={() => setShowFilters(value => !value)}>
         <View style={styles.filterRow}>
           <Chip label="All sources" selected={sourceFilter === 'all'} onPress={() => setSourceFilter('all')} />
           <Chip label="Lessons" selected={sourceFilter === 'sensei-lesson'} onPress={() => setSourceFilter('sensei-lesson')} />
@@ -302,6 +369,8 @@ export function SenseiReviewScreen({ onBack }: Props) {
       {filtered.slice(0, 50).map((p, idx) => (
         <Pressable
           key={p.key}
+          accessibilityRole="button"
+          accessibilityLabel={`Review ${p.japanese}, ${p.romaji}, from ${p.sourceLabel}`}
           onPress={() => { setActiveIndex(idx); setMode('review'); }}
           style={({ pressed }) => [styles.listRow, { opacity: pressed ? 0.85 : 1 }]}
           testID={`review-row-${idx}`}
@@ -328,7 +397,7 @@ export function SenseiReviewScreen({ onBack }: Props) {
         </View>
       ) : null}
 
-      {toast ? <View style={styles.toast}><Text style={styles.toastText}>{toast}</Text></View> : null}
+      {toast ? <View style={styles.toast} accessibilityLiveRegion="polite"><Text style={styles.toastText}>{toast}</Text></View> : null}
     </ScreenScaffold>
   );
 }
@@ -357,6 +426,7 @@ const styles = StyleSheet.create({
     borderRadius: ds.radius.md, alignItems: 'center',
   },
   toastText: { color: ds.colors.surface, fontWeight: '900', fontSize: ds.type.caption },
+  actionError: { color: ds.colors.danger, fontSize: ds.type.caption, lineHeight: 18, textAlign: 'center' },
 
   heroTitle: { fontSize: ds.type.title, fontWeight: '900', color: ds.colors.brandInk, flexShrink: 1 },
   heroMeta: { fontSize: ds.type.caption, fontWeight: '800', color: ds.colors.brandInk, opacity: 0.85, marginTop: ds.spacing.xs },

@@ -2,9 +2,13 @@ import type { OnboardingPreference } from './onboardingPreferenceService';
 import { getOnboardingStorageKey } from './onboardingPreferenceService';
 import type { AsyncKeyValueStorage } from './keyValueStorage';
 import { createInitialProgress } from './progressService';
-import type { DailyRushProfileStats, UserProfile, UserProfilePatch, WorkplaceProfile } from '../types/userProfile';
+import type { DailyRushProfileStats, PlacementProfile, UserProfile, UserProfilePatch, WorkplaceProfile } from '../types/userProfile';
+import type { PlacementLevel } from './placementTestService';
 import type { LearnerLanguage } from '../types/onboarding';
 import type { UserProfileRepository } from '../repositories/userProfileRepository';
+import { localDateKey } from '../utils/localDate';
+
+type ProfileLegacyStorage = Pick<AsyncKeyValueStorage, 'getItem' | 'setItem' | 'removeItem'>;
 
 export const CURRENT_PROFILE_SCHEMA_VERSION = 1;
 export const USER_PROFILE_MIGRATIONS: Array<(profile: unknown) => unknown> = [];
@@ -64,6 +68,20 @@ function normalizeLanguage(value: unknown): LearnerLanguage {
   return value === 'vi' || value === 'tl' || value === 'en' ? value : 'en';
 }
 
+function normalizePlacement(placement: PlacementProfile | null | undefined): PlacementProfile | undefined {
+  if (!placement) return undefined;
+  const validLevels: PlacementLevel[] = ['absolute-beginner', 'N5', 'N4', 'N3', 'N3-or-above'];
+  if (!validLevels.includes(placement.level)) return undefined;
+  return {
+    level: placement.level,
+    scorePercent: Math.max(0, Math.min(100, Number(placement.scorePercent) || 0)),
+    completedAt: typeof placement.completedAt === 'string' ? placement.completedAt : nowIso(),
+    testVersion: typeof placement.testVersion === 'string' && placement.testVersion.length > 0
+      ? placement.testVersion
+      : 'v1',
+  };
+}
+
 type UserProfileSeed = Partial<Omit<UserProfile, 'static' | 'dynamic' | 'meta'>> & {
   static?: Partial<UserProfile['static']>;
   dynamic?: Partial<UserProfile['dynamic']>;
@@ -80,10 +98,11 @@ export function createDefaultUserProfile(overrides: UserProfileSeed = {}): UserP
       workplace: null,
       jlptTarget: 'N5',
       dailyStudyMinutes: DEFAULT_DAILY_MINUTES,
+      audioStudyDelayMs: 800,
     },
     dynamic: {
       xp: 0,
-      streak: createInitialProgress('2026-06-18').streak,
+      streak: createInitialProgress(localDateKey()).streak,
       dailyRush: normalizeDailyRushStats(null),
     },
     meta: {
@@ -121,6 +140,9 @@ function normalizeProfile(profile: UserProfile): UserProfile {
   const dailyStudyMinutes = ([2, 5, 10, 15, 30] as const).includes(profile.static.dailyStudyMinutes)
     ? profile.static.dailyStudyMinutes
     : DEFAULT_DAILY_MINUTES;
+  const audioStudyDelayMs = ([600, 800, 1200, 1600] as const).includes(profile.static.audioStudyDelayMs)
+    ? profile.static.audioStudyDelayMs
+    : 800;
   const supportLanguage = normalizeLanguage(profile.static.supportLanguage);
   const studyGoal = profile.static.studyGoal ?? 'daily-conversation';
   const workplace = normalizeWorkplace(profile.static.workplace);
@@ -133,12 +155,15 @@ function normalizeProfile(profile: UserProfile): UserProfile {
       workplace: studyGoal === 'workplace-survival' ? workplace ?? { industry: '', role: '', commonSituations: [] } : null,
       jlptTarget: profile.static.jlptTarget ?? 'N5',
       dailyStudyMinutes,
+      audioStudyDelayMs,
     },
     dynamic: {
       xp: Math.max(0, Number(profile.dynamic.xp) || 0),
-      streak: profile.dynamic.streak ?? createInitialProgress('2026-06-18').streak,
+      streak: profile.dynamic.streak ?? createInitialProgress(localDateKey()).streak,
       dailyRush: normalizeDailyRushStats(profile.dynamic.dailyRush),
       lastStudyActivityAt: profile.dynamic.lastStudyActivityAt,
+      placement: normalizePlacement(profile.dynamic.placement),
+      placementPromptDismissed: profile.dynamic.placementPromptDismissed === true,
     },
     meta: {
       schemaVersion: CURRENT_PROFILE_SCHEMA_VERSION,
@@ -172,8 +197,19 @@ function mergeProfile(profile: UserProfile, patch: UserProfilePatch): UserProfil
  */
 export function createUserProfileService(
   repository: UserProfileRepository,
-  legacyPreferences?: AsyncKeyValueStorage | null,
+  legacyPreferences?: ProfileLegacyStorage | null,
 ): UserProfileService {
+  // Profile controls save immediately. Serialize mutations so two quick taps
+  // cannot both read the same old row and make the later write erase the
+  // earlier preference change. Keep the chain usable after a failed write.
+  let mutationChain: Promise<void> = Promise.resolve();
+
+  function enqueueMutation<T>(work: () => Promise<T>): Promise<T> {
+    const result = mutationChain.then(work);
+    mutationChain = result.then(() => undefined, () => undefined);
+    return result;
+  }
+
   async function loadLegacyPreference(): Promise<OnboardingPreference | null> {
     if (!legacyPreferences) return null;
     const raw = await legacyPreferences.getItem(getOnboardingStorageKey());
@@ -186,32 +222,52 @@ export function createUserProfileService(
     }
   }
 
+  async function loadProfile(): Promise<UserProfile> {
+    await repository.initialize();
+    const existing = await repository.load();
+    const legacy = await loadLegacyPreference();
+    if (existing) {
+      const normalized = normalizeProfile(existing);
+      if (!legacy) return normalized;
+
+      // Older app builds could create a default profile and then persist
+      // onboarding separately. Reconcile that split-brain state once before
+      // deleting the legacy key, otherwise an already-onboarded learner is
+      // sent through onboarding again after upgrading.
+      const reconciled = legacy.onboarded
+        ? await repository.save(mergeProfile(normalized, {
+          onboarded: true,
+          static: { supportLanguage: legacy.language },
+        }))
+        : normalized;
+      await legacyPreferences?.removeItem(getOnboardingStorageKey());
+      return reconciled;
+    }
+
+    if (legacy) {
+      const migrated = await repository.save(profileFromLegacyOnboarding(legacy));
+      // Legacy kv_preferences row deleted post-migration; rerun triggers no-op.
+      await legacyPreferences?.removeItem(getOnboardingStorageKey());
+      return migrated;
+    }
+
+    const created = createDefaultUserProfile();
+    return repository.save(created);
+  }
+
   return {
-    async load() {
-      await repository.initialize();
-      const existing = await repository.load();
-      if (existing) return normalizeProfile(existing);
-
-      const legacy = await loadLegacyPreference();
-      if (legacy) {
-        const migrated = await repository.save(profileFromLegacyOnboarding(legacy));
-        // Legacy kv_preferences row deleted post-migration; rerun triggers no-op.
-        await legacyPreferences?.removeItem(getOnboardingStorageKey());
-        return migrated;
-      }
-
-      const created = createDefaultUserProfile();
-      return repository.save(created);
-    },
-    async update(patch) {
-      const current = await this.load();
-      return repository.save(mergeProfile(current, patch));
+    load: loadProfile,
+    update(patch) {
+      return enqueueMutation(async () => {
+        const current = await loadProfile();
+        return repository.save(mergeProfile(current, patch));
+      });
     },
     async editPreferences(patch) {
       return this.update({ static: patch });
     },
-    async clear() {
-      return repository.clear();
+    clear() {
+      return enqueueMutation(() => repository.clear());
     },
   };
 }

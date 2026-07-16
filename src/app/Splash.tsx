@@ -4,7 +4,6 @@
 // preference load completing. After Phase 22's P0-01 fix this window is
 // much shorter, but we still want a placeholder so the user sees something.
 
-import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ds } from '../theme/designSystem';

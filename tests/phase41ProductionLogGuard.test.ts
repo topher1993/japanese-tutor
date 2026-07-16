@@ -74,9 +74,11 @@ describe('Phase 41 — production log guard', () => {
       { file: 'src/services/onboardingPreferenceService.ts', needle: "[onboarding] failed to save preference" },
       { file: 'src/screens/DailyRushScreen.tsx', needle: "[daily-rush] failed to record flashcard review" },
       { file: 'src/screens/DailyRushScreen.tsx', needle: "[daily-rush] failed to record todo completion" },
-      { file: 'src/screens/ExampleSentencesScreen.tsx', needle: "[example-sentences] failed to record view" },
-      { file: 'src/screens/FlashcardsScreen.tsx', needle: "[FlashcardsScreen] failed to record flashcard review" },
-      { file: 'src/screens/FlashcardsScreen.tsx', needle: "[FlashcardsScreen] srs.review failed" },
+      { file: 'src/screens/ExampleSentencesScreen.tsx', needle: "[example-sentences] failed to record study" },
+            { file: 'src/screens/FlashcardsScreen.tsx', needle: "[FlashcardsScreen] failed to record flashcard review" },
+            { file: 'src/screens/FlashcardsScreen.tsx', needle: "[FlashcardsScreen] markGoodAndAdvance srs.review failed" },
+            // Phase 51: long-press "didn't know it" path warns under a different needle.
+            { file: 'src/screens/FlashcardsScreen.tsx', needle: "[FlashcardsScreen] card_skipped srs.review failed" },
       { file: 'src/screens/QuizScreen.tsx', needle: "[quiz] failed to record todo completion" },
     ];
     for (const { file, needle } of expectedPatterns) {

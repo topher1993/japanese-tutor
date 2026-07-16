@@ -14,8 +14,6 @@ type ProgressRow = {
   weekly_review_completions: string;
 };
 
-type ColumnRow = { name: string };
-
 /**
  * Simulates a fresh install (post-Phase 37): CREATE TABLE IF NOT EXISTS has
  * already created the 9-column progress table. The test asserts that

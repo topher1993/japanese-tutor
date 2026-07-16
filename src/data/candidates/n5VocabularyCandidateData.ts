@@ -1,7 +1,6 @@
 import type { VocabularyCandidateEntry } from './n5VocabularyCandidatePack';
 
 const SOURCE_JMDICT = { id: 'jmdict-edrdg', license: 'CC BY-SA 4.0' } as const;
-const SOURCE_KANJIDIC = { id: 'kanjidic2-edrdg', license: 'CC BY-SA 4.0' } as const;
 const REVIEW = 'approved-for-beta' as const;
 const PENDING_VI = '(pending vi review)';
 const PENDING_TL = '(pending tl review)';

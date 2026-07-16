@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { getPriorityEmergencyPhrases, getSurvivalCategories, getSurvivalTopicDetail } from '../services/workplaceSurvivalService';
 import { getSecondaryTranslations, getSupportLanguageDisplayName, getSupportTranslation } from '../services/supportLanguageService';
@@ -11,6 +11,8 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { TranslationStatusBadge } from '../components/TranslationStatusBadge';
 import { JishoLink } from '../components/JishoLink';
 import { ds } from '../theme/designSystem';
+import { Button } from '../components/Button';
+import { markShadowingAttempt, speakJapanese } from '../services/speechPracticeService';
 
 export function WorkplaceSurvivalScreen({ supportLanguage = 'en' }: { supportLanguage?: LearnerLanguage }) {
   const [selected, setSelected] = useState<SurvivalCategoryId | undefined>();
@@ -46,6 +48,10 @@ export function WorkplaceSurvivalScreen({ supportLanguage = 'en' }: { supportLan
                 <Text key={translation.label} style={styles.line}>{translation.label}: {translation.text}</Text>
               ))}
               <Text style={styles.note}>{phrase.usageNote}</Text>
+              <View style={styles.actions}>
+                <Button label="Listen" variant="soft" icon="play" accessibilityLabel={`Listen to the reading ${phrase.romaji}`} onPress={() => speakJapanese(phrase.romaji)} />
+                <Button label="Practice aloud" variant="soft" icon="chat" accessibilityLabel={`Practice saying ${phrase.romaji} aloud`} onPress={() => { markShadowingAttempt(phrase.romaji); speakJapanese(phrase.romaji, 0.72); }} />
+              </View>
             </Card>
           );
         })}
@@ -115,6 +121,7 @@ const styles = StyleSheet.create({
   line: { fontSize: ds.type.body, lineHeight: 22, color: ds.colors.text, marginTop: ds.spacing.xs, flexShrink: 1 },
   bold: { fontSize: ds.type.body, fontWeight: '800', marginTop: ds.spacing.xs, lineHeight: 22, color: ds.colors.text, flexShrink: 1 },
   note: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.sm, lineHeight: 22, flexShrink: 1 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.sm, marginTop: ds.spacing.md },
   divider: { height: 1, backgroundColor: ds.colors.divider, marginVertical: ds.spacing.sm },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: ds.spacing.md, paddingVertical: ds.spacing.xl },
   emptyTitle: { fontSize: ds.type.title, fontWeight: '900', color: ds.colors.text, textAlign: 'center' },

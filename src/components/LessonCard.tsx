@@ -1,4 +1,3 @@
-import React from 'react';
 import { Text, View, StyleSheet } from 'react-native';
 import type { SenseiLesson } from '../types/lesson';
 import { ds } from '../theme/designSystem';

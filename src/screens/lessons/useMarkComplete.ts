@@ -39,15 +39,18 @@ import {
 import { isTodoFeatureEnabled } from '../../services/practiceProgressStore';
 import { getAllWeekPlans } from '../../services/weeklyPlansService';
 import type { SenseiLesson } from '../../types/lesson';
+import type { LearnerProgress } from '../../types/progress';
+import type { TodoTrack } from '../../types/weeklyTodo';
 // Phase 44.2: analytics — fires attempt / success / failure events so
 // we can measure the mark-complete funnel. The track() call is a no-op
 // in test mode, so production instrumentation can land without
 // breaking existing tests.
 import { track } from '../../services/analyticsService';
+import { localDateKey } from '../../services/dailyTodoService';
 
 type SqliteLearningRepositoryLike = {
   completeCurrentLesson(lessonId: string, score: number, completedAt: string): Promise<void>;
-  getProgress(): Promise<unknown>;
+  getProgress(): Promise<LearnerProgress>;
   getExtendedProgress(): {
     todoStates: Record<string, unknown>;
     weekTodosInitialized: Record<number, boolean>;
@@ -59,8 +62,9 @@ export interface UseMarkCompleteParams {
   selectedLesson: SenseiLesson | null | undefined;
   store: SqliteLearningRepositoryLike | null;
   lessons: SenseiLesson[];
-  setProgress: (progress: unknown) => void;
+  setProgress: (progress: LearnerProgress) => void;
   setSelected: (id: string | undefined) => void;
+  todoTrack?: TodoTrack;
 }
 
 export interface UseMarkCompleteResult {
@@ -74,6 +78,7 @@ export function useMarkComplete({
   lessons,
   setProgress,
   setSelected,
+  todoTrack = 'all',
 }: UseMarkCompleteParams): UseMarkCompleteResult {
   const [markInFlight, setMarkInFlight] = useState(false);
 
@@ -116,7 +121,7 @@ export function useMarkComplete({
       await store.completeCurrentLesson(
         lesson.id,
         100,
-        new Date().toISOString().slice(0, 10),
+        localDateKey(),
       );
       // Phase 30b: always re-read progress and fire the completion toast,
       // even when there is no next lesson. The previous shape
@@ -132,9 +137,13 @@ export function useMarkComplete({
         lessonId: lesson.id,
         week: lessonWeek,
       });
+      const visibleLessonIds = new Set(lessons.map(item => item.id));
+      const completedInTrack = new Set(
+        refreshed.completedLessonIds.filter(id => visibleLessonIds.has(id)),
+      ).size;
       notifyLessonCompleted({
         message: `✓ ${lesson.title}`,
-        detail: `${(refreshed as { completedLessonIds: string[] }).completedLessonIds.length} of ${lessons.length} lessons done total.`,
+        detail: `${completedInTrack} of ${lessons.length} lessons done in this track.`,
       });
       // Use a fresh navigator closure over the freshly-set `selected`
       // to avoid capturing a stale snapshot.
@@ -146,10 +155,11 @@ export function useMarkComplete({
           todoStates: nextExtended.todoStates as TodoPayload['todoStates'],
           weekTodosInitialized: nextExtended.weekTodosInitialized,
           todoEventCounts: nextExtended.todoEventCounts as TodoPayload['todoEventCounts'],
-          completedLessonIds: (refreshed as { completedLessonIds: string[] }).completedLessonIds,
+          completedLessonIds: refreshed.completedLessonIds,
         };
-        const nextTodoBoards = buildAllTodoBoards(getAllWeekPlans(), nextTodoPayload, 'all', next.week);
-        const nextLessonUnlockedByTodos = !isTodoFeatureEnabled()
+        const nextTodoBoards = buildAllTodoBoards(getAllWeekPlans(todoTrack), nextTodoPayload, 'all', next.week, todoTrack);
+        const nextLessonUnlockedByTodos = todoTrack === 'grammar'
+          || !isTodoFeatureEnabled()
           || next.week === lesson.week
           || isWeekUnlocked(next.week, nextTodoBoards, nextTodoPayload);
         if (nextLessonUnlockedByTodos) {
@@ -190,7 +200,7 @@ export function useMarkComplete({
     // sees fresh values; other closures (`lessons`, `setProgress`,
     // `setSelected`) are stable or derived inside the closure body.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLesson, store, lessons, setProgress, setSelected]);
+  }, [selectedLesson, store, lessons, setProgress, setSelected, todoTrack]);
 
   return { markComplete, markInFlight };
 }

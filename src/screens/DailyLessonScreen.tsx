@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -7,10 +7,12 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { getDailyLesson } from '../services/lessonService';
 import { notifyLessonCompleted } from '../components/CompletionToast';
 import { useLearningContext } from '../services/learningContext';
+import { useUserProfileContext } from '../services/userProfileContext';
 import { getVisibleTranslations } from '../services/supportLanguageService';
 import type { LearnerLanguage } from '../types/onboarding';
 import type { LearnerProgress } from '../types/progress';
 import { ds } from '../theme/designSystem';
+import { localDateKey } from '../services/dailyTodoService';
 
 /**
  * Phase 30 — Daily lesson screen with progress visibility.
@@ -27,6 +29,7 @@ import { ds } from '../theme/designSystem';
  */
 export function DailyLessonScreen({ supportLanguage = 'en' }: { supportLanguage?: LearnerLanguage }) {
   const { ready, store } = useLearningContext();
+  const { profile } = useUserProfileContext();
   const [progress, setProgress] = useState<LearnerProgress | null>(null);
   useEffect(() => {
     if (!ready || !store) return;
@@ -36,7 +39,7 @@ export function DailyLessonScreen({ supportLanguage = 'en' }: { supportLanguage?
       .catch(() => undefined);
     return () => { cancelled = true; };
   }, [ready, store]);
-  const view = getDailyLesson(progress ?? undefined);
+  const view = getDailyLesson(progress ?? undefined, profile?.dynamic.placement?.level);
   const lesson = view.lesson;
 
   return (
@@ -58,11 +61,12 @@ export function DailyLessonScreen({ supportLanguage = 'en' }: { supportLanguage?
           ) : null}
         </Card>
         {lesson.items.map(item => {
-          const translations = getVisibleTranslations(item, supportLanguage);
+          const vocabulary = item.vocabulary;
+          const translations = getVisibleTranslations(vocabulary ?? item, supportLanguage);
           return (
             <Card key={item.id} shadow="card">
-              <Text style={styles.jp}>{item.japanese}</Text>
-              <Text style={styles.romaji}>{item.romaji}</Text>
+              <Text style={styles.jp}>{vocabulary?.japanese ?? item.japanese}</Text>
+              <Text style={styles.romaji}>{vocabulary?.romaji ?? item.romaji}</Text>
               <View style={styles.divider} />
               {translations.map(translation => (
                 <Text
@@ -72,7 +76,7 @@ export function DailyLessonScreen({ supportLanguage = 'en' }: { supportLanguage?
                   {translation.label}: {translation.text}
                 </Text>
               ))}
-              <Text style={styles.example}>{item.exampleJapanese} — {item.exampleEnglish}</Text>
+              <Text style={styles.example}>{vocabulary?.examples?.[0]?.japanese ?? item.exampleJapanese} — {vocabulary?.examples?.[0]?.en ?? item.exampleEnglish}</Text>
             </Card>
           );
         })}
@@ -80,11 +84,11 @@ export function DailyLessonScreen({ supportLanguage = 'en' }: { supportLanguage?
           label={view.isCourseComplete ? 'Restart course' : `Mark "${lesson.title}" complete`}
           variant="primary"
           iconRight="check"
-          disabled={view.isCourseComplete && (progress?.completedLessonIds.length ?? 0) >= 18}
+          disabled={view.isCourseComplete && (progress?.completedLessonIds.length ?? 0) >= view.lessonsTotalThisWeek}
           onPress={async () => {
             if (ready && store) {
               try {
-                await store.completeCurrentLesson(lesson.id, 100, new Date().toISOString().slice(0, 10));
+                await store.completeCurrentLesson(lesson.id, 100, localDateKey());
                 const refreshed = await store.getProgress();
                 setProgress(refreshed);
                 notifyLessonCompleted({

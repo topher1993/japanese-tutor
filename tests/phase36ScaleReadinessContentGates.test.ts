@@ -8,6 +8,8 @@ import { getQuickQuiz } from '../src/services/quizService';
 import { buildReviewSession } from '../src/services/reviewModeService';
 import { buildKanjiSection, mergeKanjiCardPool } from '../src/services/kanjiSectionService';
 import { buildCandidateKanjiSection } from '../src/services/candidateKanjiAdapter';
+import { getCandidateQuizCounts } from '../src/services/candidateQuizAdapter';
+import { getQuizQuestionCandidatePack } from '../src/data/candidates/quizQuestionCandidatePack';
 import { getVisibleTranslations, getSupportTranslation } from '../src/services/supportLanguageService';
 
 const pendingPattern = /pending|review needed|todo|tbd|placeholder/i;
@@ -55,7 +57,7 @@ describe('Phase 36 scale readiness — learner content quality gates', () => {
 
   it('Flashcards and Daily Rush pools keep unique ids and learner-safe visible helper text', async () => {
     const baseDeck = createFlashcardDeck(getAllLessons());
-    const candidateCards = await buildCandidateFlashcardCards();
+    const candidateCards = await buildCandidateFlashcardCards('N3');
     const fullDeck = { ...baseDeck, cards: [...baseDeck.cards, ...candidateCards] };
     expect(fullDeck.cards.length).toBeGreaterThan(1500);
     expectUniqueIds(fullDeck.cards.map(card => card.id), 'flashcard');
@@ -97,6 +99,27 @@ describe('Phase 36 scale readiness — learner content quality gates', () => {
       expect(new Set(item.choices.map(choice => choice.trim().toLowerCase())).size, `${item.id} unique choices`).toBe(item.choices.length);
       expect(item.correctIndex, `${item.id} correctIndex lower`).toBeGreaterThanOrEqual(0);
       expect(item.correctIndex, `${item.id} correctIndex upper`).toBeLessThan(item.choices.length);
+    }
+  });
+
+  it('every approved quiz candidate is eligible for the runtime quiz pool', () => {
+    const approved = getQuizQuestionCandidatePack()
+      .filter(question => question.reviewStatus === 'approved-for-beta');
+
+    expect(approved).toHaveLength(351);
+    expect(getCandidateQuizCounts().total).toBe(approved.length);
+    expect(getQuickQuiz().questions).toHaveLength(366);
+    for (const question of approved) {
+      const choices = question.choices.slice(0, 4);
+      expect(choices, `${question.id} choice count`).toHaveLength(4);
+      expect(
+        new Set(choices.map(choice => choice.text.trim().toLowerCase())).size,
+        `${question.id} unique choices`,
+      ).toBe(4);
+      expect(
+        choices.some(choice => choice.id === question.correctChoiceId),
+        `${question.id} correct choice exists`,
+      ).toBe(true);
     }
   });
 

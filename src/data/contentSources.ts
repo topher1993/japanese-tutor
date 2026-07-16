@@ -18,9 +18,9 @@ export const japaneseContentSources: JapaneseContentSource[] = [
     name: 'JMdict / EDICT Japanese Dictionary Project',
     owner: 'Electronic Dictionary Research and Development Group (EDRDG)',
     license: 'CC BY-SA 4.0',
-    homepageUrl: 'https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project',
+    homepageUrl: 'https://www.edrdg.org/wiki/JMdict-EDICT_Dictionary_Project.html',
     licenseUrl: 'https://www.edrdg.org/edrdg/licence.html',
-    downloadUrl: 'http://ftp.edrdg.org/pub/Nihongo/JMdict_e.gz',
+    downloadUrl: 'https://www.edrdg.org/pub/Nihongo/JMdict_e.gz',
     requiresAttribution: true,
     requiresUpdateProcedure: true,
     recommendedUse: [
@@ -37,9 +37,9 @@ export const japaneseContentSources: JapaneseContentSource[] = [
     name: 'KANJIDIC2 Kanji Dictionary Project',
     owner: 'Electronic Dictionary Research and Development Group (EDRDG)',
     license: 'CC BY-SA 4.0',
-    homepageUrl: 'https://www.edrdg.org/wiki/index.php/KANJIDIC_Project',
+    homepageUrl: 'https://www.edrdg.org/wiki/KANJIDIC_Project.html',
     licenseUrl: 'https://www.edrdg.org/edrdg/licence.html',
-    downloadUrl: 'http://ftp.edrdg.org/pub/Nihongo/kanjidic2.xml.gz',
+    downloadUrl: 'https://ftp.edrdg.org/pub/Nihongo/kanjidic2.xml.gz',
     requiresAttribution: true,
     requiresUpdateProcedure: true,
     recommendedUse: [

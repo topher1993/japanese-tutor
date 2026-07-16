@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   track,
-  getQueuedEvents,
   clearQueuedEvents,
   resetAnalyticsForTests,
   type AnalyticsEvent,
@@ -63,12 +62,23 @@ describe('phase50 telemetry events', () => {
     expect(src).toMatch(/function getQueuedEvents/);
   });
   it('overdue_state enum is on_time|recent_overdue|catch_up_handled', () => {
-    // The enum lives in 2 places: the typed local in FlashcardsScreen.rateCard
-    // and the typed const in the JSDoc on AnalyticsEvent.srs_review. The
-    // string-literal source grep is the source of truth.
-    const flashSrc = readFileSync(resolve(__dirname, '..', 'src', 'screens', 'FlashcardsScreen.tsx'), 'utf8');
+    // The analytics contract is the source of truth. Flashcards no longer
+    // carries a dead duplicate after its old rateCard path was removed.
     const analyticsSrc = readFileSync(resolve(__dirname, '..', 'src', 'services', 'analyticsService.ts'), 'utf8');
-    expect(flashSrc).toMatch(/'on_time'\s*\|\s*'recent_overdue'\s*\|\s*'catch_up_handled'/);
     expect(analyticsSrc).toMatch(/'on_time'\s*\|\s*'recent_overdue'\s*\|\s*'catch_up_handled'/);
+  });
+
+  it('emits review telemetry from the production flashcard review paths', () => {
+    const flashcards = readFileSync(resolve(__dirname, '..', 'src', 'screens', 'FlashcardsScreen.tsx'), 'utf8');
+    expect(flashcards).toContain("trackSrsReviewTelemetry(card.id, 'hard', preReview, staged)");
+    expect(flashcards).toContain("trackSrsReviewTelemetry(card.id, 'again', preReview, staged)");
+    expect(flashcards).toContain("track('srs_review'");
+  });
+
+  it('does not emit empty or duplicate session summaries during hydration and unmount', () => {
+    const flashcards = readFileSync(resolve(__dirname, '..', 'src', 'screens', 'FlashcardsScreen.tsx'), 'utf8');
+    expect(flashcards).toContain('startDueCountRef.current = count');
+    expect(flashcards).toContain('if (reviewCount.current === 0) return;');
+    expect(flashcards).toMatch(/useEffect\(\(\) => \{[\s\S]*?srs_session_summary[\s\S]*?\}, \[\]\);/);
   });
 });

@@ -11,7 +11,7 @@ export interface ExampleSentenceCandidateEntry {
   romaji: string;
   english: string;
   category: string;
-  jlptLevel: 'N5' | 'N4';
+  jlptLevel: 'N5' | 'N4' | 'N3';
   source: SentenceSource;
   reviewStatus: SentenceReviewStatus;
   connectedToApp: boolean;
@@ -25,22 +25,26 @@ export function getExampleSentenceCandidatePack(): ExampleSentenceCandidateEntry
 }
 
 export function getLessonExampleSentencePack(): ExampleSentenceCandidateEntry[] {
-  return mockSenseiLessons.flatMap(lesson => lesson.items.map(item => ({
+  return mockSenseiLessons.flatMap(lesson => lesson.items.map(item => {
+    const example = item.vocabulary?.examples?.[0];
+    return {
     id: `lesson-example-${item.id}`,
-    japanese: item.exampleJapanese,
-    romaji: item.exampleRomaji ?? '',
-    english: item.exampleEnglish,
+    japanese: example?.japanese ?? item.exampleJapanese,
+    romaji: example?.romaji ?? item.exampleRomaji ?? '',
+    english: example?.en ?? item.exampleEnglish,
     category: item.category,
-    jlptLevel: lesson.level === 'N4' ? 'N4' : 'N5',
+    jlptLevel: lesson.level === 'N3' ? 'N3' : lesson.level === 'N4' ? 'N4' : 'N5',
     source: {
       id: lesson.id,
       license: 'In-app Sensei lesson content',
     },
     reviewStatus: item.translationReviewStatus === 'approved' ? 'approved-for-beta' : 'sensei-review-needed',
     connectedToApp: true,
-  })));
+    };
+  }));
 }
 
 export function getExampleSentencesForApp(): ExampleSentenceCandidateEntry[] {
-  return [...getExampleSentenceCandidatePack(), ...getLessonExampleSentencePack()];
+  const connectedCandidates = getExampleSentenceCandidatePack().filter(sentence => sentence.connectedToApp);
+  return [...connectedCandidates, ...getLessonExampleSentencePack()];
 }

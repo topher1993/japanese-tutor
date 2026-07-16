@@ -2,14 +2,12 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 import {
   buildWeeklyTodoBoard,
-  type TodoPayload,
 } from '../src/services/weeklyTodoService';
 import type {
   TodoEventCounts,
   TodoState,
   WeekPlan,
 } from '../src/types/weeklyTodo';
-import { emptyTodoEventCounts } from '../src/types/weeklyTodo';
 import { getWeekPlan } from '../src/services/weeklyPlansService';
 import { createSqliteLearningRepository, type SqliteLikeDatabase } from '../src/repositories/sqliteLearningRepository';
 import { createPracticeProgressStore, setTodoFeatureEnabled, isTodoFeatureEnabled } from '../src/services/practiceProgressStore';
@@ -18,19 +16,11 @@ import { createPracticeProgressStore, setTodoFeatureEnabled, isTodoFeatureEnable
 // §8 phase-37d-1. These focus on the new `daily-rush` todo kind wiring:
 //   a) gate-off is a no-op
 //   b) recompute persists dailyRushDates[weekNumber] via saveExtendedProgress
-//   c) after one rush the board shows 1/1 for the daily-rush todo
-//   d) a second rush on a different date stays at 1 (target=1, clamped)
+//   c) after one rush the board shows 1/7 for the scaled weekly requirement
+//   d) Rush completion supplies a one-point legacy participation floor;
+//      distinct card-stage advances own progress above that floor
 //   e) regression check: existing Daily Rush tests still green (run as part
 //      of the suite, see suite hook below)
-
-function makeEmptyPayload(): TodoPayload {
-  return {
-    todoStates: {},
-    weekTodosInitialized: {},
-    todoEventCounts: emptyTodoEventCounts(),
-    completedLessonIds: [],
-  };
-}
 
 function n5w1Plan(): WeekPlan {
   const plan = getWeekPlan(1);
@@ -139,7 +129,7 @@ describe('Phase 37d-1 — daily-rush todo kind wiring', () => {
     expect(reread.todoEventCounts.dailyRushDates[1]).toEqual(['2026-07-01']);
   });
 
-  it('c. after one rush completion, buildWeeklyTodoBoard shows 1/1 for the daily-rush todo on week 1 (recompute converges)', async () => {
+  it('c. after one rush completion, buildWeeklyTodoBoard shows 1/7 for the scaled weekly todo (recompute converges)', async () => {
     setTodoFeatureEnabled(true);
     const db = createInMemoryDb();
     const repo = createSqliteLearningRepository(db);
@@ -157,7 +147,7 @@ describe('Phase 37d-1 — daily-rush todo kind wiring', () => {
     expect(stored.todoStates['n5-w1-daily-rush']).toBeDefined();
     expect(stored.todoStates['n5-w1-daily-rush'].weekNumber).toBe(1);
     expect(stored.todoStates['n5-w1-daily-rush'].progress).toBe(1);
-    expect(stored.todoStates['n5-w1-daily-rush'].target).toBe(1);
+    expect(stored.todoStates['n5-w1-daily-rush'].target).toBe(7);
 
     // buildWeeklyTodoBoard should now show the daily-rush todo as completed.
     const plan = n5w1Plan();
@@ -165,11 +155,11 @@ describe('Phase 37d-1 — daily-rush todo kind wiring', () => {
     const rushTodo = board.todos.find(t => t.todo.id === 'n5-w1-daily-rush');
     expect(rushTodo).toBeDefined();
     expect(rushTodo!.progress).toBe(1);
-    expect(rushTodo!.target).toBe(1);
-    expect(rushTodo!.completed).toBe(true);
+    expect(rushTodo!.target).toBe(7);
+    expect(rushTodo!.completed).toBe(false);
   });
 
-  it('d. after two rush completions on different dates, daily-rush progress stays at 1 (target=1, clamped)', async () => {
+  it('d. repeated Rush days keep the one-point participation floor without stage evidence', async () => {
     setTodoFeatureEnabled(true);
     const db = createInMemoryDb();
     const repo = createSqliteLearningRepository(db);
@@ -185,9 +175,8 @@ describe('Phase 37d-1 — daily-rush todo kind wiring', () => {
     };
     // Both dates persisted (de-duped, no double-log).
     expect(stored.todoEventCounts.dailyRushDates[1]).toEqual(['2026-07-01', '2026-07-02']);
-    // Progress stays clamped at 1.
     expect(stored.todoStates['n5-w1-daily-rush'].progress).toBe(1);
-    expect(stored.todoStates['n5-w1-daily-rush'].target).toBe(1);
+    expect(stored.todoStates['n5-w1-daily-rush'].target).toBe(7);
 
     // Re-completing the SAME date is also a no-op on the date list and the
     // todo state (idempotency).
@@ -229,5 +218,73 @@ describe('Phase 37d-1 — daily-rush todo kind wiring', () => {
 
     // Should not throw.
     await expect(store.recordDailyRushComplete(1, '2026-07-01')).resolves.toBeDefined();
+  });
+
+  it('g. serializes answer-card writes before the final Rush completion snapshot', async () => {
+    setTodoFeatureEnabled(true);
+    const db = createInMemoryDb();
+    const repo = createSqliteLearningRepository(db);
+    await repo.initialize();
+    const originalSave = repo.saveExtendedProgress!.bind(repo);
+    let saveCall = 0;
+    repo.saveExtendedProgress = async snapshot => {
+      const call = saveCall++;
+      if (call === 0) await new Promise(resolve => setTimeout(resolve, 25));
+      await originalSave(snapshot);
+    };
+    const store = createPracticeProgressStore(repo);
+
+    const answerWrite = store.recordFlashcardReview(1, 'lesson-n5-w1-d1-card-1');
+    const completionWrite = store.recordDailyRushComplete(1, '2026-07-01');
+    await Promise.all([answerWrite, completionWrite]);
+
+    const stored = await store.getProgress() as unknown as {
+      todoStates: Record<string, TodoState>;
+      todoEventCounts: TodoEventCounts;
+    };
+    expect(stored.todoEventCounts.dailyRushDates[1]).toEqual(['2026-07-01']);
+    expect(stored.todoStates['n5-w1-daily-rush'].progress).toBe(1);
+  });
+
+  it('h. advances Daily Rush todo progress from distinct card-stage transitions', async () => {
+    setTodoFeatureEnabled(true);
+    const db = createInMemoryDb();
+    const repo = createSqliteLearningRepository(db);
+    await repo.initialize();
+    const store = createPracticeProgressStore(repo);
+
+    for (const refId of ['advanced-a', 'advanced-b', 'advanced-c']) {
+      await store.recordCardStageAdvanced(1, refId, 'memorized');
+    }
+    await store.recordCardStageAdvanced(1, 'advanced-a', 'recognized');
+
+    const stored = await store.getProgress() as unknown as {
+      todoStates: Record<string, TodoState>;
+      todoEventCounts: TodoEventCounts;
+    };
+    expect(stored.todoEventCounts.seenStageAdvancedRefIds[1]).toEqual([
+      'advanced-a',
+      'advanced-b',
+      'advanced-c',
+    ]);
+    expect(stored.todoStates['n5-w1-daily-rush'].progress).toBe(3);
+    expect(stored.todoStates['n5-w1-daily-rush'].target).toBe(7);
+  });
+
+  it('i. clamps cumulative stage progress and restores it on cold start', async () => {
+    setTodoFeatureEnabled(true);
+    const db = createInMemoryDb();
+    const repo = createSqliteLearningRepository(db);
+    await repo.initialize();
+    const store = createPracticeProgressStore(repo);
+
+    for (let index = 0; index < 10; index += 1) {
+      await store.recordCardStageAdvanced(1, `advanced-${index}`, 'memorized');
+    }
+    expect(store.getExtendedProgress().todoStates['n5-w1-daily-rush'].progress).toBe(7);
+
+    const reloaded = createPracticeProgressStore(repo);
+    await reloaded.ready();
+    expect(reloaded.getExtendedProgress().todoStates['n5-w1-daily-rush'].progress).toBe(7);
   });
 });

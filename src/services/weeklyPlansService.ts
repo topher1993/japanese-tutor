@@ -4,13 +4,14 @@
 // src/types/weeklyTodo.ts. Service is a thin lookup wrapper so swapping to a
 // remote source later does not touch screens.
 
-import { WEEKLY_PLANS } from '../data/weeklyPlans';
-import type { WeekPlan } from '../types/weeklyTodo';
+import { GRAMMAR_WEEKLY_PLANS, WEEKLY_PLANS } from '../data/weeklyPlans';
+import type { TodoTrack, WeekPlan } from '../types/weeklyTodo';
 
-export function getWeekPlan(weekNumber: number): WeekPlan | undefined {
-  return WEEKLY_PLANS.find(plan => plan.weekNumber === weekNumber);
+export function getWeekPlan(weekNumber: number, track: TodoTrack = 'all'): WeekPlan | undefined {
+  const plans = track === 'grammar' ? GRAMMAR_WEEKLY_PLANS : WEEKLY_PLANS;
+  return plans.find(plan => plan.weekNumber === weekNumber);
 }
 
-export function getAllWeekPlans(): WeekPlan[] {
-  return [...WEEKLY_PLANS];
+export function getAllWeekPlans(track: TodoTrack = 'all'): WeekPlan[] {
+  return [...(track === 'grammar' ? GRAMMAR_WEEKLY_PLANS : WEEKLY_PLANS)];
 }

@@ -1,13 +1,10 @@
-// Phase 37c — Presentational view of a WeeklyTodoBoard for the Lessons screen.
-// Pure: receives a board from `weeklyTodoService.buildWeeklyTodoBoard` plus a
-// single `onTodoPress` callback. The parent (LessonsScreen) decides what each
-// ctaRoute actually does; only the `lesson` kind is wired in 37c, the rest
-// render a disabled "Coming soon" CTA until 37d-1..5 lands.
+// Presentational view of a WeeklyTodoBoard for the Lessons screen. It receives
+// a board plus one routing callback; all supported todo kinds are wired by the
+// parent while this component stays free of navigation state.
 //
 // The next-week gate (isWeekUnlocked) is owned by LessonsScreen, not here —
 // this component is just the board, not the gate.
 
-import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { WeeklyTodoBoard, TodoCtaRoute } from '../services/weeklyTodoService';
 import type { WeekTodoKind } from '../types/weeklyTodo';

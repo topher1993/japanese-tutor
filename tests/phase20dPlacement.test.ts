@@ -26,12 +26,12 @@ describe('Phase 20D placement test', () => {
     expect(result.recommendedLevel).toBe('N3-or-above');
   });
 
-  it('scores low responses as N5 recommended', () => {
+  it('routes very low scores to the absolute beginner foundation path', () => {
     const test = buildPlacementTest();
     const responses = test.questions.map(() => 0);
     const result = scorePlacementTest(responses);
     expect(result.scorePercent).toBeLessThan(40);
-    expect(result.recommendedLevel).toBe('N5');
+    expect(result.recommendedLevel).toBe('absolute-beginner');
   });
 
   it('returns per-level breakdown counts', () => {

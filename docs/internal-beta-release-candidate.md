@@ -1,5 +1,9 @@
 # Japanese Tutor Mobile App — Internal Beta Release Candidate
 
+> Historical Phase 11 record. Its LAN URL is expired and this is not the
+> current v1.1 verdict. Use `internal-beta-checklist.md` and
+> `current-ios-qa-access.md` for present QA instructions.
+
 Phase: 11 completed  
 Owner: Igris / Engineering Division
 

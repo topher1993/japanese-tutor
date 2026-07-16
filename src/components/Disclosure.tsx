@@ -19,6 +19,9 @@ export function Disclosure({ title, icon, open, onToggle, children, tone = 'defa
     <View style={[styles.shell, tone === 'soft' && styles.soft]}>
       <Pressable
         onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ expanded: open }}
         style={({ pressed }) => [styles.header, { opacity: pressed ? 0.85 : 1 }]}
       >
         <View style={styles.headerLeft}>

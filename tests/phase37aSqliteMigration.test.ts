@@ -210,11 +210,11 @@ describe('Phase 37a SQLite migration behind feature flag', () => {
     expect(progress.weekTodosInitialized).toEqual({ 1: true });
     expect(progress.todoEventCounts).toEqual({});
     expect(dbLocal.warnSpy).toHaveBeenCalled();
-    const warnMessages = dbLocal.warnSpy.mock.calls.map(c => String(c[0] ?? ''));
+    const warnMessages = dbLocal.warnSpy.mock.calls.map((c: unknown[]) => String(c[0] ?? ''));
     // Either parseTodoBlob (phase42) or safeParseJson (phase37a) may log on a
     // malformed blob; both routes indicate the corruption was detected.
-    expect(warnMessages.some(m => /phase37a|phase42/.test(m))).toBe(true);
-    expect(warnMessages.some(m => /todo_states/.test(m))).toBe(true);
+    expect(warnMessages.some((m: string) => /phase37a|phase42/.test(m))).toBe(true);
+    expect(warnMessages.some((m: string) => /todo_states/.test(m))).toBe(true);
 
     dbLocal.warnSpy.mockRestore();
   });

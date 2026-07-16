@@ -1,59 +1,39 @@
-# Current Expo QA Access — Temporary LAN Server
+# iOS and Expo Go QA access
 
-Status: live temporary LAN QA server
-Date: 2026-06-28 (Phase 29 — kanji/vocab split, restarted after Metro died)
+Status: no permanent development server or public iOS beta URL is checked into
+the repository. Previously recorded LAN IPs, tunnel URLs, QR codes, and process
+IDs expire and must not be treated as current access details.
 
-## Current Expo Go URL
+## Start a temporary QA session
 
-```text
-exp://192.168.10.109:8081
+From the repository root:
+
+```bash
+npm start
 ```
 
-## How testers open it
+For an outside-network Expo tunnel on macOS, Linux, or Git Bash:
 
-1. Install Expo Go.
-2. Make sure the phone is on the same Wi-Fi/network as the development PC.
-3. Open Expo Go and enter/open the URL above, or scan the QR code from the running Metro terminal if visible.
-4. If the app does not load or shows stale UI, fully close Expo Go and reopen it, then reload.
-
-## Important caveat
-
-This is **not** a stable beta distribution link.
-
-- It only works while the current Metro process is running.
-- It is LAN-only; it will not work for testers outside the local network.
-- Do not send old Expo tunnel links to testers.
-- For stable iOS beta testing, use TestFlight after Apple Developer/EAS setup.
-- For outside-network testing, start a fresh Expo tunnel and update this file again.
-
-## Running process
-
-Hermes background process:
-
-```text
-proc_22658b13c0e4
+```bash
+./start-tunnel.sh
 ```
 
-Metro local health check:
+Use the URL or QR code printed by that live Expo process. LAN mode requires the
+device and development machine to share a network. Stop the Expo process when
+the session is over; do not commit its temporary address.
 
-```text
-http://127.0.0.1:8081/status → packager-status:running
-```
+## iOS release boundary
 
-## Manual smoke checklist
+Expo Go is useful for JavaScript/UI checks, but this project also contains
+custom Android native audio code and committed native project configuration.
+Stable iOS distribution still requires an Apple Developer account, EAS or
+Xcode signing, and a TestFlight/device pass. No Windows-side check can replace
+that release gate.
 
-Use this for the next Android/Expo Go release-readiness gate:
+## Persistence smoke checklist
 
-1. Open `exp://192.168.10.109:8081`.
-2. Complete onboarding if shown.
-3. Complete one lesson.
-4. Kill Expo Go completely.
-5. Reopen the app.
-6. Confirm lesson completion persisted.
-7. Rate one flashcard.
-8. Kill Expo Go completely.
-9. Reopen the app.
-10. Confirm SRS/due-card state persisted.
-11. Open Settings.
-12. Run Reset all progress.
-13. Confirm progress/SRS rows are cleared.
+1. Complete onboarding and one lesson.
+2. Fully terminate and reopen Expo Go.
+3. Confirm onboarding and lesson progress remain.
+4. Review a flashcard, terminate, reopen, and confirm its SRS state remains.
+5. Use Settings to reset progress and confirm lesson/SRS state is cleared.

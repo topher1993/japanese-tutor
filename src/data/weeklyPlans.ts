@@ -1,5 +1,7 @@
 import type { WeekPlan } from '../types/weeklyTodo';
 import { mockSenseiLessons } from './mockSenseiLessons';
+import { grammarLessons } from './grammarLessons';
+import { scaleDailyTodoTarget } from '../services/dailyTodoService';
 
 // Phase 37b ships ONLY the N5 week 1 plan, with exactly one `lesson`-kind
 // todo. Authored by hand per docs/phase-37-todo-gated-progression-proposal.md
@@ -21,9 +23,10 @@ export const WEEKLY_PLANS: WeekPlan[] = [
         kind: 'lesson',
         title: 'Complete every Week 1 lesson',
         // §11.2: target = lessonIds.length (every listed lesson complete).
-        target: N5_WEEK_1_LESSON_IDS.length,
+        target: scaleDailyTodoTarget('lesson', N5_WEEK_1_LESSON_IDS.length),
         unit: 'lessons',
         lessonIds: [...N5_WEEK_1_LESSON_IDS],
+        track: 'phrases',
       },
       // Phase 37d-1: a daily-rush todo so end-to-end recompute can be
       // exercised against a real todo of this kind. Inactive while
@@ -37,8 +40,8 @@ export const WEEKLY_PLANS: WeekPlan[] = [
         // §5 row `daily-rush`: target = 1. The recompute helper flips this
         // todo to progress=1 once any date appears in
         // todoEventCounts.dailyRushDates[1].
-        target: 1,
-        unit: 'rush',
+        target: scaleDailyTodoTarget('daily-rush'),
+        unit: 'rushes',
       },
       // Phase 37d-2: a flashcards todo so the new `recordFlashcardReview`
       // store method can be exercised end-to-end against a real plan
@@ -51,11 +54,11 @@ export const WEEKLY_PLANS: WeekPlan[] = [
       {
         id: 'n5-w1-flashcards',
         kind: 'flashcards',
-        title: 'Review every Week 1 flashcard',
+        title: 'Complete 35 flashcard reviews this week',
         pool: 'week',
         // The resolver fills expectedTarget when the todo's own target is 0;
         // we leave it at 0 so resolveCardPool drives the count.
-        target: 0,
+        target: scaleDailyTodoTarget('flashcards'),
         unit: 'cards',
       },
       // Phase 48 — N5 week 1: add the 3 remaining todo kinds so the
@@ -114,3 +117,25 @@ export const WEEKLY_PLANS: WeekPlan[] = [
     ],
   },
 ];
+
+/** v1.1 grammar track goals, kept separate from the legacy phrase plan. */
+export const GRAMMAR_WEEKLY_PLANS: WeekPlan[] = Array.from(
+  new Set(grammarLessons.map(lesson => lesson.week)),
+).sort((left, right) => left - right).map(weekNumber => {
+  const lessonIds = grammarLessons
+    .filter(lesson => lesson.week === weekNumber)
+    .map(lesson => lesson.id);
+  return {
+    weekNumber,
+    passingStrategy: 'all' as const,
+    todos: [{
+      id: `grammar-w${weekNumber}-lessons`,
+      kind: 'lesson' as const,
+      title: `Complete every Week ${weekNumber} grammar lesson`,
+      target: scaleDailyTodoTarget('lesson', lessonIds.length),
+      unit: 'lessons',
+      lessonIds,
+      track: 'grammar' as const,
+    }],
+  };
+});

@@ -19,9 +19,11 @@
  * the posthog SDK internals — that's the dependency injection contract.
  */
 
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
 
 import {
+  getAnalyticsContext,
+  initializeAnalyticsContext,
   resetAnalyticsForTests,
   track,
   isAnalyticsEnabled,
@@ -92,6 +94,7 @@ describe('Phase 44.3 — installId persistence', () => {
 describe('Phase 44.3 — analytics backend wiring', () => {
   beforeEach(() => {
     resetAnalyticsForTests();
+    resetInstallIdForTests();
     delete process.env.EXPO_PUBLIC_ANALYTICS_KEY;
   });
 
@@ -101,6 +104,20 @@ describe('Phase 44.3 — analytics backend wiring', () => {
     // Set: key present → true
     process.env.EXPO_PUBLIC_ANALYTICS_KEY = 'phc_test';
     expect(isAnalyticsEnabled()).toBe(true);
+  });
+
+  it('initializes event context with durable identity and the shipped app version', async () => {
+    const storage = createInMemoryKeyValueStorage();
+    await storage.setItem('analytics.installId', 'stable-install-id');
+
+    const context = await initializeAnalyticsContext(storage);
+
+    expect(context).toMatchObject({
+      installId: 'stable-install-id',
+      appVersion: '1.1.0',
+      isTest: true,
+    });
+    expect(getAnalyticsContext()).toEqual(context);
   });
 
   it('track() still queues in memory regardless of backend wiring', () => {

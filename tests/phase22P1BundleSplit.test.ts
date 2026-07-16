@@ -43,7 +43,7 @@ describe('Phase 22 audit — candidate pack bundle split (P1-07 fix)', () => {
     // No synchronous `buildCandidateFlashcardCards()` invocation.
     expect(src).not.toMatch(/= buildCandidateFlashcardCards\(\)/);
     // The async form is used.
-    expect(src).toMatch(/await buildCandidateFlashcardCards\(\)/);
+    expect(src).toMatch(/await buildCandidateFlashcardCards\([^)]*\)/);
   });
 
   it('KanjiSectionPanel invokes the adapter asynchronously', () => {

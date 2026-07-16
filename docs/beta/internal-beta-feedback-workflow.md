@@ -1,16 +1,16 @@
 # Internal Beta Feedback Workflow
 
-## Status
-Updated in Phase 13.
+> Historical workflow with current navigation labels restored. Feedback-form
+> availability depends on the configured beta feedback URL.
 
 ## Principle
 Feedback remains local-only inside the app. The app does not submit tester notes to a backend or network service.
 
 ## How testers submit feedback
 
-1. Open the app in Expo Go.
-2. Go to `Stats`.
-3. Tap `Open beta feedback`.
+1. Open the app.
+2. Go to `Progress`.
+3. Tap `Send feedback`.
 4. Choose the simple feedback type:
    - `Report a problem`
    - `Confusing / hard to use`
@@ -19,8 +19,7 @@ Feedback remains local-only inside the app. The app does not submit tester notes
 5. Choose the screen being reviewed.
 6. Add a short note.
 7. Optionally choose rating from 1–5.
-8. Tap `Save local feedback`.
-9. Send screenshot(s) or copied notes to Chris/Belion manually.
+8. Submit the configured feedback form, or send screenshot(s)/notes to the project owner if the external form is unavailable.
 
 Developer testers can open `Advanced details for developer testers` if they need to override severity or category manually.
 
@@ -91,8 +90,8 @@ Crash, broken button, runtime error, bad save/load behavior.
 4. Content expansion fourth.
 5. Minor UI polish last.
 
-## Current app behavior
-The Beta Feedback screen now shows a local Polish Queue summary:
+## Historical Pack 1 behavior
+The original Beta Feedback screen showed a local Polish Queue summary:
 
 ```text
 Blockers: N

@@ -6,7 +6,6 @@
  * calls getAsset() with the registered manifest key, falls back gracefully
  * if the asset bundle is missing (returns null in dev/test).
  */
-import React from 'react';
 import { Image, StyleSheet, View, type ImageStyle, type ViewStyle } from 'react-native';
 import { getAsset } from '../assets/assetRequireMap';
 import { ds } from '../theme/designSystem';

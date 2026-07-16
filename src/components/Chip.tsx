@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { ds } from '../theme/designSystem';
 
@@ -27,6 +26,10 @@ export function Chip({ label, selected = false, onPress, tone = 'default' }: Chi
   return (
     <Pressable
       onPress={onPress}
+      accessible={Boolean(onPress)}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={onPress ? label : undefined}
+      accessibilityState={onPress ? { selected } : undefined}
       style={({ pressed }) => [
         styles.base,
         selected ? selectedStyle : styles.unselected,

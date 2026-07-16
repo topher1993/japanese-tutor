@@ -34,6 +34,7 @@ describe('Phase 22 audit — Settings reset affordance (P1-06 fix)', () => {
     const onReset = vi.fn(async () => { resetCalled = true; });
     onBack();
     expect(onBack).toHaveBeenCalled();
+    expect(onReset).not.toHaveBeenCalled();
     expect(resetCalled).toBe(false);
   });
 

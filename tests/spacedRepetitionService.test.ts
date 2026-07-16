@@ -79,6 +79,24 @@ describe('Phase 49 — Real SM-2 algorithm (spacedRepetitionService)', () => {
       expect(body).toMatch(/\beaseFactor:\s*number\s*;/);
       expect(body).toMatch(/\bdueOn:\s*string\s*;/);
       expect(body).toMatch(/\blastReviewedOn:\s*string\s*\|\s*null\s*;/);
+      // Phase 51 widening — ReviewCard now carries an 8th field
+      // `stage: 'seen' | 'recognized' | 'memorized'` typed as a literal
+      // union. Lock down the field name + the typed union shape so a
+      // future edit that broadens the type (e.g. to `string`) fails.
+      expect(body).toMatch(/\bstage:\s*'seen'\s*\|\s*'recognized'\s*\|\s*'memorized'\s*;/);
+    });
+
+    // Phase 51 follow-up: Gate 1a — A3 above asserts the *interface*
+    // declares the field, but the brief calls for an explicit runtime
+    // assertion that `createCard()` actually returns `stage: 'seen'`.
+    // The other 12 tests in this file all use unique synthetic card
+    // ids (pitfall #1 from the skill — adoptCard is no-op on
+    // duplicates) so adding a fresh assertion here is safe and does
+    // not perturb any other test's input set.
+    it('A3b — createCard() returns a card with stage: "seen" by default', () => {
+      const scheduler = createSpacedRepetitionScheduler();
+      const card = scheduler.createCard('phase51-stage-default');
+      expect(card.stage).toBe('seen');
     });
   });
 
@@ -215,9 +233,12 @@ describe('Phase 49 — Real SM-2 algorithm (spacedRepetitionService)', () => {
       const scheduler = createSpacedRepetitionScheduler();
 
       const c1 = scheduler.createCard('c1');
-      scheduler.createCard('c2');
-      scheduler.createCard('c3');
-      // All three are due today initially (dueOn = todayIso()).
+      const c2 = scheduler.createCard('c2');
+      const c3 = scheduler.createCard('c3');
+      scheduler.setStage(c1.id, 'memorized');
+      scheduler.setStage(c2.id, 'memorized');
+      scheduler.setStage(c3.id, 'memorized');
+      // All three graduated cards are due today initially.
       expect(scheduler.dueCards().length).toBe(3);
 
       // First review on c1 → dueOn = today + 1d, so c1 should drop off

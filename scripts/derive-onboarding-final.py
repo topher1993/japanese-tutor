@@ -15,9 +15,13 @@ Whitelist (Sensei): 日本語, にほんご, あ, い, う, しごと, 7時, ア
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import os
 import math
+from pathlib import Path
 
-MASTER = r"C:/Users/tophe/AppData/Local/hermes/cache/images/openai_codex_gpt-image-2-low_20260626_072852_cf25a775.png"
-OUT_DIR = r"C:/Users/tophe/japanese-tutor-mobile-app/src/assets/source/illustrations/onboarding"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+MASTER = os.environ.get("ONBOARDING_MASTER")
+if not MASTER:
+    raise RuntimeError("Set ONBOARDING_MASTER to the clean landscape source PNG before running this archival generator")
+OUT_DIR = str(REPO_ROOT / "src" / "assets" / "source" / "illustrations" / "onboarding")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # Brand color
@@ -30,19 +34,27 @@ SHADOW = (0, 0, 0, 40)
 
 # Font: YuGothM.ttc combines dakuten properly (verified via QC)
 font_candidates = [
+    (os.environ.get("ONBOARDING_FONT", ""), 0),
     (r"C:\Windows\Fonts\YuGothM.ttc", 0),
     (r"C:\Windows\Fonts\YuGothR.ttc", 0),
     (r"C:\Windows\Fonts\YuGothB.ttc", 0),
     (r"C:\Windows\Fonts\msgothic.ttc", 0),
     (r"C:\Windows\Fonts\msmincho.ttc", 0),
+    ("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 0),
+    ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 0),
+    ("/usr/share/fonts/truetype/noto/NotoSansJP-Regular.ttf", 0),
+    ("~/.fonts/NotoSansJP-Regular.ttf", 0),
 ]
 FONT_PATH = None
 FONT_INDEX = 0
 for p, idx in font_candidates:
-    if os.path.exists(p):
-        FONT_PATH = p
+    expanded = os.path.expanduser(p)
+    if expanded and os.path.exists(expanded):
+        FONT_PATH = expanded
         FONT_INDEX = idx
         break
+if not FONT_PATH:
+    raise RuntimeError("No Japanese-capable font found; set ONBOARDING_FONT to a .ttf/.ttc path")
 
 def f(size):
     return ImageFont.truetype(FONT_PATH, size, index=FONT_INDEX)

@@ -2,7 +2,6 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 import {
   buildWeeklyTodoBoard,
-  type TodoPayload,
 } from '../src/services/weeklyTodoService';
 import type {
   TodoEventCounts,
@@ -10,7 +9,6 @@ import type {
   WeekPlan,
   WeekTodo,
 } from '../src/types/weeklyTodo';
-import { emptyTodoEventCounts } from '../src/types/weeklyTodo';
 import { WEEKLY_PLANS } from '../src/data/weeklyPlans';
 import { createSqliteLearningRepository, type SqliteLikeDatabase } from '../src/repositories/sqliteLearningRepository';
 import { createPracticeProgressStore, setTodoFeatureEnabled, isTodoFeatureEnabled } from '../src/services/practiceProgressStore';
@@ -28,15 +26,6 @@ import { createPracticeProgressStore, setTodoFeatureEnabled, isTodoFeatureEnable
 //      alongside this file in the task brief)
 //   g) (optional) buildWeeklyTodoBoard shows correct progress for a
 //      quiz-kind todo
-
-function makeEmptyPayload(): TodoPayload {
-  return {
-    todoStates: {},
-    weekTodosInitialized: {},
-    todoEventCounts: emptyTodoEventCounts(),
-    completedLessonIds: [],
-  };
-}
 
 function createInMemoryDb(): SqliteLikeDatabase {
   const tables = new Map<string, unknown[]>();

@@ -4,7 +4,6 @@
  * The badge label text is rendered separately by the screen so this component
  * stays a pure visual square.
  */
-import React from 'react';
 import { Image, View, StyleSheet } from 'react-native';
 import { getAsset } from '../assets/assetRequireMap';
 

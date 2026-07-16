@@ -2,8 +2,8 @@
  * Asset manifest tests — verify every entry resolves, exists, and is under its size cap.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync, statSync } from 'fs';
-import { join, resolve } from 'path';
+import { existsSync, statSync } from 'fs';
+import { join } from 'path';
 import { manifest } from './manifest';
 
 // In vitest, process.cwd() resolves to the project root where tests run.

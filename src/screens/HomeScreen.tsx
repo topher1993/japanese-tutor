@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -11,9 +11,17 @@ import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { StreakFlame } from '../components/StreakFlame';
 import { WeeklyTodoBoardView } from '../components/WeeklyTodoBoardView';
-import { getAllLessons, getDailyLesson } from '../services/lessonService';
+import { DailyTodoBoardView } from '../components/DailyTodoBoardView';
+import { AdaptiveDailyPlanCard } from '../components/AdaptiveDailyPlanCard';
+import {
+  getAllCourseLessons,
+  getDailyLesson,
+  getGrammarLessons,
+  getPhraseLessons,
+} from '../services/lessonService';
 import { buildLessonProgression } from '../services/lessonProgressionService';
 import { buildLessonInteractionPath } from '../services/lessonInteractionPathService';
+import { lessonsForPlacementLevel } from '../services/placementPathService';
 import { getSupportLanguageDisplayName, getSupportTranslation } from '../services/supportLanguageService';
 import { useLearningContext } from '../services/learningContext';
 import { isTodoFeatureEnabled } from '../services/practiceProgressStore';
@@ -23,56 +31,122 @@ import {
   type TodoPayload,
 } from '../services/weeklyTodoService';
 import { emptyTodoEventCounts } from '../types/weeklyTodo';
+import { buildAdaptiveDailyPlan, type AdaptiveDailyPlanTask } from '../services/adaptiveDailyPlanService';
+import { track } from '../services/analyticsService';
+import { buildCandidateFlashcardCards } from '../services/candidateFlashcardAdapter';
+import { createFlashcardDeck } from '../services/flashcardService';
+import { useUserProfileContext } from '../services/userProfileContext';
+import type { FlashcardReviewCard } from '../types/flashcard';
+import type { ReviewCard } from '../services/spacedRepetitionService';
+import type { VocabularyLearningGroup } from '../services/vocabularyTaxonomyService';
+import { buildMasteryMap } from '../services/masteryService';
+import { buildDailyTodoBoard, COURSE_COMPLETE_DAILY_TODO_DEFINITIONS } from '../services/dailyTodoService';
+import { useTodayDateKey } from '../hooks/useTodayDateKey';
 import type { LearnerLanguage } from '../types/onboarding';
 import type { LearnerProgress } from '../types/progress';
-import { PlacementTestPanel } from './PlacementTestPanel';
 import { ds } from '../theme/designSystem';
 
 export function HomeScreen({
   supportLanguage = 'en',
   onStartLesson,
   onReviewDue,
+  onPracticeWeak,
   onOpenDailyRush,
+  onOpenFlashcards,
+  onOpenSentenceLab,
+  onOpenQuiz,
+  onOpenLesson,
+  onOpenKanji,
+  onOpenExampleSentences,
+  onPracticeWordGroup,
+  onOpenPlacement,
 }: {
   supportLanguage?: LearnerLanguage;
   onStartLesson?: () => void;
   onReviewDue?: () => void;
+  onPracticeWeak?: () => void;
   onOpenDailyRush?: () => void;
+  onOpenFlashcards?: () => void;
+  onOpenSentenceLab?: () => void;
+  onOpenQuiz?: () => void;
+  onOpenLesson?: (lessonId?: string) => void;
+  onOpenKanji?: () => void;
+  onOpenExampleSentences?: () => void;
+  onPracticeWordGroup?: (group: VocabularyLearningGroup) => void;
+  onOpenPlacement?: () => void;
 }) {
   // Phase 30: read progress so the daily lesson copy reflects the
   // learner's actual completion state instead of always defaulting to
   // Week 1 Day 1.
   const { ready, store, srs } = useLearningContext();
+  const { profile, updateProfile } = useUserProfileContext();
+  const subscribeExtended = useCallback(
+    (listener: () => void) => store?.subscribeExtendedProgress?.(listener) ?? (() => undefined),
+    [store],
+  );
+  const getExtendedRevision = useCallback(
+    () => store?.getExtendedProgressRevision?.() ?? 0,
+    [store],
+  );
+  const extendedRevision = useSyncExternalStore(subscribeExtended, getExtendedRevision, () => 0);
   const [progress, setProgress] = useState<LearnerProgress | null>(null);
+  const [extendedProgress, setExtendedProgress] = useState(() => ({
+    todoStates: {},
+    weekTodosInitialized: {},
+    todoEventCounts: emptyTodoEventCounts(),
+  }));
   useEffect(() => {
     if (!ready || !store) return;
     let cancelled = false;
-    store.getProgress()
-      .then((p) => { if (!cancelled) setProgress(p); })
+    store.ready()
+      .then(async () => ({ progress: await store.getProgress(), extended: store.getExtendedProgress() }))
+      .then(({ progress: nextProgress, extended }) => {
+        if (!cancelled) {
+          setProgress(nextProgress);
+          setExtendedProgress(extended);
+        }
+      })
       .catch(() => undefined);
     return () => { cancelled = true; };
   }, [ready, store]);
-  const lesson = getDailyLesson(progress ?? undefined);
+  const placementLevel = profile?.dynamic.placement?.level;
+  const lesson = getDailyLesson(progress ?? undefined, placementLevel);
   const phrase = lesson.lesson.items[0];
   const primaryTranslation = getSupportTranslation(phrase, supportLanguage);
-  const totalLessons = getAllLessons().length;
-  const completedLessons = progress?.completedLessonIds.length ?? 0;
-    const [showPlacement, setShowPlacement] = useState(false);
+  const lessons = useMemo(
+    () => lessonsForPlacementLevel(getPhraseLessons(), placementLevel),
+    [placementLevel],
+  );
+  const totalLessons = lessons.length;
+  const completedLessons = lessons.filter(item => progress?.completedLessonIds.includes(item.id)).length;
+  const grammarLessons = getGrammarLessons();
+  const completedGrammarLessons = grammarLessons.filter(lesson => progress?.completedLessonIds.includes(lesson.id)).length;
     const [showHelp, setShowHelp] = useState(false);
     // P0-02 + P0-03 fix: StreakFlame now reads from the persistent store, not a hardcoded 3.
     const [streak, setStreak] = useState<number>(0);
     const [dueCount, setDueCount] = useState<number>(0);
+    const [srsRows, setSrsRows] = useState<ReviewCard[]>([]);
+    const [taxonomyCards, setTaxonomyCards] = useState<FlashcardReviewCard[]>(() => createFlashcardDeck(getAllCourseLessons()).cards);
     useEffect(() => {
       if (!ready || !store) return;
       let cancelled = false;
       Promise.all([
         store.getDashboard().then(d => d.currentStreak),
         srs ? srs.dueCount() : Promise.resolve(0),
+        srs ? srs.listCards() : Promise.resolve([]),
+        buildCandidateFlashcardCards(placementLevel).catch(() => []),
       ])
-        .then(([s, d]) => { if (!cancelled) { setStreak(s); setDueCount(d); } })
-        .catch(() => { if (!cancelled) { setStreak(0); setDueCount(0); } });
+        .then(([s, d, cards, candidates]) => {
+          if (!cancelled) {
+            setStreak(s);
+            setDueCount(d);
+            setSrsRows(cards);
+            setTaxonomyCards([...createFlashcardDeck(lessonsForPlacementLevel(getAllCourseLessons(), placementLevel)).cards, ...candidates]);
+          }
+        })
+        .catch(() => { if (!cancelled) { setStreak(0); setDueCount(0); setSrsRows([]); } });
       return () => { cancelled = true; };
-    }, [ready, store, srs]);
+    }, [ready, store, srs, placementLevel]);
   const nextActionLabel = dueCount > 0
     ? `Review ${dueCount} due card${dueCount === 1 ? '' : 's'}`
     : completedLessons === 0
@@ -87,7 +161,6 @@ export function HomeScreen({
   // the flag-off default learner experience (replaced "Today's focus" Card)
   // is unchanged. When 37g flips the flag this new feed renders in place of
   // the legacy "Today's focus" Card. Proposal §8 phase-37e.
-  const lessons = getAllLessons();
   const emptyProgress: LearnerProgress = {
     startedAt: '',
     completedLessonIds: [],
@@ -96,29 +169,50 @@ export function HomeScreen({
   };
   const homeProgress = progress ?? emptyProgress;
   const lessonPath = useMemo(
-    () => buildLessonInteractionPath(lessons, homeProgress),
-    [lessons, homeProgress],
+    () => buildLessonInteractionPath(lessons, homeProgress, placementLevel),
+    [lessons, homeProgress, placementLevel],
   );
   const progression = buildLessonProgression(lessonPath.currentWeek.week);
   const currentWeekIndex = progression.currentWeekDetails().weekNumber;
   const todoPayload = useMemo<TodoPayload>(() => {
-    const extended = store?.getExtendedProgress() ?? {
-      todoStates: {},
-      weekTodosInitialized: {},
-      todoEventCounts: emptyTodoEventCounts(),
-    };
+    const liveExtended = store?.getExtendedProgress() ?? extendedProgress;
     return {
-      todoStates: extended.todoStates,
-      weekTodosInitialized: extended.weekTodosInitialized,
-      todoEventCounts: extended.todoEventCounts,
+      todoStates: liveExtended.todoStates,
+      weekTodosInitialized: liveExtended.weekTodosInitialized,
+      todoEventCounts: liveExtended.todoEventCounts,
       completedLessonIds: homeProgress.completedLessonIds,
     };
-  }, [homeProgress.completedLessonIds, store]);
+  }, [extendedProgress, extendedRevision, homeProgress.completedLessonIds, store]);
   const todoBoards = useMemo(
     () => buildAllTodoBoards(getAllWeekPlans(), todoPayload, 'all', currentWeekIndex),
     [todoPayload, currentWeekIndex],
   );
   const homeTodoBoard = todoBoards[currentWeekIndex];
+  const todayDate = useTodayDateKey();
+  const dailyTodoBoard = useMemo(
+    () => buildDailyTodoBoard(
+      todayDate,
+      todoPayload.todoEventCounts.dailyActivity?.[todayDate],
+      lesson.isCourseComplete ? COURSE_COMPLETE_DAILY_TODO_DEFINITIONS : undefined,
+    ),
+    [lesson.isCourseComplete, todayDate, todoPayload.todoEventCounts.dailyActivity],
+  );
+  const masteryMap = useMemo(() => buildMasteryMap({
+    flashcards: taxonomyCards,
+    srsCards: srsRows,
+    evidence: todoPayload.todoEventCounts.masteryEvidence ?? [],
+    snapshots: todoPayload.todoEventCounts.masterySnapshots ?? [],
+  }), [srsRows, taxonomyCards, todoPayload.todoEventCounts.masteryEvidence, todoPayload.todoEventCounts.masterySnapshots]);
+  const adaptivePlan = useMemo(() => buildAdaptiveDailyPlan({
+    date: todayDate,
+    budgetMinutes: profile?.static.dailyStudyMinutes ?? 10,
+    srsCards: srsRows,
+    flashcards: taxonomyCards,
+    dailyActivity: todoPayload.todoEventCounts.dailyActivity?.[todayDate],
+    lessonTitle: lesson.lesson.title,
+    courseComplete: lesson.isCourseComplete,
+    masteryMap,
+  }), [lesson.isCourseComplete, lesson.lesson.title, masteryMap, profile?.static.dailyStudyMinutes, srsRows, taxonomyCards, todayDate, todoPayload.todoEventCounts.dailyActivity]);
   const homeTodosEnabled = isTodoFeatureEnabled();
   const homeIncompleteTodos = homeTodoBoard
     ? homeTodoBoard.todos.filter(status => !status.completed)
@@ -130,27 +224,75 @@ export function HomeScreen({
   function handleHomeTodoCta(ctaRoute: import('../services/weeklyTodoService').TodoCtaRoute): void {
     switch (ctaRoute.screen) {
       case 'daily-rush':
-        if (onOpenDailyRush) onOpenDailyRush();
+        onOpenDailyRush?.();
+        return;
+      case 'lesson':
+        onOpenLesson?.(ctaRoute.params?.lessonId);
         return;
       case 'lessons':
-      case 'lesson':
+        onStartLesson?.();
+        return;
       case 'flashcards':
+        onOpenFlashcards?.();
+        return;
       case 'quiz':
+        onOpenQuiz?.();
+        return;
       case 'kanji':
+        onOpenKanji?.();
+        return;
       case 'example-sentences':
+        onOpenExampleSentences?.();
+        return;
       default:
-        if (onStartLesson) onStartLesson();
+        onStartLesson?.();
         return;
     }
   }
 
-  if (showPlacement) {
-    return (
-      <ScreenScaffold>
-        <ScreenHeader title="Back" onBack={() => setShowPlacement(false)} titleStyle={styles.backHeader} />
-        <PlacementTestPanel onComplete={() => undefined} />
-      </ScreenScaffold>
-    );
+  function handleDailyTodoCta(kind: import('../services/dailyTodoService').DailyTodoKind): void {
+    if (kind === 'daily-rush') {
+      onOpenDailyRush?.();
+    } else if (kind === 'flashcards') {
+      onOpenFlashcards?.();
+    } else if (kind === 'quiz') {
+      onOpenQuiz?.();
+    } else {
+      onStartLesson?.();
+    }
+  }
+
+  function handleAdaptiveTask(task: AdaptiveDailyPlanTask): void {
+    track('adaptive_plan_task_opened', {
+      route: task.route,
+      minutes: task.minutes,
+      target: task.target,
+      learning_group: task.learningGroup,
+    });
+    switch (task.route) {
+      case 'flashcards-due':
+        onReviewDue?.();
+        return;
+      case 'flashcards-weak':
+        if (task.learningGroup && onPracticeWordGroup) onPracticeWordGroup(task.learningGroup);
+        else onPracticeWeak?.();
+        return;
+      case 'sentence-lab':
+        onOpenSentenceLab?.();
+        return;
+      case 'lesson':
+        onStartLesson?.();
+        return;
+      case 'daily-rush':
+        onOpenDailyRush?.();
+        return;
+      case 'quiz':
+        onOpenQuiz?.();
+        return;
+      case 'new-vocabulary':
+      default:
+        onOpenFlashcards?.();
+    }
   }
 
   return (
@@ -168,6 +310,16 @@ export function HomeScreen({
         </View>
 
       <StreakFlame days={streak} />
+      <AdaptiveDailyPlanCard plan={adaptivePlan} onTaskPress={handleAdaptiveTask} />
+      <Card shadow="card" style={styles.todayTodosCard}>
+        <View style={styles.todayTodosHeader}>
+          <View style={styles.todayTodosCopy}>
+            <Text style={styles.todayTodosLabel}>Grammar rules</Text>
+            <Text style={styles.todayTodosTitle}>{completedGrammarLessons} / {grammarLessons.length} complete</Text>
+            <Text style={styles.todayTodosDetail}>Grammar and conjugation progress is tracked separately from phrase lessons.</Text>
+          </View>
+        </View>
+      </Card>
       {/* Phase 37e: when `isTodoFeatureEnabled()` is true (gated to 37g
           rollout) the home screen replaces its existing "Today's focus"
           Card with a "Today's todos" feed drawn from
@@ -176,6 +328,8 @@ export function HomeScreen({
           learner-visible behavior is preserved. Proposal §8 phase-37e +
           §11.2. */}
       {homeTodosEnabled ? (
+        <>
+        <DailyTodoBoardView board={dailyTodoBoard} onTodoPress={handleDailyTodoCta} />
         <Card shadow="card" style={styles.todayTodosCard}>
           <View style={styles.todayTodosHeader}>
             <View style={styles.todayTodosIcon}>
@@ -200,6 +354,7 @@ export function HomeScreen({
             <Text style={styles.todayTodosEmpty}>No board built for Week {currentWeekIndex} yet.</Text>
           )}
         </Card>
+        </>
       ) : (
         <Card shadow="card" style={styles.todayFocusCard}>
           <View style={styles.todayFocusHeader}>
@@ -262,6 +417,26 @@ export function HomeScreen({
         ) : null}
       </Card>
 
+      <Card shadow="card" style={styles.sentenceLabCard}>
+        <View style={styles.dailyRushHeader}>
+          <Icon name="play" size={28} />
+          <View style={styles.dailyRushCopy}>
+            <Text style={styles.dailyRushTitle}>Listening & Sentence Lab</Text>
+            <Text style={styles.dailyRushHint}>Hear real sentences, rebuild them, and revisit mistakes with spaced review.</Text>
+          </View>
+        </View>
+        {onOpenSentenceLab ? (
+          <Button
+            label="Start Sentence Lab"
+            onPress={onOpenSentenceLab}
+            iconRight="arrow-right"
+            variant="secondary"
+            testID="home-sentence-lab-cta"
+            style={styles.dailyRushCta}
+          />
+        ) : null}
+      </Card>
+
       <Card tone="brand" shadow="hero" style={styles.lessonHero}>
         <View style={styles.lessonLabelRow}>
           <Text style={styles.lessonLabel}>Today's lesson</Text>
@@ -284,11 +459,27 @@ export function HomeScreen({
         testID="home-start-button"
       />
 
+      {!profile?.dynamic.placement && !profile?.dynamic.placementPromptDismissed && onOpenPlacement ? (
+        <Card tone="warm" shadow="card">
+          <Text style={styles.todayFocusLabel}>Find your starting level</Text>
+          <Text style={styles.todayFocusDetail}>Take a short Japanese check so your lessons start at the right level.</Text>
+          <Button label="Evaluate my level" onPress={onOpenPlacement} icon="star" />
+          <Button
+            label="Skip for now"
+            onPress={() => {
+              track('placement_skipped', { source: 'home' });
+              void updateProfile({ dynamic: { placementPromptDismissed: true } });
+            }}
+            variant="soft"
+          />
+        </Card>
+      ) : null}
+
       <Disclosure title="Need help?" icon="help" open={showHelp} onToggle={() => setShowHelp(v => !v)}>
         <View style={styles.helpList}>
           <HelpLine icon="learn" label='"Lessons" — pick a topic' />
           <HelpLine icon="practice" label='"Flashcards" — review flashcards' />
-          <HelpLine icon="test" label='"Quiz" — quick self-check' />
+          <HelpLine icon="test" label='"Quiz" — listening, sentence building, fill-in, and choice practice' />
           <HelpLine icon="progress" label='"Progress" — your streak and stats' />
         </View>
         {/* Phase 45 Tier-2: home empty-state illustration (resolves the dead-wire import).
@@ -298,7 +489,9 @@ export function HomeScreen({
         <View style={styles.helpArt}>
           <EmptyStateArt screen="home" size={180} />
         </View>
-        <Button label="Take the placement test" onPress={() => setShowPlacement(true)} variant="soft" icon="star" />
+        {onOpenPlacement ? (
+          <Button label="Take the placement test" onPress={onOpenPlacement} variant="soft" icon="star" />
+        ) : null}
       </Disclosure>
     </ScreenScaffold>
   );
@@ -314,6 +507,13 @@ function HelpLine({ icon, label }: { icon: React.ComponentProps<typeof Icon>['na
 }
 
 const styles = StyleSheet.create({
+  tabletContent: {
+    width: '100%',
+    maxWidth: 1800,
+    alignSelf: 'center',
+    paddingHorizontal: ds.spacing.xl,
+    paddingTop: ds.spacing.lg,
+  },
   greetingRow: { flexDirection: 'row', alignItems: 'center', gap: ds.spacing.md },
   greetingText: { flex: 1, minWidth: 0 },
   streakCelebrate: {
@@ -383,9 +583,19 @@ const styles = StyleSheet.create({
   reviewHint: { fontSize: ds.type.caption, color: ds.colors.textMuted },
   reviewCta: { marginTop: ds.spacing.sm, alignSelf: 'flex-start' },
   dailyRushCard: { gap: ds.spacing.sm, borderLeftWidth: 4, borderLeftColor: ds.colors.warm },
+  sentenceLabCard: { gap: ds.spacing.sm, borderLeftWidth: 4, borderLeftColor: ds.colors.info },
   dailyRushHeader: { flexDirection: 'row', alignItems: 'center', gap: ds.spacing.sm },
   dailyRushCopy: { flex: 1, minWidth: 0 },
   dailyRushTitle: { fontSize: ds.type.heading, fontWeight: '900', color: ds.colors.text },
   dailyRushHint: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.xs, lineHeight: 18 },
   dailyRushCta: { marginTop: ds.spacing.xs },
+  adaptiveCard: { gap: ds.spacing.sm, borderLeftWidth: 4, borderLeftColor: ds.colors.success },
+  adaptiveHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: ds.spacing.sm },
+  adaptiveCopy: { flex: 1, minWidth: 0 },
+  adaptiveLabel: { fontSize: ds.type.micro, fontWeight: '900', color: ds.colors.success, textTransform: 'uppercase' },
+  adaptiveTitle: { fontSize: ds.type.heading, fontWeight: '900', color: ds.colors.text, marginTop: ds.spacing.xs },
+  adaptiveDetail: { fontSize: ds.type.caption, color: ds.colors.textMuted, marginTop: ds.spacing.xs },
+  adaptiveScore: { alignItems: 'center', backgroundColor: ds.colors.successSoft, borderRadius: ds.radius.md, paddingHorizontal: ds.spacing.sm, paddingVertical: ds.spacing.xs },
+  adaptiveScoreValue: { fontSize: ds.type.heading, fontWeight: '900', color: ds.colors.success },
+  adaptiveScoreLabel: { fontSize: ds.type.micro, color: ds.colors.textMuted },
 });

@@ -12,7 +12,7 @@ beyond what's already in `cfd9753` (Phase 44.2 wiring) and `a46436d`
 
 ## Pre-flight
 
-1. Sign in to PostHog (US: https://us.i.posthog.com · EU: https://eu.i.posthog.com)
+1. Sign in to PostHog (US: https://us.posthog.com · EU: https://eu.posthog.com)
 2. Select the project you created for Japanese Tutor
 3. Confirm Live Events shows your test events from the smoke test
 
@@ -30,12 +30,12 @@ beyond what's already in `cfd9753` (Phase 44.2 wiring) and `a46436d`
 
    | Step | Event | Filter (optional) |
    |---|---|---|
-   | 1 | `tab_visited` | `$initial == true` (filters to the first tab event of a session) |
-   | 2 | `onboarding_step_viewed` | `step == welcome` |
-   | 3 | `onboarding_step_viewed` | `step == language` |
-   | 4 | `onboarding_step_viewed` | `step == workplace-goal` |
-   | 5 | `onboarding_step_viewed` | `step == daily-habit` |
-   | 6 | `onboarding_completed` | — |
+   | 1 | `onboarding_step_viewed` | `step == welcome` |
+   | 2 | `onboarding_step_viewed` | `step == language` |
+   | 3 | `onboarding_step_viewed` | `step == workplace-goal` |
+   | 4 | `onboarding_step_viewed` | `step == daily-habit` |
+   | 5 | `onboarding_completed` | — |
+   | 6 | `tab_visited` | `initial == true` (the first visible tab after onboarding) |
 
 4. **Conversion window:** leave at default (7 days) for now. After 2
    weeks of data, narrow to 1 day if your onboarding usually happens
@@ -51,11 +51,12 @@ PostHog will show you 6 bars, one per step. The drop between bar N
 and bar N+1 is your drop-off at step N.
 
 **Example interpretation:**
-- 100% saw welcome (tab_visited fires for everyone)
-- 92% saw welcome step → 8% closed the app before tapping Next
+- 100% saw the welcome step
+- 92% reached language → 8% closed the app before tapping Next
 - 80% reached language → 12% dropped off at welcome-to-language
 - 65% reached workplace-goal → 15% dropped at language-to-workplace
-- 55% completed → 10% dropped at daily-habit-to-completion
+- 55% completed onboarding → 10% dropped at daily-habit-to-completion
+- 54% reached the initial tab → 1% closed during completion persistence
 
 The biggest single drop tells you where to focus first. If it's
 welcome → language, your welcome screen is unclear. If it's daily-habit

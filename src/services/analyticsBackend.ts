@@ -24,11 +24,14 @@
  *   - The class is the default export of 'posthog-react-native'.
  */
 
-// We type the client loosely because posthog-react-native's types
+// Keep the wrapper surface narrow because posthog-react-native's types
 // bring in heavy transitive dependencies (PostHogProvider, JSX, etc.)
 // that conflict with this project's tsconfig. The runtime contract
-// is what matters; the SDK exposes capture() and that's all we use.
-type PostHogClient = { capture: (event: string, props?: Record<string, unknown>) => void };
+// is what matters; this module only needs capture() and identify().
+type PostHogClient = {
+  capture: (event: string, props?: Record<string, unknown>) => void;
+  identify: (distinctId: string, properties?: Record<string, unknown>) => void;
+};
 type PostHogClass = new (apiKey: string, options?: Record<string, unknown>) => PostHogClient;
 
 import type { AnalyticsEvent } from './analyticsService';
@@ -41,10 +44,21 @@ let client: PostHogClient | null = null;
  * `host` defaults to PostHog's US cloud. Set `EXPO_PUBLIC_POSTHOG_HOST`
  * to point at self-hosted or EU cloud.
  */
-export async function initBackend(opts?: { host?: string }): Promise<void> {
-  if (client) return;
+export async function initBackend(opts?: { host?: string; installId?: string }): Promise<boolean> {
+  // A caller may initialize the SDK before durable identity hydration has
+  // finished. A later call with installId must still bind the existing client
+  // instead of returning early and leaving PostHog's anonymous id in place.
+  if (client) {
+    try {
+      if (opts?.installId) client.identify(opts.installId, { install_id: opts.installId });
+    } catch (err) {
+      if (__DEV__) console.warn('[analyticsBackend] identify failed', err);
+      return false;
+    }
+    return true;
+  }
   const apiKey = process.env.EXPO_PUBLIC_ANALYTICS_KEY;
-  if (!apiKey || apiKey.length === 0) return;
+  if (!apiKey || apiKey.length === 0) return false;
   const host = opts?.host || process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
   try {
     const mod = await import('posthog-react-native');
@@ -54,10 +68,13 @@ export async function initBackend(opts?: { host?: string }): Promise<void> {
       // Disable session recording (extra cost, not useful for our use case).
       enableSessionReplay: false,
     });
+    if (opts?.installId) client.identify(opts.installId, { install_id: opts.installId });
+    return true;
   } catch (err) {
     // Phase 41: production log guard — keep __DEV__ on the same line as console.warn
     // so the test at tests/phase41ProductionLogGuard.test.ts accepts it.
     if (__DEV__) console.warn('[analyticsBackend] PostHog init failed; queue-only mode', err);
+    return false;
   }
 }
 

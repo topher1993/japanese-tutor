@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { advanceOnboarding, getCurrentOnboardingStep, getDefaultOnboardingState, selectLearnerLanguage } from '../services/onboardingService';
 // Phase 44.4: per-step view events power the PostHog onboarding funnel.
@@ -9,7 +9,6 @@ import { track } from '../services/analyticsService';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
-import { Icon, type IconName } from '../components/Icon';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { Illustration } from '../components/Illustration';
 import { Mascot } from '../components/Mascot';
@@ -164,4 +163,4 @@ const styles = StyleSheet.create({
 });
 
 // referenced to keep tree-shake honest; Icon is re-exported by other modules but kept here for future use
-export type { IconName };
+export type { IconName } from '../components/Icon';

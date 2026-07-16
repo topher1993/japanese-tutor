@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { buildReviewSession, type ReviewLevel, type ReviewSessionResult } from '../services/reviewModeService';
 import { getCandidateReviewCounts } from '../services/candidateReviewAdapter';
 import { Card } from '../components/Card';
@@ -8,14 +8,19 @@ import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Button } from '../components/Button';
 import { ds } from '../theme/designSystem';
+import { learningGroupLabel, partOfSpeechLabel, VOCABULARY_LEARNING_GROUPS, type VocabularyLearningGroup } from '../services/vocabularyTaxonomyService';
 
 export function ReviewModePanel({ onBack }: { onBack?: () => void }) {
   const [level, setLevel] = useState<ReviewLevel | 'mixed'>('mixed');
   const [currentIdx, setCurrentIdx] = useState(0);
   const [responses, setResponses] = useState<number[]>([]);
   const [result, setResult] = useState<ReviewSessionResult | null>(null);
+  const [group, setGroup] = useState<VocabularyLearningGroup | 'all'>('all');
 
-  const session = useMemo(() => buildReviewSession(level === 'mixed' ? undefined : level), [level]);
+  const session = useMemo(() => buildReviewSession(
+    level === 'mixed' ? undefined : level,
+    group === 'all' ? undefined : group,
+  ), [group, level]);
   const current = session.items[currentIdx];
   const candidateCounts = getCandidateReviewCounts();
 
@@ -83,13 +88,28 @@ export function ReviewModePanel({ onBack }: { onBack?: () => void }) {
         ))}
       </View>
 
+      <Text style={styles.filterLabel}>Word type</Text>
+      <View style={styles.levelRow}>
+        <Chip label="All" selected={group === 'all'} onPress={() => { setGroup('all'); restart(); }} />
+        {VOCABULARY_LEARNING_GROUPS.map(value => (
+          <Chip
+            key={value}
+            label={learningGroupLabel(value)}
+            selected={group === value}
+            onPress={() => { setGroup(value); restart(); }}
+          />
+        ))}
+      </View>
+
       <Card shadow="hero">
         <Text style={styles.prompt}>{current.prompt}</Text>
-        <Text style={styles.tag}>{current.category} • {current.jlptLevel}</Text>
+        <Text style={styles.tag}>{partOfSpeechLabel(current.partOfSpeech)} • {current.jlptLevel}</Text>
         <View style={styles.options}>
           {current.choices.map((choice, idx) => (
             <Pressable
               key={idx}
+              accessibilityRole="button"
+              accessibilityLabel={choice}
               style={({ pressed }) => [styles.choice, { opacity: pressed ? 0.85 : 1 }]}
               onPress={() => answer(idx)}
             >
@@ -107,7 +127,8 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: ds.type.body, color: ds.colors.brandInk, opacity: 0.85, textAlign: 'center', marginBottom: ds.spacing.md },
   empty: { fontSize: ds.type.body, color: ds.colors.textMuted },
   candidateBadge: { fontSize: ds.type.caption, color: ds.colors.text, fontWeight: '800', lineHeight: 20, flexShrink: 1 },
-  levelRow: { flexDirection: 'row', gap: ds.spacing.xs, marginBottom: ds.spacing.sm },
+  levelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.xs, marginBottom: ds.spacing.sm },
+  filterLabel: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.primary, textTransform: 'uppercase' },
   prompt: { fontSize: ds.type.heading + 2, lineHeight: 28, fontWeight: '900', color: ds.colors.text, flexShrink: 1 },
   tag: { fontSize: ds.type.micro, fontWeight: '900', color: ds.colors.textMuted, marginTop: ds.spacing.xs, textTransform: 'uppercase' },
   options: { marginTop: ds.spacing.md, gap: ds.spacing.sm },

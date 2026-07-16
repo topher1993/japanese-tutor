@@ -1,17 +1,20 @@
 # Broader Beta Trial 1 — Tester Instructions
 
+> Historical trial instructions. Any embedded Expo/LAN URL is expired; start a
+> fresh session using `../current-ios-qa-access.md` before testing.
+
 ## Status
-Ready for limited broader beta.
+Historical trial completed; URLs below are expired examples only.
 
 ## Remote tester URL
 
-Use this if the tester is **not in Chris's house / not on the same Wi-Fi**:
+This was used when the tester was not on the host's local network:
 
 ```text
 exp://zujugea-anonymous-8081.exp.direct
 ```
 
-This is the current Expo tunnel URL. It works across different networks while the tunnel server is running.
+This tunnel URL is expired and must not be reused.
 
 ## Local same-Wi-Fi URL
 

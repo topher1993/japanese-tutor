@@ -1,0 +1,42 @@
+appId: com.belion.japanesetutor
+name: Lesson completion smoke test
+tags:
+  - smoke
+  - learning
+---
+- launchApp:
+    clearState: true
+- tapOn: Start setup
+- tapOn: Continue
+- tapOn: Set goal
+- tapOn: Open app
+- tapOn:
+    id: tab-lessons
+- scrollUntilVisible:
+    element:
+      id: learn-continue-button
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: learn-continue-button
+- scrollUntilVisible:
+    element:
+      id: lesson-mark-complete-button
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: lesson-mark-complete-button
+- scrollUntilVisible:
+    element: "Safety: Stop, Danger, and Check"
+    direction: UP
+    centerElement: true
+- assertVisible: "Safety: Stop, Danger, and Check"
+- tapOn:
+    id: tab-home
+- scrollUntilVisible:
+    element:
+      id: daily-todo-lesson-status
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: daily-todo-lesson-status

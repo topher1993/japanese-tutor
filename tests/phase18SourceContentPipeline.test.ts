@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import {
   getContentSourceAcknowledgementText,
@@ -37,7 +38,18 @@ describe('Phase 18A content source compliance', () => {
       expect(source.licenseUrl).toMatch(/^https?:\/\//);
       expect(source.recommendedUse.length).toBeGreaterThan(0);
       expect(source.betaPolicy).toMatch(/curated|candidate|metadata/i);
+      expect(source.homepageUrl).toMatch(/^https:\/\//);
+      expect(source.licenseUrl).toMatch(/^https:\/\//);
+      if (source.downloadUrl) expect(source.downloadUrl).toMatch(/^https:\/\//);
     }
+  });
+
+  it('makes source URLs accessible and contains external-link failures', () => {
+    const screen = readFileSync('src/screens/SourcesScreen.tsx', 'utf8');
+    expect(screen).toContain('await Linking.canOpenURL(url)');
+    expect(screen).toContain('await Linking.openURL(url)');
+    expect(screen).toContain('accessibilityRole="link"');
+    expect(screen).toContain('Could not open that source link. Please try again.');
   });
 
   it('provides app-ready acknowledgement text for the About/Sources screen', () => {

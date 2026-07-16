@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { ds } from '../theme/designSystem';
 import { Icon, type IconName } from './Icon';
@@ -18,6 +17,7 @@ export interface ButtonProps {
   disabled?: boolean;
   style?: ViewStyle;
   testID?: string;
+  accessibilityLabel?: string;
 }
 
 export function Button({
@@ -31,6 +31,7 @@ export function Button({
   disabled = false,
   style,
   testID,
+  accessibilityLabel,
 }: ButtonProps) {
   const v = VARIANT_STYLES[variant];
   const minHeight = size === 'lg' ? ds.touch.comfortable : ds.touch.min;
@@ -39,6 +40,9 @@ export function Button({
       testID={testID}
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.base,
         { backgroundColor: v.bg, borderColor: v.border, minHeight, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },

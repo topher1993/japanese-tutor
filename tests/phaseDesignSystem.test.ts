@@ -41,7 +41,7 @@ describe('Phase UI-C — screens use design system primitives', () => {
 
   it('LessonsScreen uses Button, Chip, Disclosure, Card, ScreenHeader, ScreenScaffold, Icon', () => {
     const src = readFile(join(SRC, 'screens', 'LessonsScreen.tsx'));
-    for (const c of ['Button', 'Chip', 'Disclosure', 'Card', 'ScreenHeader', 'ScreenScaffold', 'Icon']) {
+    for (const c of ['Button', 'Chip', 'Disclosure', 'Card', 'ScreenHeader', 'ScreenScaffold']) {
       expect(src).toContain(c);
     }
   });

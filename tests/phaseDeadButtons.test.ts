@@ -56,8 +56,9 @@ describe('Phase Fix-A — primary CTAs are no longer dead buttons', () => {
       // 1) HomeScreen accepts onStartLesson (covered by describe above)
       // 2) renderTab wires onStartLesson to <HomeScreen>
       expect(renderTabSrc).toMatch(/<HomeScreen[^>]*onStartLesson=/);
-      // 3) App.tsx passes an arrow to renderTab that calls nav.setTab('Lessons')
-      expect(appSrc).toMatch(/onStartLesson:\s*\(\)\s*=>\s*nav\.setTab\(['"]Lessons['"]\)/);
+      // 3) App.tsx uses the navigation helper so a pending lesson destination
+      // can be carried into the Lessons tab instead of only changing tabs.
+      expect(appSrc).toMatch(/onStartLesson:\s*\(\)\s*=>\s*nav\.onOpenLesson\(\)/);
       // 4) setTab lives in the hook (defensive — guards against inline re-implementation)
       expect(hookSrc).toMatch(/setTab\s*[:=]/);
       // Combined check: the literal `setTab('Lessons')` exists in the app shell.

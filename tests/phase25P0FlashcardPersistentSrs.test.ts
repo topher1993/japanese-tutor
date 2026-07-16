@@ -49,7 +49,22 @@ describe('Phase 25 / P0-3 — FlashcardsScreen persistent SRS', () => {
   });
 
   it('calls srs.review(cardId, rating) when the user rates a card', () => {
-    expect(src).toMatch(/srs\.review\(\s*cardId\s*,\s*rating\s*\)/);
+    // Phase 51: Phase 25 wrote `srs.review(cardId, rating)` where `rating` was
+    // the 4-button literal string passed in by RatingButtons. Phase 51 removes
+    // RatingButtons and routes markGoodAndAdvance through `srs.review(cardId, 'hard')`,
+    // and the visible "Not yet" action through `srs.review(cardId, 'again')`.
+    // Accept any of the three literal forms so this spec-lock-in test stays
+    // aligned with the post-Phase-51 source.
+    expect(src).toMatch(/srs\.review\(\s*cardId\s*,\s*(rating|'hard'|'again')\s*\)/);
+  });
+
+  it("the 'Not yet' path routes to srs.review(cardId, 'again')", () => {
+    expect(src).toMatch(/srs\.review\(\s*cardId\s*,\s*'again'\s*\)/);
+  });
+
+  it('speaks Japanese text rather than a reading or romaji label', () => {
+    expect(src).toContain('speakJapanese(card.japanese)');
+    expect(src).not.toContain('speakJapanese(displayedReading)');
   });
 
   it('reads dueCount from srs.dueCount() (NOT scheduler.dueCards().length)', () => {

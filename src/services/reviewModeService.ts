@@ -1,14 +1,18 @@
 import { buildCandidateReviewItems } from './candidateReviewAdapter';
+import type { JapanesePartOfSpeech, VocabularyLearningGroup } from './vocabularyTaxonomyService';
 
 export type ReviewLevel = 'N5' | 'N4';
 
 export interface ReviewItem {
   id: string;
+  vocabularyId?: string;
   prompt: string;
   choices: string[];
   correctIndex: number;
   jlptLevel: ReviewLevel;
   category: string;
+  partOfSpeech: JapanesePartOfSpeech;
+  learningGroup: VocabularyLearningGroup;
 }
 
 export interface ReviewSessionResult {
@@ -22,8 +26,8 @@ export interface ReviewSession {
   score(responses: number[]): ReviewSessionResult;
 }
 
-export function buildReviewSession(level?: ReviewLevel): ReviewSession {
-  const items = buildCandidateReviewItems(level);
+export function buildReviewSession(level?: ReviewLevel, group?: VocabularyLearningGroup): ReviewSession {
+  const items = buildCandidateReviewItems(level, group);
   return {
     items,
     totalCount: items.length,

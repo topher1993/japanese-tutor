@@ -5,7 +5,6 @@
  * is dimmed (opacity) to communicate inactive state. Tints are applied via
  * `tintColor` so we can theme the active variant without re-bundling PNGs.
  */
-import React from 'react';
 import { Image, StyleSheet } from 'react-native';
 import { getAsset } from '../assets/assetRequireMap';
 

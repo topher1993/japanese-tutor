@@ -7,7 +7,6 @@
 // Phase 43: No state, no hooks, no behavior change. Pure prop-driven
 // presentation component.
 
-import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ds } from '../../theme/designSystem';
@@ -20,6 +19,9 @@ export function LessonPathRow({ item, onOpen }: { item: LessonPathItem; onOpen: 
     <Pressable
       onPress={item.state === 'locked' ? undefined : onOpen}
       disabled={item.state === 'locked'}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.lesson.title}. ${stateLabel}. ${item.primaryActionLabel}`}
+      accessibilityState={{ disabled: item.state === 'locked', selected: item.state === 'current' }}
       style={({ pressed }) => [styles.lessonPathRow, item.state === 'current' && styles.lessonPathRowCurrent, { opacity: item.state === 'locked' ? 0.65 : pressed ? 0.85 : 1 }]}
     >
       <View style={[styles.lessonPathStatus, item.state === 'completed' && styles.lessonPathStatusDone, item.state === 'current' && styles.lessonPathStatusCurrent]}>

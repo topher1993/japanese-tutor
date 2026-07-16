@@ -1,4 +1,11 @@
-export type PlacementLevel = 'N5' | 'N4' | 'N3' | 'N3-or-above';
+export type PlacementLevel = 'absolute-beginner' | 'N5' | 'N4' | 'N3' | 'N3-or-above';
+export const PLACEMENT_TEST_VERSION = 'v1';
+
+export function placementLevelLabel(level: PlacementLevel): string {
+  if (level === 'absolute-beginner') return 'Absolute Beginner';
+  if (level === 'N3-or-above') return 'N3+';
+  return level;
+}
 
 export interface PlacementQuestion {
   id: string;
@@ -40,7 +47,7 @@ const QUESTIONS: Omit<PlacementQuestion, 'id'>[] = [
   { level: 'N4', prompt: 'Choose the correct te-form: 飲む', choices: ['飲まなくて', '飲んで', '飲んだ', '飲みて'], correctIndex: 1, explanation: '飲む → 飲んで.' },
   { level: 'N3', prompt: 'Pick the right grammar: 彼が来る ___ かどうか分からない。', choices: ['か', 'を', 'は', 'に'], correctIndex: 0, explanation: '〜かどうか = whether or not.' },
   { level: 'N3', prompt: 'Meaning of 「〜っぽい」?', choices: ['similar to', 'without', 'because', 'almost'], correctIndex: 0, explanation: 'っぽい = -ish / -like.' },
-  { level: 'N3', prompt: 'Choose: 先生に褒め ___。', choices: ['ます', 'られる', 'られる', 'させる'], correctIndex: 2, explanation: 'Potential-causative: 先生に褒められる.' },
+  { level: 'N3', prompt: 'Choose: 先生に褒め ___。', choices: ['ます', 'られ', 'られる', 'させる'], correctIndex: 2, explanation: 'Passive form: 先生に褒められる.' },
   { level: 'N3', prompt: 'Pick: 彼は日本語が話せる ___ 上手です。', choices: ['ように', 'ほど', 'だけに', 'くらい'], correctIndex: 0, explanation: '話せるようになる = become able to speak.' },
   { level: 'N3', prompt: 'Meaning of 「決して」?', choices: ['always', 'never (emphatic)', 'sometimes', 'later'], correctIndex: 1, explanation: '決して = never, with negative.' },
 ];
@@ -91,7 +98,8 @@ export function scorePlacementTest(responses: number[]): PlacementResult {
   }
   const scorePercent = Math.round((correct / total) * 100);
   let recommended: PlacementLevel = 'N5';
-  if (scorePercent >= 80) recommended = 'N3-or-above';
+  if (scorePercent <= 20) recommended = 'absolute-beginner';
+  else if (scorePercent >= 80) recommended = 'N3-or-above';
   else if (scorePercent >= 60) recommended = 'N3';
   else if (scorePercent >= 40) recommended = 'N4';
   return { scorePercent, recommendedLevel: recommended, byLevel };

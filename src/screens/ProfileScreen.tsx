@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -7,7 +7,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { useUserProfileContext } from '../services/userProfileContext';
 import { useLearningContext } from '../services/learningContext';
-import { getAllLessons } from '../services/lessonService';
+import { getGrammarLessons, getPhraseLessons } from '../services/lessonService';
 import { buildProgressDashboard } from '../services/progressDashboardService';
 import { buildProfileProgression } from '../services/profileProgressionService';
 import type { LearnerProgress } from '../types/progress';
@@ -34,7 +34,7 @@ const INDUSTRIES = ['Hospitality', 'Construction', 'Manufacturing', 'Retail', 'O
 const ROLES = ['New hire', 'Front desk', 'Server', 'Technician', 'Care worker', 'Team lead'];
 const SITUATIONS = ['Greetings', 'Clocking in', 'Asking for help', 'Safety', 'Customers', 'Schedule changes'];
 
-export function ProfileScreen({ onBack }: { onBack: () => void }) {
+export function ProfileScreen({ onBack, onOpenPlacement }: { onBack: () => void; onOpenPlacement?: () => void }) {
   const { ready, profile, updateProfile } = useUserProfileContext();
   const { ready: learningReady, store } = useLearningContext();
   const [progress, setProgress] = useState<LearnerProgress | null>(null);
@@ -61,6 +61,8 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
     try {
       await updateProfile(update);
       setSaveMessage(`${label} saved`);
+    } catch {
+      setSaveMessage(`${label} could not be saved. Please retry.`);
     } finally {
       setSaving(false);
     }
@@ -92,7 +94,8 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
   }
 
   const selectedGoal = GOAL_OPTIONS.find(goal => goal.value === profile.static.studyGoal) ?? GOAL_OPTIONS[0];
-  const lessons = getAllLessons();
+  const lessons = getPhraseLessons();
+  const grammarLessons = getGrammarLessons();
   const safeProgress = progress ?? { startedAt: '', completedLessonIds: [], quizScores: [], streak: { currentStreak: 0, longestStreak: 0 } };
   const dashboard = buildProgressDashboard(safeProgress, lessons);
   const progression = buildProfileProgression(safeProgress, lessons, dashboard, {
@@ -100,6 +103,7 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
     dailyRushGood: profile.dynamic.dailyRush.totalGood,
   });
   const earnedBadges = progression.badges.filter(badge => badge.earned).length;
+  const completedGrammarLessons = grammarLessons.filter(lesson => safeProgress.completedLessonIds.includes(lesson.id)).length;
 
   return (
     <ScreenScaffold>
@@ -114,6 +118,26 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
           <Text style={styles.heroMeta}>{profile.static.dailyStudyMinutes} min/day</Text>
           <Text style={styles.heroMeta}>{profile.static.jlptTarget ?? 'N5'}</Text>
         </View>
+      </Card>
+
+      <Card shadow="card">
+        <Text style={styles.sectionLabel}>Japanese starting level</Text>
+        {profile.dynamic.placement ? (
+          <>
+            <Text style={styles.heroTitle}>{profile.dynamic.placement.level}</Text>
+            <Text style={styles.help}>Latest evaluation: {profile.dynamic.placement.scorePercent}%. Lessons now start from this level.</Text>
+          </>
+        ) : (
+          <Text style={styles.help}>Take a short evaluation so your lesson path can start at the right level.</Text>
+        )}
+        {onOpenPlacement ? (
+          <Button
+            label={profile.dynamic.placement ? 'Retake evaluation' : 'Evaluate my level'}
+            onPress={onOpenPlacement}
+            icon="star"
+            variant="soft"
+          />
+        ) : null}
       </Card>
 
 
@@ -134,6 +158,14 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
           </View>
         </View>
         <Text style={styles.help}>Next milestone: {progression.nextMilestone.label}</Text>
+      </Card>
+
+      <Card shadow="card">
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>Grammar rules</Text>
+          <Text style={styles.sectionMeta}>{completedGrammarLessons} / {grammarLessons.length}</Text>
+        </View>
+        <Text style={styles.help}>Your adjective, particle, verb-form, and conjugation lessons are tracked separately from phrase progress.</Text>
       </Card>
 
       <Card shadow="card">
@@ -281,6 +313,8 @@ const styles = StyleSheet.create({
   heroMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.sm, marginTop: ds.spacing.md },
   heroMeta: { fontSize: ds.type.caption, color: ds.colors.brandDark, fontWeight: '900', backgroundColor: ds.colors.brandInk, borderRadius: ds.radius.pill, paddingHorizontal: ds.spacing.sm, paddingVertical: ds.spacing.xs },
   sectionLabel: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.primary, textTransform: 'uppercase', marginBottom: ds.spacing.xs },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: ds.spacing.sm },
+  sectionMeta: { fontSize: ds.type.caption, color: ds.colors.primary, fontWeight: '900' },
   subLabel: { fontSize: ds.type.caption, fontWeight: '900', color: ds.colors.text, marginTop: ds.spacing.md, marginBottom: ds.spacing.xs },
   help: { fontSize: ds.type.body, color: ds.colors.textMuted, lineHeight: 22, marginBottom: ds.spacing.sm },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ds.spacing.sm },

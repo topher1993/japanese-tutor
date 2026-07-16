@@ -21,14 +21,11 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
   buildAllTodoBoards,
   buildWeeklyTodoBoard,
-  type TodoPayload,
 } from '../src/services/weeklyTodoService';
 import type {
-  TodoEventCounts,
   TodoState,
   WeekPlan,
 } from '../src/types/weeklyTodo';
-import { emptyTodoEventCounts } from '../src/types/weeklyTodo';
 import { getWeekPlan, getAllWeekPlans } from '../src/services/weeklyPlansService';
 import {
   createPracticeProgressStore,
@@ -40,15 +37,6 @@ import {
   type SqliteLikeDatabase,
 } from '../src/repositories/sqliteLearningRepository';
 import { createInMemoryLearningRepository } from '../src/repositories/inMemoryLearningRepository';
-
-function makeEmptyPayload(): TodoPayload {
-  return {
-    todoStates: {},
-    weekTodosInitialized: {},
-    todoEventCounts: emptyTodoEventCounts(),
-    completedLessonIds: [],
-  };
-}
 
 function n5w1Plan(): WeekPlan {
   const plan = getWeekPlan(1);

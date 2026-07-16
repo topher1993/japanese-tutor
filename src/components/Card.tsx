@@ -24,7 +24,7 @@ export function Card({ children, tone = 'default', onPress, style, padded = true
   );
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}>
+      <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}>
         {content}
       </Pressable>
     );

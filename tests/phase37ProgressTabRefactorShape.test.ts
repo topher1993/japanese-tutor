@@ -45,7 +45,7 @@ describe('phase 37 — ProgressScreen refactor shape', () => {
     expect(source).toMatch(/buildProfileProgression\s*\(/);
   });
 
-  it('(b) imports useUserProfileContext and maps jlptTarget through toStudyLevel for dailyPlan', () => {
+  it('(b) imports useUserProfileContext and maps evaluated level, with jlptTarget fallback, for dailyPlan', () => {
     const source = loadScreenSource();
     expect(source).toMatch(
       /import\s*\{[^}]*useUserProfileContext[^}]*\}\s*from\s*['"]\.\.\/services\/userProfileContext['"]/,
@@ -56,7 +56,9 @@ describe('phase 37 — ProgressScreen refactor shape', () => {
     // dailyPlan must be built from the mapped level, not the literal 'N5'.
     expect(source).toMatch(/buildDailyPlan\s*\(\s*planLevel\s*\)/);
     // The hook result must drive the level mapping.
-    expect(source).toMatch(/planLevel\s*=\s*toStudyLevel\s*\(\s*profile\??\.static\.jlptTarget\s*\)/);
+    expect(source).toMatch(/placementLevelToCourseLevel/);
+    expect(source).toMatch(/planLevel\s*=\s*profile\??\.dynamic\.placement/);
+    expect(source).toMatch(/toStudyLevel\s*\(\s*profile\??\.static\.jlptTarget\s*\)/);
   });
 
   it('(c) no longer contains a hardcoded ACHIEVEMENTS array', () => {

@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { buildBetaFeedbackPrompts } from '../services/betaReleaseCandidateService';
 import { createBrowserBetaFeedbackStorage, createLocalBetaFeedbackStore, summarizeBetaFeedback } from '../services/betaFeedbackService';
 import { buildFeedbackPolishQueue, feedbackCategories, feedbackSeverities } from '../services/betaFeedbackTriageService';
 import { betaFeedbackScreenOptions, buildFirstPolishSprint, summarizeSprintReadiness } from '../services/betaPolishSprintService';
 import { getExternalBetaFeedbackFormAccess } from '../services/externalBetaFeedbackFormService';
+import { localDateKey } from '../utils/localDate';
 import { buildSimpleFeedbackEntry, getSimpleFeedbackOptions, mapSimpleFeedbackToTriage } from '../services/simpleFeedbackUxService';
 import { ds } from '../theme/designSystem';
 import { Button } from '../components/Button';
@@ -40,6 +41,7 @@ export function BetaFeedbackScreen({ onBack }: { onBack: () => void }) {
   const [severity, setSeverity] = useState<BetaFeedbackSeverity>(initialTriage.severity);
   const [category, setCategory] = useState<BetaFeedbackCategory>(initialTriage.category);
   const [note, setNote] = useState('');
+  const [externalFormError, setExternalFormError] = useState<string | null>(null);
   const prompts = buildBetaFeedbackPrompts();
   const summary = summarizeBetaFeedback(entries);
   const queue = buildFeedbackPolishQueue(entries);
@@ -64,7 +66,7 @@ export function BetaFeedbackScreen({ onBack }: { onBack: () => void }) {
   }
 
   function saveFeedback() {
-    const createdAt = new Date().toISOString().slice(0, 10);
+    const createdAt = localDateKey();
     const entry = showAdvanced
       ? { screen, rating, severity, category, note: note || 'No note provided', createdAt, feedbackType }
       : buildSimpleFeedbackEntry({ screen, rating, type: feedbackType, stoppedUse, note, createdAt });
@@ -78,8 +80,15 @@ export function BetaFeedbackScreen({ onBack }: { onBack: () => void }) {
     setRating(4);
   }
 
-  function openExternalForm() {
-    void Linking.openURL(externalForm.url);
+  async function openExternalForm() {
+    setExternalFormError(null);
+    try {
+      const supported = await Linking.canOpenURL(externalForm.url);
+      if (!supported) throw new Error('Unsupported URL');
+      await Linking.openURL(externalForm.url);
+    } catch {
+      setExternalFormError('Could not open the feedback form. Copy the address below into your browser.');
+    }
   }
 
   return (
@@ -90,8 +99,9 @@ export function BetaFeedbackScreen({ onBack }: { onBack: () => void }) {
         <Text style={styles.cardTitle}>Full beta tester form</Text>
         <Text style={styles.line}>{externalForm.helperText}</Text>
         <View style={styles.externalFormButton}>
-          <Button label={externalForm.label} onPress={openExternalForm} icon="arrow-right" />
+          <Button label={externalForm.label} onPress={() => { void openExternalForm(); }} icon="arrow-right" />
         </View>
+        {externalFormError ? <Text style={styles.errorText} accessibilityLiveRegion="assertive">{externalFormError}</Text> : null}
         <Text style={styles.urlText}>{externalForm.url}</Text>
       </Card>
 
@@ -101,6 +111,9 @@ export function BetaFeedbackScreen({ onBack }: { onBack: () => void }) {
           {simpleOptions.map(option => (
             <Pressable
               key={option.type}
+              accessibilityRole="radio"
+              accessibilityLabel={`${option.label}. ${option.helperText}`}
+              accessibilityState={{ checked: feedbackType === option.type }}
               style={({ pressed }) => [styles.optionCard, feedbackType === option.type && styles.optionActive, { opacity: pressed ? 0.92 : 1 }]}
               onPress={() => chooseFeedbackType(option.type)}
             >
@@ -121,7 +134,7 @@ export function BetaFeedbackScreen({ onBack }: { onBack: () => void }) {
         ) : null}
 
         <Text style={styles.label}>Where did it happen?</Text>
-        <TextInput style={styles.input} value={screen} onChangeText={setScreen} />
+        <TextInput accessibilityLabel="Screen where the feedback happened" style={styles.input} value={screen} onChangeText={setScreen} />
         <View style={styles.chipRow}>
           {betaFeedbackScreenOptions.map(value => (
             <Chip key={value} label={value} selected={screen === value} onPress={() => setScreen(value)} />
@@ -130,6 +143,7 @@ export function BetaFeedbackScreen({ onBack }: { onBack: () => void }) {
 
         <Text style={styles.label}>What happened?</Text>
         <TextInput
+          accessibilityLabel="Describe what happened"
           style={[styles.input, styles.note]}
           multiline
           value={note}
@@ -214,6 +228,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: ds.type.heading, fontWeight: '900', color: ds.colors.text, marginBottom: ds.spacing.sm, flexShrink: 1 },
   line: { fontSize: ds.type.body, color: ds.colors.text, lineHeight: 22, marginTop: ds.spacing.xs, flexShrink: 1 },
   externalFormButton: { marginTop: ds.spacing.md },
+  errorText: { color: ds.colors.danger, fontSize: ds.type.caption, marginTop: ds.spacing.sm, lineHeight: 18 },
   urlText: { color: ds.colors.primary, fontSize: ds.type.caption, marginTop: ds.spacing.sm, flexShrink: 1 },
   optionStack: { gap: ds.spacing.sm, marginTop: ds.spacing.xs },
   optionCard: {

@@ -6,7 +6,6 @@
  * so the full illustration (including bottom kanji cards) fits within the
  * available card area without being cut off by the viewport.
  */
-import React from 'react';
 import { Image, View, StyleSheet, ImageStyle, AccessibilityProps } from 'react-native';
 import { getAsset } from '../assets/assetRequireMap';
 

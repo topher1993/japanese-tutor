@@ -35,10 +35,10 @@ describe('UX-0/1/2/3/4 simplification — non-technical user friendly', () => {
   });
 
   describe('Standardized back button copy', () => {
-    it('HomeScreen has back navigation', () => {
+    it('placement evaluation has back navigation', () => {
       // New design: ScreenHeader with onBack callback (renders an icon, not literal text)
-      const hasBack = readScreen('HomeScreen.tsx').includes('← Back') || /<ScreenHeader[\s\S]*?onBack=\{/m.test(readScreen('HomeScreen.tsx'));
-      expect(hasBack).toBe(true);
+      const src = readScreen('PlacementTestPanel.tsx');
+      expect(src).toMatch(/<ScreenHeader[\s\S]*?onBack=\{/m);
     });
 
     it('LessonsScreen uses consistent back navigation everywhere', () => {

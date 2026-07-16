@@ -2,6 +2,7 @@ import type { LessonCategory, SenseiLesson } from '../types/lesson';
 import type { LearnerProgress, WeeklyReviewCompletion } from '../types/progress';
 import { createInitialProgress, completeLesson } from '../services/progressService';
 import { createTablesSql, CURRENT_SCHEMA_VERSION } from '../db/schema';
+import { localDateKey } from '../utils/localDate';
 
 export interface SqliteLikeDatabase {
   execAsync(sql: string): Promise<void>;
@@ -181,7 +182,7 @@ function withTodoDefaults(progress: LearnerProgress): ExtendedLearnerProgress {
 
 export function createSqliteLearningRepository(db: SqliteLikeDatabase): PersistentLearningRepository {
   let lessonsCache: SenseiLesson[] = [];
-  let progressCache: ExtendedLearnerProgress = withTodoDefaults(createInitialProgress('2026-06-18'));
+  let progressCache: ExtendedLearnerProgress = withTodoDefaults(createInitialProgress(localDateKey()));
   const memoryTables = db.tables;
 
   async function readSchemaVersion(tableKey: string): Promise<number> {
@@ -207,21 +208,30 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
   function hydrateProgressFromRows(rows: ProgressSqlRow[]): void {
     if (rows.length === 0) return;
     const completedLessonIds: string[] = [];
-    for (const row of rows) {
+    const completionEvents: Array<{ row: ProgressSqlRow; index: number; lessonId: string; completedAt: string; score: number }> = [];
+    for (const [index, row] of rows.entries()) {
       const isCompleted = Number(row.completed ?? 0) === 1;
       const lessonId = (row.lesson_id ?? row.lessonId) as string | undefined;
       if (isCompleted && lessonId && !completedLessonIds.includes(lessonId)) {
         completedLessonIds.push(lessonId);
       }
-    }
-    let lastRealRow: ProgressSqlRow | null = null;
-    for (let i = rows.length - 1; i >= 0; i--) {
-      if (Number(rows[i].completed ?? 0) === 1) {
-        lastRealRow = rows[i];
-        break;
+      const completedAt = (row.completed_at ?? row.completedAt) as string | undefined;
+      const score = Number(row.score);
+      if (isCompleted && lessonId && completedAt && Number.isFinite(score)) {
+        completionEvents.push({ row, index, lessonId, completedAt, score });
       }
     }
-    const row = lastRealRow ?? rows[rows.length - 1];
+    completionEvents.sort((a, b) => a.completedAt.localeCompare(b.completedAt) || a.index - b.index);
+    const firstStudyDate = completionEvents[0]?.completedAt.slice(0, 10);
+    let reconstructed = createInitialProgress(firstStudyDate ?? progressCache.startedAt);
+    for (const event of completionEvents) {
+      reconstructed = completeLesson(reconstructed, event.lessonId, event.score, event.completedAt);
+    }
+    reconstructed.completedLessonIds = completedLessonIds;
+
+    // The final row is authoritative for additive JSON blobs. A fresh learner
+    // can legitimately have only a todo-snapshot row and no lesson event.
+    const row = rows[rows.length - 1];
     // Phase 46 — the new weekly_review_completions column defaults to '[]'
     // for v2 rows that pre-date the column addition. Read with safeParseJson
     // because older test seams in phase42 hand-roll v2-shape rows without the
@@ -234,15 +244,17 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
     );
     const newProgressCache = {
       ...progressCache,
-      completedLessonIds,
+      startedAt: reconstructed.startedAt,
+      completedLessonIds: reconstructed.completedLessonIds,
+      quizScores: reconstructed.quizScores,
+      streak: reconstructed.streak,
       todoStates: parseTodoBlob<TodoStateMap>(row.todo_states ?? row.todoStates, {}, 'progress.todo_states'),
-            weekTodosInitialized: parseTodoBlob<WeekTodosInitializedMap>(row.week_todos_initialized ?? row.weekTodosInitialized, {}, 'progress.week_todos_initialized'),
-            todoEventCounts: parseTodoBlob<TodoEventCountsMap>(row.todo_event_counts ?? row.todoEventCounts, {}, 'progress.todo_event_counts'),
+      weekTodosInitialized: parseTodoBlob<WeekTodosInitializedMap>(row.week_todos_initialized ?? row.weekTodosInitialized, {}, 'progress.week_todos_initialized'),
+      todoEventCounts: parseTodoBlob<TodoEventCountsMap>(row.todo_event_counts ?? row.todoEventCounts, {}, 'progress.todo_event_counts'),
       weeklyReviewCompletions,
     };
-    if (lastRealRow !== null || completedLessonIds.length > 0) {
-      progressCache = newProgressCache;
-    }
+    // Todo-only synthetic rows are valid progress for a fresh learner.
+    progressCache = newProgressCache;
   }
 
   async function migrateProgressTodoColumns(): Promise<void> {
@@ -260,6 +272,26 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
     }
   }
 
+  // Phase 51: mirror of `migrateProgressTodoColumns` for the new 8th column of
+  // `kv_srs_cards`. PRAGMA table_info check + ALTER TABLE ADD COLUMN pattern;
+  // try-catch swallows "duplicate column" errors so an already-migrated DB is
+  // a no-op. The DEFAULT on the column is 'memorized' so existing v1 rows
+  // upgraded in place keep their EF / reps / history without re-dumping into
+  // Daily Rush (Beru Q5 Mod 2). Lives inside the closure so it can read
+  // `memoryTables` and `db`.
+  async function migrateSrsStageColumn(): Promise<void> {
+    if (memoryTables) return;
+    try {
+      const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(kv_srs_cards)');
+      const names = new Set(columns.map(column => column.name));
+      if (!names.has('stage')) {
+        await db.execAsync("ALTER TABLE kv_srs_cards ADD COLUMN stage TEXT NOT NULL DEFAULT 'memorized'");
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[sqliteLearningRepository] failed to migrate kv_srs_cards stage column', err);
+    }
+  }
+
   return {
     async initialize() {
       for (const sql of createTablesSql) await db.execAsync(sql);
@@ -272,6 +304,11 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
       // Phase-37 todo columns, and the 8-value insert then fails inside
       // NativeDatabase.prepareAsync. Explicitly ALTER missing columns first.
       await migrateProgressTodoColumns();
+
+      // Phase 51: same ALTER-TABLE pattern for the new 8th column of
+      // kv_srs_cards. CREATE TABLE IF NOT EXISTS will not add the column to
+      // existing phone installs, and the 8-value insert then fails.
+      await migrateSrsStageColumn();
 
       // Phase 37a migration: record CURRENT_SCHEMA_VERSION for the progress
       // table on first run. v1 rows already in the DB keep working because the
@@ -303,9 +340,28 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
       // populated from progressCache too so a lesson-complete event doesn't
       // wipe the counter the recompute path just stamped.
       const todoStates = wrapTodoBlob(progressCache.todoStates ?? {});
-            const weekTodosInitialized = wrapTodoBlob(progressCache.weekTodosInitialized ?? {});
-            const todoEventCounts = wrapTodoBlob(progressCache.todoEventCounts ?? {});
+      const weekTodosInitialized = wrapTodoBlob(progressCache.weekTodosInitialized ?? {});
+      const todoEventCounts = wrapTodoBlob(progressCache.todoEventCounts ?? {});
       const weeklyReviewCompletions = JSON.stringify(progressCache.weeklyReviewCompletions ?? []);
+      if (memoryTables) {
+        const rows = (memoryTables.get('progress') ?? []) as Array<Record<string, unknown>>;
+        const id = `${lessonId}:${date}`;
+        const row = {
+          id,
+          lesson_id: lessonId,
+          completed: 1,
+          completed_at: date,
+          score,
+          todo_states: todoStates,
+          week_todos_initialized: weekTodosInitialized,
+          todo_event_counts: todoEventCounts,
+          weekly_review_completions: weeklyReviewCompletions,
+        };
+        const existingIndex = rows.findIndex(existing => existing.id === id);
+        if (existingIndex >= 0) rows[existingIndex] = row;
+        else rows.push(row);
+        memoryTables.set('progress', rows);
+      }
       await db.runAsync(
         'INSERT OR REPLACE INTO progress VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         `${lessonId}:${date}`,
@@ -337,8 +393,11 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
     async deleteAllProgress() {
       // Native: DROP + recreate the progress table so indexes and FKs reset
       // cleanly. In-memory mirror is also wiped via createInitialProgress().
-      progressCache = withTodoDefaults(createInitialProgress('2026-06-18'));
-      if (memoryTables) memoryTables.set('progress_events', []);
+      progressCache = withTodoDefaults(createInitialProgress(localDateKey()));
+      if (memoryTables) {
+        memoryTables.set('progress_events', []);
+        memoryTables.set('progress', []);
+      }
       try {
         await db.runAsync('DELETE FROM progress');
       } catch {
@@ -364,13 +423,31 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
       // alongside the three existing blobs.
       progressCache = withTodoDefaults(snapshot);
       const todoStates = wrapTodoBlob(snapshot.todoStates ?? {});
-            const weekTodosInitialized = wrapTodoBlob(snapshot.weekTodosInitialized ?? {});
-            const todoEventCounts = wrapTodoBlob(snapshot.todoEventCounts ?? {});
+      const weekTodosInitialized = wrapTodoBlob(snapshot.weekTodosInitialized ?? {});
+      const todoEventCounts = wrapTodoBlob(snapshot.todoEventCounts ?? {});
       const weeklyReviewCompletions = JSON.stringify(snapshot.weeklyReviewCompletions ?? []);
 
       if (memoryTables) {
         const rows = (memoryTables.get('progress') ?? []) as Array<Record<string, unknown>>;
         if (rows.length > 0) {
+          const completedIds = snapshot.completedLessonIds ?? [];
+          const existingIds = new Set(
+            rows.filter(row => Number(row.completed ?? 0) === 1).map(row => row.lesson_id),
+          );
+          for (const lessonId of completedIds) {
+            if (existingIds.has(lessonId)) continue;
+            rows.push({
+              id: `${lessonId}:todo-snapshot`,
+              lesson_id: lessonId,
+              completed: 1,
+              completed_at: null,
+              score: null,
+              todo_states: todoStates,
+              week_todos_initialized: weekTodosInitialized,
+              todo_event_counts: todoEventCounts,
+              weekly_review_completions: weeklyReviewCompletions,
+            });
+          }
           const last = rows[rows.length - 1];
           rows[rows.length - 1] = {
             ...last,
@@ -381,29 +458,56 @@ export function createSqliteLearningRepository(db: SqliteLikeDatabase): Persiste
           };
           memoryTables.set('progress', rows);
         } else {
-          rows.push({
-            id: 'todo-snapshot',
-            lesson_id: '',
-            completed: 0,
-            completed_at: null,
-            score: null,
-            todo_states: todoStates,
-            week_todos_initialized: weekTodosInitialized,
-            todo_event_counts: todoEventCounts,
-            weekly_review_completions: weeklyReviewCompletions,
-          });
+          // Preserve canonical lesson progress when a todo snapshot is the
+          // first write seen by a lightweight/test database. A blank synthetic
+          // row would hydrate as zero completed lessons and erase progress.
+          const completedIds = snapshot.completedLessonIds ?? [];
+          if (completedIds.length > 0) {
+            for (const lessonId of completedIds) {
+              rows.push({
+                id: `${lessonId}:todo-snapshot`,
+                lesson_id: lessonId,
+                completed: 1,
+                completed_at: null,
+                score: null,
+                todo_states: todoStates,
+                week_todos_initialized: weekTodosInitialized,
+                todo_event_counts: todoEventCounts,
+                weekly_review_completions: weeklyReviewCompletions,
+              });
+            }
+          } else {
+            rows.push({
+              id: 'todo-snapshot',
+              lesson_id: '',
+              completed: 0,
+              completed_at: null,
+              score: null,
+              todo_states: todoStates,
+              week_todos_initialized: weekTodosInitialized,
+              todo_event_counts: todoEventCounts,
+              weekly_review_completions: weeklyReviewCompletions,
+            });
+          }
           memoryTables.set('progress', rows);
         }
       }
 
       try {
-        await db.runAsync(
+        const updateResult = await db.runAsync(
           'UPDATE progress SET todo_states = ?, week_todos_initialized = ?, todo_event_counts = ?, weekly_review_completions = ? WHERE rowid = (SELECT MAX(rowid) FROM progress)',
           todoStates,
           weekTodosInitialized,
           todoEventCounts,
           weeklyReviewCompletions,
         );
+        if (!memoryTables && (updateResult.changes ?? 0) === 0) {
+          await db.runAsync(
+            'INSERT OR REPLACE INTO progress (id, lesson_id, completed, completed_at, score, todo_states, week_todos_initialized, todo_event_counts, weekly_review_completions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'todo-snapshot', '', 0, null, null,
+            todoStates, weekTodosInitialized, todoEventCounts, weeklyReviewCompletions,
+          );
+        }
       } catch {
         // No progress row exists yet — create a synthetic one so the blobs
         // survive the next getProgress() read.

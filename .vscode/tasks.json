@@ -1,0 +1,34 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Beta: typecheck and tests",
+      "type": "process",
+      "command": "npm",
+      "args": ["run", "validate:v11"],
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Beta: export web",
+      "type": "process",
+      "command": "npx",
+      "args": ["expo", "export", "--platform", "web"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Beta: full validation",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Beta: typecheck and tests", "Beta: export web"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Beta: run Maestro smoke flows",
+      "type": "process",
+      "command": "maestro",
+      "args": ["test", ".maestro"],
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

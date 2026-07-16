@@ -1,0 +1,33 @@
+appId: com.belion.japanesetutor
+name: Daily Rush smoke test
+tags:
+  - smoke
+  - learning
+---
+- launchApp:
+    clearState: true
+- tapOn: Start setup
+- tapOn: Continue
+- tapOn: Set goal
+- tapOn: Open app
+- scrollUntilVisible:
+    element:
+      id: home-daily-rush-cta
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: home-daily-rush-cta
+- assertVisible:
+    id: daily-rush-timer-animation
+- assertVisible:
+    id: daily-rush-choice-.*
+- tapOn:
+    id: daily-rush-choice-.*
+    index: 0
+- assertVisible:
+    id: daily-rush-timer-animation
+- stopApp
+- launchApp:
+    stopApp: false
+- assertVisible:
+    id: daily-rush-timer-animation

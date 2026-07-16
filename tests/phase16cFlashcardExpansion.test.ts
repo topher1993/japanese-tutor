@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createFlashcardDeck, getFlashcardStudySummary } from '../src/services/flashcardService';
 import { getAllLessons } from '../src/services/lessonService';
+import { localDateKey } from '../src/utils/localDate';
 
 const requiredCategories = ['workplace', 'safety', 'daily-life', 'hr', 'emergency'] as const;
 
@@ -18,7 +19,7 @@ describe('Phase 16C flashcard expansion', () => {
       expect(card.vietnamese).toBeTruthy();
       expect(card.filipino).toBeTruthy();
       // Phase 25 / P2-1: nextReviewDate is now todayIso(), not a hardcoded literal.
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDateKey();
       expect(card.nextReviewDate).toBe(today);
       expect(card.reviewCount).toBe(0);
       japaneseValues.add(card.japanese);
@@ -30,7 +31,7 @@ describe('Phase 16C flashcard expansion', () => {
     const deck = createFlashcardDeck(getAllLessons());
     // Phase 25 / P2-1: query the summary for today (when cards are due), not a
     // frozen historical date that would mismatch the new dynamic nextReviewDate.
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateKey();
     const summary = getFlashcardStudySummary(deck, today);
 
     expect(summary.totalCards).toBeGreaterThanOrEqual(100);

@@ -74,6 +74,15 @@ npm run import:kanjidic2 -- --dry-run
 
 They require explicit local input files for actual extraction. They do not auto-download network data by default, keeping imports intentional and reviewable.
 
+Actual imports write review-stage JSON by default:
+
+```text
+src/data/imports/jmdictStarterVocabulary.json
+src/data/imports/kanjidic2StarterKanji.json
+```
+
+These staging files do not replace the curated, learner-ready TypeScript modules. A custom `--output` may use `.json`, `.ts`, or `.mts`; TypeScript outputs are emitted as valid candidate modules, and unsupported extensions fail before writing. Promoting imported entries into the app still requires translation, level, and review-status enrichment.
+
 ## Validation
 
 Passed:

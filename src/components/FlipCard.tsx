@@ -6,7 +6,6 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withSpring,
   withTiming,
   Easing,
@@ -54,6 +53,16 @@ export interface FlipCardProps {
   swipeInDirection?: 'left' | 'right' | null;
   /** Controlled flip state for quiz/rush flows that reveal after an answer. */
   flipped?: boolean;
+  /**
+   * Fired after a tap-to-flip commits. Receives `true` when the back
+   * face becomes visible, `false` when the card flips back to front.
+   * Used by FlashcardsScreen to:
+   *   1. start the 1.5s back-face dwell timer (fires card_flipped_back)
+   *   2. mark the card as stage='seen' so it enters the Daily Rush
+   *      seen-pool draw (Chris's request: flip = "I want to recall
+   *      this in Daily Rush")
+   */
+  onFlipChange?: (flipped: boolean) => void;
 }
 
 const FLIP_DURATION_MS = 550;
@@ -74,6 +83,7 @@ export function FlipCard({
   disableSwipe = false,
   swipeInDirection = null,
   flipped,
+  onFlipChange,
 }: FlipCardProps) {
   // Shared value 0..180 — the rotation angle of the front face.
   const flip = useSharedValue(0);
@@ -149,7 +159,6 @@ export function FlipCard({
   }, [flipped, flip]);
 
   const handlePress = useCallback(() => {
-    'worker';
     if (typeof flipped === 'boolean') return;
     const isCurrentlyFront = flip.value < 90;
     flip.value = withSpring(isCurrentlyFront ? 180 : 0, {
@@ -159,7 +168,12 @@ export function FlipCard({
       overshootClamping: false,
     });
     hapticTick();
-  }, [flip, hapticTick, flipped]);
+    // Notify the parent of the flip so it can start the dwell timer
+    // and mark the card as 'seen' for the Daily Rush queue. Fires
+    // synchronously from the tap; the 550ms spring animation runs
+    // in parallel and finishes well before the 1500ms dwell gate.
+    onFlipChange?.(!isCurrentlyFront);
+  }, [flip, hapticTick, flipped, onFlipChange]);
 
   // Called by the worklet when a swipe commits (passed past threshold).
   const fireSwipeLeft = useCallback(() => {

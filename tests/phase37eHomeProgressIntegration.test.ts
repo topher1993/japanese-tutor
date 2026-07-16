@@ -65,6 +65,8 @@ describe('phase 37e — Home + Progress todo-integration contract', () => {
     expect(source).toMatch(/<WeeklyTodoBoardView\b/);
     expect(source).toMatch(/from\s+['"]\.\.\/services\/weeklyTodoService['"]/);
     expect(source).toMatch(/buildAllTodoBoards\s*\(/);
+    expect(source).toContain('store.ready()');
+    expect(source).toContain('setExtendedProgress(extended)');
   });
 
   it('(b) HomeScreen has a "Today\'s todos" Card section (or imports WeeklyTodoBoard)', () => {
@@ -85,6 +87,12 @@ describe('phase 37e — Home + Progress todo-integration contract', () => {
     // present so the new widget is visibly there in source.
     expect(source).toMatch(/Weekly todos/);
     expect(source).toMatch(/Week\s+\$\{[^}]*\}\s+todos:\s+\$\{[^}]*\}\s+\/\s+\$\{[^}]*\}\s+complete/);
+    // The current week must be passed explicitly. Without it, the service's
+    // Infinity default misclassifies a fresh, uninitialized week as legacy
+    // and Progress renders 0/0 while Home correctly renders the authored goals.
+    expect(source).toMatch(
+      /buildAllTodoBoards\(getAllWeekPlans\(\),\s*progressTodoPayload,\s*['"]all['"],\s*progressCurrentWeek\)/,
+    );
   });
 
   it('(d) Both HomeScreen + ProgressScreen gate the new sections behind isTodoFeatureEnabled() so the flag-off default behavior is unchanged', () => {
@@ -199,6 +207,36 @@ describe('phase 37e — Home + Progress todo-integration contract', () => {
     expect(boards[1].totalCount).toBe(1);
     expect(boards[1].allDone).toBe(false);
     expect(boards[1].isLegacyWeek).toBe(false);
+  });
+
+  it('(f2) keeps an uninitialized current week visible instead of treating it as legacy', () => {
+    const plan: WeekPlan = {
+      weekNumber: 1,
+      passingStrategy: 'all',
+      todos: [
+        {
+          id: 'fresh-install-lesson',
+          kind: 'lesson',
+          title: 'Complete the current lesson',
+          target: 1,
+          unit: 'lesson',
+          lessonIds: ['lesson-a'],
+        },
+      ],
+    };
+    const payload: TodoPayload = {
+      todoStates: {},
+      weekTodosInitialized: {},
+      todoEventCounts: emptyTodoEventCounts(),
+      completedLessonIds: [],
+    };
+
+    const board = buildAllTodoBoards([plan], payload, 'all', 1)[1];
+
+    expect(board.totalCount).toBe(1);
+    expect(board.completedCount).toBe(0);
+    expect(board.isLegacyWeek).toBe(false);
+    expect(board.todos[0].helperText).not.toContain('before weekly todos were introduced');
   });
 
   it('(g) ctaRoute.screen values match existing app screens (no invented route keys)', () => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Alert, StyleSheet, Text } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -37,7 +37,8 @@ declare const __DEV__: boolean | undefined;
  *   1. Onboarding preference (delegated to App.tsx via onReset callback)
  *   2. Every persisted lesson-completion (store.reset → repo.deleteAllProgress)
  *   3. Every SRS review card (srs.clearAll)
- *   4. In-memory caches so the next read returns the cleared state
+ *   4. Saved JLPT-style mock attempts and result history (via App.tsx)
+ *   5. In-memory caches so the next read returns the cleared state
  */
 export function SettingsScreen({
   onBack,
@@ -60,7 +61,7 @@ export function SettingsScreen({
     setLastResetSummary(null);
     try {
       // Phase 25 / P0-2: the real reset — wipe SRS rows + practice progress
-      // via the durable SQLite-backed stores. Runs BEFORE onReset so the
+      // via the active on-device stores. Runs BEFORE onReset so the
       // counts the user sees reflect actual persisted state cleared.
       const { srsRowsCleared } = await resetAll();
       const { profileRowsCleared } = await resetProfile();
@@ -69,9 +70,11 @@ export function SettingsScreen({
       const profileSummary = profileRowsCleared > 0 ? ` Profile row reset too.` : '';
       setLastResetSummary(
         srsRowsCleared > 0
-          ? `Cleared ${srsRowsCleared} review card${srsRowsCleared === 1 ? '' : 's'} and all lesson progress.${profileSummary}`
-          : `Cleared all lesson progress (no review cards to clear).${profileSummary}`,
+          ? `Cleared ${srsRowsCleared} review card${srsRowsCleared === 1 ? '' : 's'}, lesson progress, and mock-exam history.${profileSummary}`
+          : `Cleared lesson progress and mock-exam history (no review cards to clear).${profileSummary}`,
       );
+    } catch {
+      setLastResetSummary('Reset did not finish. Some data may already be cleared; please retry.');
     } finally {
       setResetting(false);
     }
@@ -80,7 +83,7 @@ export function SettingsScreen({
   function confirmReset() {
     Alert.alert(
       'Reset all progress?',
-      'This clears your onboarding choice, all completed lessons, and every review card. There is no undo.',
+      'This clears your onboarding choice, completed lessons, review cards, and JLPT-style mock history. There is no undo.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Reset everything', style: 'destructive', onPress: doReset },
@@ -95,7 +98,7 @@ export function SettingsScreen({
 
       <Card shadow="card">
         <Text style={styles.sectionLabel}>Storage</Text>
-        <Text style={styles.meta}>Backend: {durable ? 'SQLite (durable)' : 'In-memory (session only)'}</Text>
+        <Text style={styles.meta}>Backend: {durable ? 'On-device durable storage' : 'In-memory (session only)'}</Text>
         <Text style={styles.meta}>Ready: {ready ? 'Yes' : 'Loading...'}</Text>
       </Card>
 
@@ -118,7 +121,7 @@ export function SettingsScreen({
       <Card shadow="card">
         <Text style={styles.sectionLabel}>Reset progress</Text>
         <Text style={styles.help}>
-          Clears onboarding choice, all completed lessons, and every SRS review card. On durable storage this wipes the SQLite tables — the next cold start begins from onboarding.
+          Clears onboarding choice, completed lessons, every SRS review card, and JLPT-style mock history from this device. The next cold start begins from onboarding.
         </Text>
         <Button
           label={resetting ? 'Resetting...' : 'Reset all progress'}

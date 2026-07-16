@@ -7,12 +7,8 @@ import {
   recomputeTodoStatesForWeek,
   type TodoPayload,
 } from '../src/services/weeklyTodoService';
-import type {
-  TodoEventCounts,
-  TodoState,
-  WeekPlan,
-} from '../src/types/weeklyTodo';
-import { getAllLessons } from '../src/services/lessonService';
+import type { TodoState, WeekPlan } from '../src/types/weeklyTodo';
+import { getAllCourseLessons, getAllLessons } from '../src/services/lessonService';
 import { getAllWeekPlans, getWeekPlan } from '../src/services/weeklyPlansService';
 import { resolveCardPool, resolveKanjiSet } from '../src/services/weeklyCardPoolService';
 import { emptyTodoEventCounts } from '../src/types/weeklyTodo';
@@ -358,6 +354,64 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
     expect(isWeekUnlocked(2, {}, initializedButIncomplete, 'all')).toBe(false);
   });
 
+  it('8b. placement start ignores unrelated mastery when its prior week has no authored board', () => {
+    const payload = makeEmptyPayload();
+    payload.todoEventCounts.masteryEvidence = ['a', 'b', 'c', 'd', 'e'].map(refId => ({
+      id: `low-${refId}`,
+      refId,
+      modality: 'recognition' as const,
+      score: 0.1,
+      source: 'sentence-lab' as const,
+      occurredAt: '2026-07-10T10:00:00.000Z',
+    }));
+
+    expect(isWeekUnlocked(6, {}, payload, 'all')).toBe(true);
+
+    const authoredPriorBoard = {
+      weekNumber: 5,
+      todos: [],
+      completedCount: 0,
+      totalCount: 0,
+      allDone: true,
+      canAdvance: true,
+      isLegacyWeek: false,
+    };
+    expect(isWeekUnlocked(6, { 5: authoredPriorBoard }, payload, 'all')).toBe(true);
+  });
+
+  it('8c. mastery gating considers only evidence from the completed prerequisite week', () => {
+    const plan = n5w1Plan();
+    const completedStates = Object.fromEntries(plan.todos.map(todo => [todo.id, {
+      todoId: todo.id,
+      weekNumber: 1,
+      progress: 1,
+      target: 1,
+      completedAt: Date.now(),
+    }]));
+    const board = buildWeeklyTodoBoard(1, plan, completedStates, true, 'all', 1);
+    expect(board.canAdvance).toBe(true);
+
+    const makeEvidence = (refId: string, source: 'flashcards' | 'sentence-lab') => ({
+      id: `low-${refId}`,
+      refId,
+      modality: 'recognition' as const,
+      score: 0.1,
+      source,
+      occurredAt: '2026-07-10T10:00:00.000Z',
+    });
+    const unrelated = makeEmptyPayload();
+    unrelated.todoEventCounts.masteryEvidence = ['a', 'b', 'c', 'd', 'e']
+      .map(id => makeEvidence(`sentence-lab:${id}`, 'sentence-lab'));
+    expect(isWeekUnlocked(2, { 1: board }, unrelated)).toBe(true);
+
+    const relevant = makeEmptyPayload();
+    relevant.todoEventCounts.masteryEvidence = resolveCardPool('week', 1).cardIds
+      .slice(0, 5)
+      .map(id => makeEvidence(id, 'flashcards'));
+    expect(relevant.todoEventCounts.masteryEvidence).toHaveLength(5);
+    expect(isWeekUnlocked(2, { 1: board }, relevant)).toBe(false);
+  });
+
   it('9. buildAllTodoBoards accepts weekPlans parameter so screens can pass authored plans without coupling to data/', () => {
     const customPlan: WeekPlan = {
       weekNumber: 7,
@@ -380,7 +434,7 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
     // §3.1 + QC round-2 P1-1 fix: pool must come from createFlashcardDeck,
     // not from a non-existent helper. We assert the resolver returns the
     // exact card ids createFlashcardDeck produces for the week's lessons.
-    const lessons = getAllLessons().filter(l => l.week === 1);
+    const lessons = getAllCourseLessons().filter(l => l.week === 1);
     const expectedDeck = createFlashcardDeck(lessons);
     const expectedIds = expectedDeck.cards.map(c => c.id);
 
@@ -393,7 +447,7 @@ describe('Phase 37b — `lesson` kind: data model + pure service', () => {
   });
 
   it('11. resolveCardPool: `level` pool returns N5 lesson cards for the 37b level scope', () => {
-    const lessons = getAllLessons().filter(l => l.level === 'N5');
+    const lessons = getAllCourseLessons().filter(l => l.level === 'N5');
     const expectedIds = createFlashcardDeck(lessons).cards.map(c => c.id);
     const resolution = resolveCardPool('level', 1);
     expect(resolution.source).toBe('level');

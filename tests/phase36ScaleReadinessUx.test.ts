@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 import { createPracticeProgressStore } from '../src/services/practiceProgressStore';
 import { createInMemoryLearningRepository } from '../src/repositories/inMemoryLearningRepository';
-import { getAllLessons } from '../src/services/lessonService';
+import { getPhraseLessons } from '../src/services/lessonService';
 import type { PersistentLearningRepository } from '../src/repositories/sqliteLearningRepository';
 
 const homeSource = readFileSync('src/screens/HomeScreen.tsx', 'utf8');
@@ -26,7 +26,7 @@ describe('Phase 36 scale readiness — learner guidance and progress clarity', (
     const store = createPracticeProgressStore(repo);
     const dashboard = await store.getDashboard();
     expect(dashboard.completedLessons).toBe(0);
-    expect(dashboard.totalLessons).toBe(getAllLessons().length);
+    expect(dashboard.totalLessons).toBe(getPhraseLessons().length);
     expect(dashboard.totalLessons).toBeGreaterThan(0);
     expect(progressSource).toContain('`${view.completedLessons} of ${view.totalLessons} lessons done`');
   });

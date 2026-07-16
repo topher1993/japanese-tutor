@@ -8,6 +8,8 @@
  *
  * Usage:
  *   node scripts/audit-report.mjs
+ *   node scripts/audit-report.mjs --output path/to/report.md
+ *   node scripts/audit-report.mjs --audit-json path/to/npm-audit.json
  *   npm run audit:report
  *
  * Output (docs/phase-22-dependency-audit.md) is committed so audit
@@ -16,13 +18,29 @@
 
 import { execSync } from 'node:child_process';
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = dirname(__dirname);
-const OUT = join(ROOT, 'docs', 'phase-22-dependency-audit.md');
+const DEFAULT_OUT = join(ROOT, 'docs', 'phase-22-dependency-audit.md');
 const PKG = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+
+function getPathFlag(args, flag, fallback = undefined) {
+  const flagIndex = args.indexOf(flag);
+  if (flagIndex === -1) return fallback;
+
+  const requestedPath = args[flagIndex + 1];
+  if (!requestedPath || requestedPath.startsWith('--')) {
+    throw new Error(`Expected a file path after ${flag}.`);
+  }
+
+  return resolve(process.cwd(), requestedPath);
+}
+
+const CLI_ARGS = process.argv.slice(2);
+const OUT = getPathFlag(CLI_ARGS, '--output', DEFAULT_OUT);
+const AUDIT_JSON_PATH = getPathFlag(CLI_ARGS, '--audit-json');
 
 /**
  * Safely stringify npm-audit's `via` field without ever rendering
@@ -74,6 +92,9 @@ function stringifyViaField(via) {
 }
 
 function runAudit() {
+  if (AUDIT_JSON_PATH) {
+    return JSON.parse(readFileSync(AUDIT_JSON_PATH, 'utf8'));
+  }
   try {
     const out = execSync('npm audit --omit=dev --json', {
       cwd: ROOT,
@@ -101,6 +122,8 @@ function summarise(report) {
   let depCount = 0;
   if (typeof depMeta === 'number') {
     depCount = depMeta;
+  } else if (depMeta && typeof depMeta === 'object' && typeof depMeta.total === 'number') {
+    depCount = depMeta.total;
   } else if (depMeta && typeof depMeta === 'object') {
     depCount = Object.values(depMeta).reduce(
       (sum, n) => sum + (typeof n === 'number' ? n : 0),
@@ -135,6 +158,10 @@ function topAdvisories(report, n = 10) {
 }
 
 const report = runAudit();
+if (report.error) {
+  console.error(`Dependency audit failed: ${report.error}`);
+  process.exit(2);
+}
 const stats = summarise(report);
 const top = topAdvisories(report);
 const date = new Date().toISOString().slice(0, 10);

@@ -1,17 +1,16 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { getExampleSentencesForApp, type ExampleSentenceCandidateEntry } from '../data/candidates/exampleSentenceCandidatePack';
 import { Badge } from '../components/Badge';
+import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ds } from '../theme/designSystem';
 import { isTodoFeatureEnabled } from '../services/practiceProgressStore';
 import { useLearningContext } from '../services/learningContext';
-import type { LearnerProgress } from '../types/progress';
-import { getAllLessons } from '../services/lessonService';
-import { buildLessonInteractionPath } from '../services/lessonInteractionPathService';
-import { pickReportableSentenceIds } from './exampleSentencesViewTracking';
+import { resolveActivePhraseWeek } from '../services/activeLessonWeekService';
+import { useUserProfileContext } from '../services/userProfileContext';
 import { getVisibleOptionalTranslations } from '../services/supportLanguageService';
 import type { LearnerLanguage } from '../types/onboarding';
 
@@ -45,17 +44,6 @@ function categoryLabel(cat: string): string {
  * lesson interaction path. Falls back to week 1 when the learner has
  * not started.
  */
-function deriveExampleWeekNumber(progress: LearnerProgress | null | undefined): number {
-  const safeProgress: LearnerProgress = progress ?? {
-    startedAt: new Date().toISOString(),
-    completedLessonIds: [],
-    quizScores: [],
-    streak: { currentStreak: 0, longestStreak: 0 },
-  };
-  const path = buildLessonInteractionPath(getAllLessons(), safeProgress);
-  return path.currentLesson?.week ?? 1;
-}
-
 export function ExampleSentencesScreen({ supportLanguage = 'en' }: { supportLanguage?: LearnerLanguage } = {}) {
   const all = useMemo(() => getExampleSentencesForApp(), []);
   const categories = useMemo(() => {
@@ -64,7 +52,7 @@ export function ExampleSentencesScreen({ supportLanguage = 'en' }: { supportLang
     return Array.from(set).sort();
   }, [all]);
   const [active, setActive] = useState<string>(categories[0] ?? 'greetings');
-  const [level, setLevel] = useState<'all' | 'N5' | 'N4'>('all');
+  const [level, setLevel] = useState<'all' | ExampleSentenceCandidateEntry['jlptLevel']>('all');
 
   const filtered = useMemo(() => {
     return all.filter((s) => {
@@ -74,56 +62,48 @@ export function ExampleSentencesScreen({ supportLanguage = 'en' }: { supportLang
     });
   }, [all, active, level]);
 
-  // Phase 37d-5 — view-tracking effect. Consumes the same practiceProgressStore
-  // that LessonsScreen and the rest of the app use, via the
-  // LearningRepositoryProvider context. Earlier drafts considered opening a
-  // fresh SQLite handle here per sentence view, which would race with the
-  // provider's open and double-initialize the schema — replaced with the
-  // context's store accessor (matches the DailyRushScreen / FlashcardsScreen
-  // / QuizScreen pattern from 37d-1..37d-4).
+  // Sentence progress is recorded only after the learner explicitly marks a
+  // card studied. Rendering or changing filters must never create progress.
   const { store: practiceStore } = useLearningContext();
-  // Per-sentence debounce timestamp map. We skip the store call if the same
-  // sentenceId was reported within EXAMPLE_VIEW_DEBOUNCE_MS — that is what
-  // test (e) covers (5 calls in 100ms with the same id collapse to one).
-  const lastReportedAt = useRef<Map<string, number>>(new Map());
-  // Memoize the weekNumber so the effect doesn't re-run on every render when
-  // the active filter / level changes. We compute it once at mount + when
-  // `practiceStore` changes. This is a derived reading from progress, not a
-  // write, so a stale value across short re-renders is fine.
-  const weekNumberRef = useRef<number | null>(null);
+  const { profile } = useUserProfileContext();
+  const placementLevel = profile?.dynamic.placement?.level;
+  const [weekNumber, setWeekNumber] = useState<number | null>(null);
+  const [studiedIds, setStudiedIds] = useState<Set<string>>(new Set());
+  const [markingId, setMarkingId] = useState<string | null>(null);
+  const [trackingError, setTrackingError] = useState<string | null>(null);
   useEffect(() => {
     if (!isTodoFeatureEnabled() || !practiceStore) return;
-    if (weekNumberRef.current != null) return;
     let cancelled = false;
     void (async () => {
       try {
         const progress = await practiceStore.getProgress();
         if (cancelled) return;
-        weekNumberRef.current = deriveExampleWeekNumber(progress);
+        const resolvedWeek = resolveActivePhraseWeek(progress, placementLevel);
+        const extended = await practiceStore.getExtendedProgress();
+        if (cancelled) return;
+        setWeekNumber(resolvedWeek);
+        setStudiedIds(new Set(extended.todoEventCounts.exampleSentencesViewed?.[resolvedWeek] ?? []));
       } catch {
-        // progress read failed — leave weekNumberRef as null and skip tracking
-        // for this session; the gate is invisible either way (default false).
+        if (!cancelled) setTrackingError('Study progress is unavailable right now.');
       }
     })();
     return () => { cancelled = true; };
-  }, [practiceStore]);
+  }, [practiceStore, placementLevel]);
 
-  useEffect(() => {
-    if (!isTodoFeatureEnabled() || !practiceStore) return;
-    if (weekNumberRef.current == null) return; // not yet resolved
-    const weekNumber = weekNumberRef.current;
-    const reportedIds = pickReportableSentenceIds(filtered, lastReportedAt.current, Date.now());
-    if (reportedIds.length === 0) return;
-    void (async () => {
-      for (const sentenceId of reportedIds) {
-        try {
-          await practiceStore.markExampleViewed(weekNumber, sentenceId);
-        } catch (err) {
-          if (__DEV__) console.warn('[example-sentences] failed to record view', err);
-        }
-      }
-    })();
-  }, [filtered, practiceStore]);
+  const markSentenceStudied = async (sentenceId: string) => {
+    if (!isTodoFeatureEnabled() || !practiceStore || weekNumber == null || studiedIds.has(sentenceId)) return;
+    setMarkingId(sentenceId);
+    setTrackingError(null);
+    try {
+      await practiceStore.markExampleViewed(weekNumber, sentenceId);
+      setStudiedIds(previous => new Set(previous).add(sentenceId));
+    } catch (err) {
+      if (__DEV__) console.warn('[example-sentences] failed to record study', err);
+      setTrackingError('Could not save this sentence. Please try again.');
+    } finally {
+      setMarkingId(null);
+    }
+  };
 
   return (
     <ScreenScaffold>
@@ -136,7 +116,7 @@ export function ExampleSentencesScreen({ supportLanguage = 'en' }: { supportLang
 
       <Text style={styles.sectionLabel}>Level</Text>
       <View style={styles.chipRow}>
-        {(['all', 'N5', 'N4'] as const).map(l => (
+        {(['all', 'N5', 'N4', 'N3'] as const).map(l => (
           <Chip key={l} label={l === 'all' ? 'All' : l} selected={level === l} onPress={() => setLevel(l)} />
         ))}
       </View>
@@ -149,9 +129,11 @@ export function ExampleSentencesScreen({ supportLanguage = 'en' }: { supportLang
       </View>
 
       <Text style={styles.count}>{filtered.length} sentences</Text>
+      {trackingError ? <Text style={styles.errorText}>{trackingError}</Text> : null}
 
       {filtered.map((s: ExampleSentenceCandidateEntry) => {
         const translations = getVisibleOptionalTranslations(s, supportLanguage);
+        const isStudied = studiedIds.has(s.id);
         return (
           <Card key={s.id} shadow="card">
             <View style={styles.cardHeader}>
@@ -169,6 +151,17 @@ export function ExampleSentencesScreen({ supportLanguage = 'en' }: { supportLang
                 {translation.label}: {translation.text}
               </Text>
             ))}
+            {isTodoFeatureEnabled() && practiceStore ? (
+              <Button
+                label={isStudied ? 'Studied' : markingId === s.id ? 'Saving…' : 'Mark studied'}
+                onPress={() => { void markSentenceStudied(s.id); }}
+                variant={isStudied ? 'soft' : 'secondary'}
+                size="md"
+                disabled={isStudied || markingId != null || weekNumber == null}
+                style={styles.studyButton}
+                testID={`example-studied-${s.id}`}
+              />
+            ) : null}
           </Card>
         );
       })}
@@ -189,4 +182,6 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: ds.colors.divider, marginVertical: ds.spacing.sm },
   english: { fontSize: ds.type.body, color: ds.colors.textMuted, flexShrink: 1 },
   secondaryTranslation: { fontSize: ds.type.body, color: ds.colors.text, fontWeight: '600', marginTop: ds.spacing.xs, flexShrink: 1 },
+  studyButton: { marginTop: ds.spacing.md },
+  errorText: { color: ds.colors.danger, fontSize: ds.type.caption, marginBottom: ds.spacing.sm },
 });

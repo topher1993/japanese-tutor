@@ -9,7 +9,7 @@
 
 import { Platform } from 'react-native';
 
-import { createTablesSql } from '../db/schema';
+import { createSharedSqliteAdapter, openSharedNativeDatabase } from '../db/nativeDatabase';
 import { createSqliteKeyValueStorage } from '../services/keyValueStorage';
 import { createInMemoryKeyValueStorage } from '../services/keyValueStorage';
 import { createOnboardingPreferenceStore, type OnboardingPreference } from '../services/onboardingPreferenceService';
@@ -21,13 +21,15 @@ type AsyncKeyValueStorage = {
   removeItem(key: string): Promise<void>;
 };
 
+let sharedStoragePromise: Promise<AsyncKeyValueStorage> | null = null;
+
 /**
  * Open the onboarding key-value store. On web this is the browser local-
  * storage adapter; on native this opens the SQLite database, runs
  * createTablesSql, and returns a SQLite-backed KV adapter. Falls back to
  * an in-memory store on failure (caller can choose how to surface).
  */
-export async function openOnboardingStorage(): Promise<AsyncKeyValueStorage> {
+async function initializeAppStorage(): Promise<AsyncKeyValueStorage> {
   if (Platform.OS === 'web') {
     const { createWebOnboardingStorage } = await import('../services/onboardingPreferenceService');
     const webStorage = createWebOnboardingStorage();
@@ -35,15 +37,13 @@ export async function openOnboardingStorage(): Promise<AsyncKeyValueStorage> {
     return webStorage;
   }
   try {
-    const SQLite = await import('expo-sqlite');
-    const db = await SQLite.openDatabaseAsync('japanese-tutor.db');
-    for (const sql of createTablesSql) await db.execAsync(sql);
-    return createSqliteKeyValueStorage({
-      execAsync: (sql: string) => db.execAsync(sql),
-      runAsync: (sql: string, ...params: unknown[]) => db.runAsync(sql, ...params as never[]),
-      getAllAsync: ((sql: string, ...params: unknown[]) =>
-        db.getAllAsync(sql, ...(params as never[]))) as SqliteLikeDatabase['getAllAsync'],
-    });
+    const db = await openSharedNativeDatabase();
+    const sharedAdapter = createSharedSqliteAdapter(db);
+    const sqliteAdapter: SqliteLikeDatabase = {
+      ...sharedAdapter,
+      getAllAsync: sharedAdapter.getAllAsync as SqliteLikeDatabase['getAllAsync'],
+    };
+    return createSqliteKeyValueStorage(sqliteAdapter);
   } catch (err) {
     if (__DEV__) console.warn('[app] SQLite init failed; falling back to in-memory storage', err);
     return createInMemoryKeyValueStorage();
@@ -51,10 +51,20 @@ export async function openOnboardingStorage(): Promise<AsyncKeyValueStorage> {
 }
 
 /**
+ * Return one shared storage initialization for the app process. Onboarding,
+ * navigation restoration, and subsequent saves all use the same SQLite
+ * connection instead of racing through schema setup on cold start.
+ */
+export function openOnboardingStorage(): Promise<AsyncKeyValueStorage> {
+  if (!sharedStoragePromise) sharedStoragePromise = initializeAppStorage();
+  return sharedStoragePromise;
+}
+
+/**
  * Load the persisted onboarding preference, or the default if storage is
  * unavailable or the preference doesn't exist yet.
  */
-export async function loadOnboardingPreference(skipOnboarding: boolean): Promise<OnboardingPreference> {
+export async function loadOnboardingPreference(_skipOnboarding: boolean): Promise<OnboardingPreference> {
   try {
     const storage = await openOnboardingStorage();
     const store = createOnboardingPreferenceStore(storage);

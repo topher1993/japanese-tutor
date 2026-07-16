@@ -17,7 +17,14 @@ export const createTablesSql = [
   `CREATE TABLE IF NOT EXISTS kv_preferences (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL);`,
   // Phase 22 audit fix P0-03: persistent spaced-repetition scheduler state.
   // Rows are SRS cards; one row per card the learner has created.
-  `CREATE TABLE IF NOT EXISTS kv_srs_cards (id TEXT PRIMARY KEY, ref_id TEXT NOT NULL, interval_days INTEGER NOT NULL, repetitions INTEGER NOT NULL, ease_factor REAL NOT NULL, due_on TEXT NOT NULL, last_reviewed_on TEXT);`,
+  //
+  // Phase 51: 8th column `stage` for the interactional card-stages state
+  // machine (seen → recognized → memorized). DEFAULT 'memorized' so
+  // existing v1 rows upgraded via the migration in
+  // sqliteLearningRepository satisfy NOT NULL and behave as 'memorized'
+  // on first read (Beru Q5 Mod 2: don't dump the existing deck into
+  // Daily Rush on upgrade day).
+  `CREATE TABLE IF NOT EXISTS kv_srs_cards (id TEXT PRIMARY KEY, ref_id TEXT NOT NULL, interval_days INTEGER NOT NULL, repetitions INTEGER NOT NULL, ease_factor REAL NOT NULL, due_on TEXT NOT NULL, last_reviewed_on TEXT, stage TEXT NOT NULL DEFAULT 'memorized');`,
   // Phase 28 user-profile foundation: single-row JSON payload store.
   // v1 keeps schemaVersion inside the JSON payload; future migrations can read
   // and rewrite this row without inventing a separate app-wide migration table.

@@ -1,3 +1,5 @@
+import { addLocalDateDays, localCalendarDayDifference, localDateKey } from '../utils/localDate';
+
 export type ReviewRating = 'again' | 'hard' | 'good' | 'easy';
 
 export interface ReviewCard {
@@ -8,11 +10,23 @@ export interface ReviewCard {
   easeFactor: number;
   dueOn: string;
   lastReviewedOn: string | null;
+  /**
+   * Phase 51: interactional card-stages state machine.
+   * `'seen'` — freshly created (default on `createCard`).
+   * `'recognized'` — first Daily Rush hit, slow.
+   * `'memorized'` — first Daily Rush hit, fast (≤ baseline), OR legacy row
+   *   upgraded via `kv_srs_cards.stage` DEFAULT `'memorized'`.
+   * Pre-memorized cards (`'seen'` / `'recognized'`) bypass the SM-2 math; only
+   * `'memorized'` enters the review queue.
+   */
+  stage: 'seen' | 'recognized' | 'memorized';
 }
 
 export interface SpacedRepetitionScheduler {
   createCard(refId: string): ReviewCard;
   review(cardId: string, rating: ReviewRating): ReviewCard;
+  /** Persist the learning-stage transition separately from SM-2 scheduling. */
+  setStage(cardId: string, stage: ReviewCard['stage']): ReviewCard;
   dueCards(now?: Date): ReviewCard[];
   /**
    * Phase 50: cards overdue enough to be in the "catch-up" bucket.
@@ -26,6 +40,8 @@ export interface SpacedRepetitionScheduler {
    */
   overdueCatchUpCards(now?: Date): ReviewCard[];
   getCard(cardId: string): ReviewCard | undefined;
+  /** Remove every card from the in-memory scheduler (Settings reset). */
+  clearAll(): void;
   /**
    * Seed the scheduler with a card that already has known state. Used to
    * hydrate the in-memory mirror from SQLite on cold start so that
@@ -34,24 +50,18 @@ export interface SpacedRepetitionScheduler {
   adoptCard(card: ReviewCard): void;
 }
 
-function todayIso(now: Date = new Date()): string {
-  return now.toISOString().slice(0, 10);
-}
-
-function addDaysIso(iso: string, days: number): string {
-  const d = new Date(iso + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 // Phase 50: integer day difference between two ISO dates (today - dueIso).
 function diffDays(todayIsoStr: string, dueIso: string): number {
-  const ms = new Date(`${todayIsoStr}T00:00:00Z`).getTime() - new Date(`${dueIso}T00:00:00Z`).getTime();
-  return Math.round(ms / (1000 * 60 * 60 * 24));
+  return localCalendarDayDifference(todayIsoStr, dueIso);
 }
 
 export function createSpacedRepetitionScheduler(): SpacedRepetitionScheduler {
   const cards = new Map<string, ReviewCard>();
+  const cardIdByRefId = new Map<string, string>();
+  // Catch-up is a scheduler transition, not a date-shape heuristic. Track
+  // only cards this scheduler actually rescheduled so ordinary future-due
+  // cards cannot be mislabeled as catch-up work.
+  const catchUpCardIds = new Set<string>();
   let counter = 0;
 
   function nextId(refId: string): string {
@@ -61,6 +71,9 @@ export function createSpacedRepetitionScheduler(): SpacedRepetitionScheduler {
 
   return {
     createCard(refId: string) {
+      const existingId = cardIdByRefId.get(refId);
+      const existing = existingId ? cards.get(existingId) : undefined;
+      if (existing) return existing;
       const id = nextId(refId);
       const card: ReviewCard = {
         id,
@@ -68,10 +81,16 @@ export function createSpacedRepetitionScheduler(): SpacedRepetitionScheduler {
         intervalDays: 0,
         repetitions: 0,
         easeFactor: 2.5,
-        dueOn: todayIso(),
+        dueOn: localDateKey(),
         lastReviewedOn: null,
+        // Phase 51: every newly-created card starts life in `'seen'`. Daily
+        // Rush is the only path that advances it to `'recognized'` /
+        // `'memorized'`. See SKILL jt-interactional-card-stages §State
+        // transitions.
+        stage: 'seen',
       };
       cards.set(id, card);
+      cardIdByRefId.set(refId, id);
       return card;
     },
     review(cardId: string, rating: ReviewRating) {
@@ -110,24 +129,35 @@ export function createSpacedRepetitionScheduler(): SpacedRepetitionScheduler {
         }
       }
 
-      const today = todayIso();
+      const today = localDateKey();
       const updated: ReviewCard = {
         ...card,
         repetitions: newRepetitions,
         intervalDays: newInterval,
         easeFactor: newEaseFactor,
         lastReviewedOn: today,
-        dueOn: addDaysIso(today, newInterval),
+        dueOn: addLocalDateDays(today, newInterval),
       };
       cards.set(cardId, updated);
+      catchUpCardIds.delete(cardId);
+      return updated;
+    },
+    setStage(cardId: string, stage: ReviewCard['stage']) {
+      const card = cards.get(cardId);
+      if (!card) throw new Error(`Card not found: ${cardId}`);
+      const updated = { ...card, stage };
+      cards.set(cardId, updated);
+      if (stage !== 'memorized') catchUpCardIds.delete(cardId);
       return updated;
     },
     dueCards(now: Date = new Date()) {
-      const today = todayIso(now);
-      const result: ReviewCard[] = [];
+      const today = localDateKey(now);
+      const dueCardIds: string[] = [];
       for (const card of cards.values()) {
-        if (card.dueOn <= today) {
-          result.push(card);
+        // New and tentative cards belong in Daily Rush until they have been
+        // demonstrated as memorized. Only graduated cards enter SM-2 review.
+        if (card.stage === 'memorized' && card.dueOn <= today) {
+          dueCardIds.push(card.id);
           // Phase 50 catch-up rescheduler (per Beru pedagogy review Q1+Q2):
           // if overdue >= 2x intervalDays AND interval > 1, reschedule
           // in-memory. Inclusive `>=` bound (Beru Q1). Halve interval
@@ -139,50 +169,58 @@ export function createSpacedRepetitionScheduler(): SpacedRepetitionScheduler {
           const overdueDays = Math.max(0, diffDays(today, card.dueOn));
           if (overdueDays >= 2 * card.intervalDays && card.intervalDays > 1) {
             const newInterval = Math.max(1, Math.round(card.intervalDays * 0.5));
-            cards.set(card.id, { ...card, dueOn: addDaysIso(today, newInterval) });
+            cards.set(card.id, { ...card, dueOn: addLocalDateDays(today, newInterval) });
+            catchUpCardIds.add(card.id);
           }
         }
       }
-      return result;
+      // Catch-up scheduling mutates a card's due date above. Resolve every
+      // card again from the map so callers never receive the stale pre-
+      // mutation object, and omit cards that are no longer due today.
+      return dueCardIds
+        .map((id) => cards.get(id))
+        .filter((card): card is ReviewCard => card != null && card.dueOn <= today);
     },
     overdueCatchUpCards(now: Date = new Date()): ReviewCard[] {
-      const today = todayIso(now);
-      // Phase 50: surface the cards that the rescheduler just touched.
-      // After dueCards() runs, "overdue catch-up" = cards whose
-      // CURRENT (post-reschedule) intervalDays * 2 <= days-until-due.
-      // This is the inverse of the threshold: post-reschedule, the
-      // catch-up card has dueOn = today + half-interval, so its
-      // days-until-due (~half-interval) is less than
-      // 2 * intervalDays. We re-derive the catch-up set by looking
-      // for cards whose ORIGINAL dueOn would have crossed the
-      // threshold. Simplest: a card is a catch-up card iff its
-      // post-reschedule dueOn is in the future but its pre-reschedule
-      // overdueDays would have been >= threshold.
-      //
-      // To avoid re-deriving from a stale state, we mark cards during
-      // the dueCards() reschedule by storing them in a transient set;
-      // but a transient set on the scheduler object would need to be
-      // reset on every call. Cleanest: re-derive from a small
-      // heuristic — a card is catch-up if `dueOn > today` (post-
-      // reschedule) AND `dueOn < today + intervalDays` (it was
-      // due in the recent past, not scheduled normally). This matches
-      // the rescheduler's output: only catch-up cards get their
-      // dueOn pushed out by less than the full intervalDays.
-      return Array.from(cards.values()).filter((card) => {
-        if (card.dueOn <= today) return false;
-        if (card.intervalDays <= 1) return false;
-        const daysUntilDue = diffDays(card.dueOn, today);
-        return daysUntilDue > 0 && daysUntilDue < card.intervalDays;
-      });
+      const today = localDateKey(now);
+      // This method is also a public scheduler entry point. Enforce the
+      // catch-up transition here when callers do not invoke dueCards() first.
+      for (const card of cards.values()) {
+        if (card.stage !== 'memorized' || card.dueOn > today) continue;
+        const overdueDays = Math.max(0, diffDays(today, card.dueOn));
+        if (overdueDays >= 2 * card.intervalDays && card.intervalDays > 1) {
+          const newInterval = Math.max(1, Math.round(card.intervalDays * 0.5));
+          cards.set(card.id, { ...card, dueOn: addLocalDateDays(today, newInterval) });
+          catchUpCardIds.add(card.id);
+        }
+      }
+      const catchUp: ReviewCard[] = [];
+      for (const cardId of catchUpCardIds) {
+        const card = cards.get(cardId);
+        if (!card || card.stage !== 'memorized' || card.dueOn <= today) {
+          catchUpCardIds.delete(cardId);
+          continue;
+        }
+        catchUp.push(card);
+      }
+      return catchUp;
     },
     getCard(cardId: string) {
       return cards.get(cardId);
+    },
+    clearAll() {
+      cards.clear();
+      cardIdByRefId.clear();
+      catchUpCardIds.clear();
     },
     adoptCard(card: ReviewCard) {
       // If a card with this id already exists, leave it alone (don't clobber
       // a fresh review-in-progress). Otherwise seed the in-memory mirror
       // with the persisted state.
-      if (!cards.has(card.id)) cards.set(card.id, card);
+      if (!cards.has(card.id) && !cardIdByRefId.has(card.refId)) {
+        cards.set(card.id, card);
+        cardIdByRefId.set(card.refId, card.id);
+      }
     },
   };
 }

@@ -29,7 +29,6 @@ import { readFileSync } from 'node:fs';
 
 const HOME = 'src/screens/HomeScreen.tsx';
 const APP = 'App.tsx';
-const APP_DIR = 'src/app';
 const NAV_HOOK = 'src/app/useAppNavigation.ts';
 const RENDER_TAB = 'src/app/renderTab.tsx';
 const SCREEN = 'src/screens/FlashcardsScreen.tsx';

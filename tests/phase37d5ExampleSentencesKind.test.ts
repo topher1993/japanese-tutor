@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import {
   buildWeeklyTodoBoard,
-  type TodoPayload,
 } from '../src/services/weeklyTodoService';
 import type {
   TodoEventCounts,
@@ -10,14 +10,9 @@ import type {
   WeekPlan,
   WeekTodo,
 } from '../src/types/weeklyTodo';
-import { emptyTodoEventCounts } from '../src/types/weeklyTodo';
 import { WEEKLY_PLANS } from '../src/data/weeklyPlans';
 import { createSqliteLearningRepository, type SqliteLikeDatabase } from '../src/repositories/sqliteLearningRepository';
 import { createPracticeProgressStore, setTodoFeatureEnabled, isTodoFeatureEnabled } from '../src/services/practiceProgressStore';
-import {
-  EXAMPLE_VIEW_DEBOUNCE_MS,
-  pickReportableSentenceIds,
-} from '../src/screens/exampleSentencesViewTracking';
 
 // Phase 37d-5 tests per docs/phase-37-todo-gated-progression-proposal.md
 // §8 phase-37d-5. These focus on the new `example-sentences` todo kind
@@ -28,23 +23,13 @@ import {
 //   c) re-viewing the same sentenceId is a no-op (de-dup)
 //   d) after viewing N distinct sentences where N === target, the todo
 //      completes and sets completedAt
-//   e) the screen's view-tracking effect debounces — 5 calls in 100ms
-//      with the same sentenceId collapse to ONE store call (helper
-//      pickReportableSentenceIds is the testable seam)
+//   e) rendering and filtering never auto-count sentences; progress requires
+//      the learner's explicit Mark studied action
 //   f) existing example-sentences tests still green (phase18d3 covers
 //      the data pack; covered by focused vitest invocation in the task
 //      brief alongside this file)
 //   g) buildWeeklyTodoBoard shows correct progress for an
 //      example-sentences-kind todo
-
-function makeEmptyPayload(): TodoPayload {
-  return {
-    todoStates: {},
-    weekTodosInitialized: {},
-    todoEventCounts: emptyTodoEventCounts(),
-    completedLessonIds: [],
-  };
-}
 
 function createInMemoryDb(): SqliteLikeDatabase {
   const tables = new Map<string, unknown[]>();
@@ -252,33 +237,12 @@ describe('Phase 37d-5 — example-sentences todo kind wiring', () => {
     expect(beyond.todoStates['synthetic-example-todo'].progress).toBe(5);
   });
 
-  it('e. the screen\'s view-tracking effect debounces — 5 calls in 100ms with the same sentenceId collapse to ONE store call', async () => {
-    // pickReportableSentenceIds is the seam used by the screen's effect.
-    // Each call simulates one render of the effect; we assert that the
-    // debounce window collapses identical-id re-renders to a single
-    // report, matching the §11.x "skip if the same sentenceId was
-    // reported within the last 2 seconds" requirement.
-    const lastReportedAt = new Map<string, number>();
-    const filtered = [{ id: 'sentence-1' }, { id: 'sentence-2' }];
-
-    // First render at t=0 → both sentences reportable.
-    const r1 = pickReportableSentenceIds(filtered, lastReportedAt, 0);
-    expect(r1).toEqual(['sentence-1', 'sentence-2']);
-
-    // Five subsequent renders at t=10, 20, 30, 40, 50 (well inside the
-    // 2s window). Each should report NOTHING because both ids were
-    // just reported at t=0.
-    for (let t = 10; t <= 50; t += 10) {
-      const r = pickReportableSentenceIds(filtered, lastReportedAt, t);
-      expect(r).toEqual([]);
-    }
-
-    // After the debounce window elapses, the sentences are reportable again.
-    const later = pickReportableSentenceIds(filtered, lastReportedAt, EXAMPLE_VIEW_DEBOUNCE_MS + 1);
-    expect(later).toEqual(['sentence-1', 'sentence-2']);
-
-    // Sanity: the constant itself is 2 seconds per the brief.
-    expect(EXAMPLE_VIEW_DEBOUNCE_MS).toBe(2000);
+  it('e. rendering or filtering never auto-counts sentences as studied', () => {
+    const source = readFileSync('src/screens/ExampleSentencesScreen.tsx', 'utf8');
+    expect(source).not.toContain('pickReportableSentenceIds');
+    expect(source).toContain("['all', 'N5', 'N4', 'N3']");
+    expect(source).toMatch(/label=\{isStudied \? 'Studied'[^}]+: 'Mark studied'\}/);
+    expect(source).toContain('onPress={() => { void markSentenceStudied(s.id); }}');
   });
 
   it('g. buildWeeklyTodoBoard shows correct progress for an example-sentences-kind todo (in-progress + completed)', async () => {

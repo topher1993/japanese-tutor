@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { getExampleSentenceCandidatePack, getExampleSentencesForApp, getLessonExampleSentencePack } from '../src/data/candidates/exampleSentenceCandidatePack';
+import { isSentenceLabEligible } from '../src/services/sentenceLabService';
 
 describe('Phase 18D-3 example sentence candidate pack', () => {
   it('contains at least 300 example sentence candidates', () => {
@@ -31,6 +32,24 @@ describe('Phase 18D-3 example sentence candidate pack', () => {
     for (const s of pack) {
       expect(s.connectedToApp).toBe(false);
     }
+  });
+
+  it('keeps disconnected candidates out of every app-facing sentence pool', () => {
+    const candidateIds = new Set(getExampleSentenceCandidatePack()
+      .filter(sentence => !sentence.connectedToApp)
+      .map(sentence => sentence.id));
+    const lessonExamples = getLessonExampleSentencePack();
+    const appExamples = getExampleSentencesForApp();
+
+    expect(candidateIds.size).toBeGreaterThanOrEqual(300);
+    expect(appExamples).toHaveLength(235);
+    expect(appExamples).toHaveLength(lessonExamples.length);
+    expect(appExamples.filter(isSentenceLabEligible)).toHaveLength(125);
+    expect(appExamples
+      .filter(isSentenceLabEligible)
+      .filter(sentence => sentence.category !== 'grammar')).toHaveLength(69);
+    expect(appExamples.every(sentence => sentence.connectedToApp)).toBe(true);
+    expect(appExamples.some(sentence => candidateIds.has(sentence.id))).toBe(false);
   });
 
   it('adds N4 lesson examples to the app-facing Example sentences source', () => {

@@ -1,0 +1,24 @@
+appId: com.belion.japanesetutor
+name: Onboarding smoke test
+tags:
+  - smoke
+  - onboarding
+---
+- launchApp:
+    clearState: true
+- assertVisible: Japanese Tutor for Work
+- tapOn: Start setup
+- assertVisible: Choose your helper language
+- tapOn: English
+- tapOn: Continue
+- assertVisible: Focus on workplace survival first
+- tapOn: Set goal
+- assertVisible: Build a 5-minute daily habit
+- tapOn: Open app
+- assertVisible: Home
+- scrollUntilVisible:
+    element:
+      id: home-daily-rush-cta
+    direction: DOWN
+- assertVisible:
+    id: home-daily-rush-cta

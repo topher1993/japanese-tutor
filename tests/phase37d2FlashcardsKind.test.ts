@@ -2,14 +2,12 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 import {
   buildWeeklyTodoBoard,
-  type TodoPayload,
 } from '../src/services/weeklyTodoService';
 import type {
   TodoEventCounts,
   TodoState,
   WeekPlan,
 } from '../src/types/weeklyTodo';
-import { emptyTodoEventCounts } from '../src/types/weeklyTodo';
 import { createFlashcardDeck } from '../src/services/flashcardService';
 import type { FlashcardReviewCard } from '../src/types/flashcard';
 import { getAllLessons } from '../src/services/lessonService';
@@ -21,21 +19,12 @@ import { createPracticeProgressStore, setTodoFeatureEnabled, isTodoFeatureEnable
 // §8 phase-37d-2. These focus on the new `flashcards` todo kind wiring:
 //   a) gate-off is a no-op
 //   b) recompute persists flashcardReviews[weekNumber] via saveExtendedProgress
-//   c) after reviewing all pool cards, buildWeeklyTodoBoard shows N/N for
-//      a flashcards-kind todo on that week
+//   c) reviews are capped at the daily target before contributing to the
+//      scaled weekly flashcard requirement
 //   d) re-reviewing the same card id is a no-op (de-dup)
 //   e) regression check: existing flashcard service tests still construct decks
 //   f) FlashcardReviewCard.kind is optional (existing fields constructable
 //      without kind)
-
-function makeEmptyPayload(): TodoPayload {
-  return {
-    todoStates: {},
-    weekTodosInitialized: {},
-    todoEventCounts: emptyTodoEventCounts(),
-    completedLessonIds: [],
-  };
-}
 
 function createInMemoryDb(): SqliteLikeDatabase {
   const tables = new Map<string, unknown[]>();
@@ -154,7 +143,7 @@ describe('Phase 37d-2 — flashcards todo kind wiring', () => {
     expect(reread.todoEventCounts.flashcardReviews[1]).toEqual(['card-some-id']);
   });
 
-  it('c. after reviewing N distinct cards where N === pool size, buildWeeklyTodoBoard shows N/N for a flashcards-kind todo on week 1', async () => {
+  it('c. reviewing the whole pool in one day contributes only the five-card daily target', async () => {
     setTodoFeatureEnabled(true);
     const db = createInMemoryDb();
     const repo = createSqliteLearningRepository(db);
@@ -182,17 +171,17 @@ describe('Phase 37d-2 — flashcards todo kind wiring', () => {
     expect(stored.weekTodosInitialized[1]).toBe(true);
     expect(stored.todoStates['n5-w1-flashcards']).toBeDefined();
     expect(stored.todoStates['n5-w1-flashcards'].weekNumber).toBe(1);
-    expect(stored.todoStates['n5-w1-flashcards'].progress).toBe(poolSize);
-    expect(stored.todoStates['n5-w1-flashcards'].target).toBe(poolSize);
-    expect(stored.todoStates['n5-w1-flashcards'].completedAt).toBeTypeOf('number');
+    expect(stored.todoStates['n5-w1-flashcards'].progress).toBe(5);
+    expect(stored.todoStates['n5-w1-flashcards'].target).toBe(Math.min(poolSize, 35));
+    expect(stored.todoStates['n5-w1-flashcards'].completedAt).toBeUndefined();
 
     // buildWeeklyTodoBoard should now show the flashcards todo as completed.
     const board = buildWeeklyTodoBoard(1, plan, stored.todoStates, true, 'all');
     const flashcardTodo = board.todos.find(t => t.todo.id === 'n5-w1-flashcards');
     expect(flashcardTodo).toBeDefined();
-    expect(flashcardTodo!.progress).toBe(poolSize);
-    expect(flashcardTodo!.target).toBe(poolSize);
-    expect(flashcardTodo!.completed).toBe(true);
+    expect(flashcardTodo!.progress).toBe(5);
+    expect(flashcardTodo!.target).toBe(Math.min(poolSize, 35));
+    expect(flashcardTodo!.completed).toBe(false);
   });
 
   it('d. re-reviewing the same card id is a no-op (de-duped log + progress stays the same)', async () => {
@@ -202,7 +191,7 @@ describe('Phase 37d-2 — flashcards todo kind wiring', () => {
     await repo.initialize();
     const store = createPracticeProgressStore(repo);
 
-    const { plan, todo, poolSize } = flashcardsTodoForWeek1();
+    const { poolSize } = flashcardsTodoForWeek1();
     const poolCardIds = createFlashcardDeck(getAllLessons().filter(l => l.level === 'N5' && l.week === 1))
       .cards
       .map(c => c.id);
@@ -222,7 +211,7 @@ describe('Phase 37d-2 — flashcards todo kind wiring', () => {
     expect(stored.todoEventCounts.flashcardReviews[1]).toEqual([oneCard]);
     // Progress counts as 1 (one distinct card reviewed).
     expect(stored.todoStates['n5-w1-flashcards'].progress).toBe(1);
-    expect(stored.todoStates['n5-w1-flashcards'].target).toBe(poolSize);
+    expect(stored.todoStates['n5-w1-flashcards'].target).toBe(Math.min(poolSize, 35));
     // completedAt may be undefined because progress=1 < target (unless pool is size 1, which we asserted isn't).
     expect(stored.todoStates['n5-w1-flashcards'].completedAt).toBeUndefined();
   });

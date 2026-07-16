@@ -8,7 +8,6 @@
 // Phase 43: No state, no hooks, no behavior change. Pure prop-driven
 // presentation component.
 
-import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ds } from '../../theme/designSystem';
@@ -16,13 +15,13 @@ import { Icon, type IconName } from '../../components/Icon';
 
 export function ToolRow({ icon, label, hint, onPress }: { icon: IconName; label: string; hint: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.toolRow, { opacity: pressed ? 0.85 : 1 }]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${label}. ${hint}`} onPress={onPress} style={({ pressed }) => [styles.toolRow, { opacity: pressed ? 0.85 : 1 }]}>
       <View style={styles.toolIcon}>
         <Icon name={icon} size={20} />
       </View>
       <View style={styles.toolText}>
         <Text style={styles.toolLabel}>{label}</Text>
-        <Text style={styles.toolHint}>{label === 'Kanji section' ? hint : hint}</Text>
+        <Text style={styles.toolHint}>{hint}</Text>
       </View>
       <Icon name="arrow-right" size={16} />
     </Pressable>

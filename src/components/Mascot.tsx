@@ -9,7 +9,6 @@
  * so the full illustration fits without clipping. If you pass a `size`, you
  * get a portrait box; don't try to force a square — that crops the helmet.
  */
-import React from 'react';
 import { Image, View, StyleSheet, ImageStyle } from 'react-native';
 import { getAsset } from '../assets/assetRequireMap';
 import { ds } from '../theme/designSystem';

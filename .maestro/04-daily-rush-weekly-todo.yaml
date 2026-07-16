@@ -1,0 +1,33 @@
+appId: com.belion.japanesetutor
+name: Daily Rush daily and weekly todo progression
+tags:
+  - smoke
+  - learning
+  - persistence
+---
+- launchApp:
+    clearState: true
+- tapOn: Start setup
+- tapOn: Continue
+- tapOn: Set goal
+- tapOn: Open app
+- scrollUntilVisible:
+    element:
+      id: home-daily-rush-cta
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: home-daily-rush-cta
+- assertVisible: 1 of 10
+- extendedWaitUntil:
+    visible: Daily Rush saved to your daily and weekly todos.
+    timeout: 120000
+- tapOn: Back
+- scrollUntilVisible:
+    element:
+      id: daily-todo-daily-rush-status
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: daily-todo-daily-rush-status
+- assertVisible: 1 / 7 rushes

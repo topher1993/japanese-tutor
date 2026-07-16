@@ -1,11 +1,17 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import { createTablesSql } from '../db/schema';
+import { createSharedSqliteAdapter, openSharedNativeDatabase } from '../db/nativeDatabase';
 import { createInMemoryKeyValueStorage, createSqliteKeyValueStorage, type AsyncKeyValueStorage } from './keyValueStorage';
 import { createUserProfileService, type UserProfileService } from './userProfileService';
-import { createInMemoryUserProfileRepository, createSqliteUserProfileRepository, type UserProfileRepository } from '../repositories/userProfileRepository';
+import {
+  createInMemoryUserProfileRepository,
+  createKeyValueUserProfileRepository,
+  createSqliteUserProfileRepository,
+  type UserProfileRepository,
+} from '../repositories/userProfileRepository';
 import type { SqliteLikeDatabase } from '../repositories/sqliteLearningRepository';
 import type { UserProfile, UserProfilePatch } from '../types/userProfile';
+import { createWebOnboardingStorage } from './onboardingPreferenceService';
 
 // React Native injects `__DEV__` at runtime; declare it for TS so we don't
 // get an implicit-any error when guarding console.warn calls.
@@ -39,15 +45,8 @@ async function openNativeProfileStores(): Promise<{
   repository: UserProfileRepository;
   legacyStorage: AsyncKeyValueStorage;
 }> {
-  const SQLite = await import('expo-sqlite');
-  const db = await SQLite.openDatabaseAsync('japanese-tutor.db');
-  for (const sql of createTablesSql) await db.execAsync(sql);
-  const sqliteAdapter: SqliteLikeDatabase = {
-    execAsync: (sql: string) => db.execAsync(sql),
-    runAsync: (sql: string, ...params: unknown[]) => db.runAsync(sql, ...(params as never[])),
-    getAllAsync: ((sql: string, ...params: unknown[]) =>
-      db.getAllAsync(sql, ...(params as never[]))) as SqliteLikeDatabase['getAllAsync'],
-  };
+  const db = await openSharedNativeDatabase();
+  const sqliteAdapter: SqliteLikeDatabase = createSharedSqliteAdapter(db);
   return {
     repository: createSqliteUserProfileRepository(sqliteAdapter),
     legacyStorage: createSqliteKeyValueStorage(sqliteAdapter),
@@ -75,13 +74,16 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
 
     async function openProfile() {
       try {
+        const webStorage = Platform.OS === 'web' ? createWebOnboardingStorage() : null;
         const stores = Platform.OS === 'web'
-          ? { repository: createInMemoryUserProfileRepository(), legacyStorage: createInMemoryKeyValueStorage() }
-          : await openNativeProfileStores();
+          ? webStorage
+            ? { repository: createKeyValueUserProfileRepository(webStorage), legacyStorage: webStorage, durable: true }
+            : { repository: createInMemoryUserProfileRepository(), legacyStorage: createInMemoryKeyValueStorage(), durable: false }
+          : { ...(await openNativeProfileStores()), durable: true };
         const service = createUserProfileService(stores.repository, stores.legacyStorage);
         const profile = await service.load();
         if (cancelled) return;
-        setValue(makeContextValue(service, profile, Platform.OS !== 'web'));
+        setValue(makeContextValue(service, profile, stores.durable));
       } catch (err) {
         if (__DEV__) console.warn('[profile] open failed; falling back to in-memory', err);
         const service = createUserProfileService(createInMemoryUserProfileRepository(), createInMemoryKeyValueStorage());

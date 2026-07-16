@@ -1,0 +1,7 @@
+{
+  "maestroWorkbench.filePatterns": [
+    "**/.maestro/**/*.yaml",
+    "**/.maestro/**/*.yml"
+  ],
+  "typescript.tsdk": "node_modules/typescript/lib"
+}

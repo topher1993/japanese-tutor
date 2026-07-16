@@ -144,10 +144,9 @@ describe('Phase SPACING — consistent margins/padding across all screens', () =
 
   describe('Back navigation is consistent', () => {
     // Every screen that supports back uses ScreenHeader's onBack prop (icon-based, not literal text)
-    // PlacementTestPanel when shown as a result view is owned by its parent (HomeScreen's Disclosure);
-    // its initial view always uses ScreenHeader (no onBack needed at the panel level).
+    // Placement evaluation is a top-level app route; its panel owns the header
+    // while HomeScreen only opens the route.
     const screensWithBack = [
-      'HomeScreen.tsx',
       'LessonsScreen.tsx',
       'QuizScreen.tsx',
       'SourcesScreen.tsx',

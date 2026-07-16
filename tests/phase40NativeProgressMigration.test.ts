@@ -13,8 +13,6 @@ type ProgressRow = {
   todo_event_counts?: string;
 };
 
-type ColumnRow = { name: string };
-
 function createLegacyNativeDb(): SqliteLikeDatabase & { progressRows: ProgressRow[]; columns: Set<string>; executedSql: string[] } {
   const columns = new Set(['id', 'lesson_id', 'completed', 'completed_at', 'score']);
   const progressRows: ProgressRow[] = [];

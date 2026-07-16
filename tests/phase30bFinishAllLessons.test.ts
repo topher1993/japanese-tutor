@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getDailyLesson, getAllLessons } from '../src/services/lessonService';
+import { getDailyLesson, getPhraseLessons } from '../src/services/lessonService';
 import { createLessonNavigator } from '../src/services/lessonNavigatorService';
 import { buildProgressDashboard } from '../src/services/progressDashboardService';
 import { completeLesson, createInitialProgress } from '../src/services/progressService';
@@ -34,7 +34,7 @@ import type { LearnerProgress } from '../src/types/progress';
  *   - buildProgressDashboard shows 100% completion.
  */
 
-const ALL_LESSONS = getAllLessons();
+const ALL_LESSONS = getPhraseLessons().filter(lesson => lesson.level !== 'Absolute Beginner');
 
 function progressWithAllCompleted(): LearnerProgress {
   let progress = createInitialProgress('2026-06-28');

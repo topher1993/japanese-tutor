@@ -1,14 +1,16 @@
 #!/usr/bin/env node
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import { writeImportArtifact } from './lib/write-import-artifact.mjs';
+
+const DEFAULT_OUTPUT = 'src/data/imports/kanjidic2StarterKanji.json';
 
 const SOURCE = {
   id: 'kanjidic2-edrdg',
   name: 'KANJIDIC2 Kanji Dictionary Project',
-  url: 'http://ftp.edrdg.org/pub/Nihongo/kanjidic2.xml.gz',
+  url: 'https://ftp.edrdg.org/pub/Nihongo/kanjidic2.xml.gz',
   license: 'CC BY-SA 4.0',
-  output: 'src/data/generated/kanjidic2StarterKanji.ts',
 };
 
 function argValue(name) {
@@ -61,14 +63,32 @@ function extractKanji(xml, wantedKanji) {
   return entries;
 }
 
+function renderTypeScript(payload) {
+  return `// Generated candidate data from KANJIDIC2. Review before app integration.
+export type ImportedKanjidic2KanjiEntry = {
+  kanji: string;
+  meanings: string[];
+  onReadings: string[];
+  kunReadings: string[];
+  strokeCount: number;
+  grade?: number;
+  sourceId: string;
+};
+
+export const importedKanjidic2Source = ${JSON.stringify(payload.source, null, 2)} as const;
+export const importedKanjidic2GeneratedAt = ${JSON.stringify(payload.generatedAt)};
+export const importedKanjidic2Entries: ImportedKanjidic2KanjiEntry[] = ${JSON.stringify(payload.entries, null, 2)};
+`;
+}
+
 async function main() {
   if (process.argv.includes('--dry-run') || process.argv.includes('--help')) {
-    console.log(JSON.stringify({ source: SOURCE.url, license: SOURCE.license, output: SOURCE.output, mode: 'dry-run' }, null, 2));
+    console.log(JSON.stringify({ source: SOURCE.url, license: SOURCE.license, output: DEFAULT_OUTPUT, formats: ['json', 'ts', 'mts'], mode: 'dry-run' }, null, 2));
     return;
   }
 
   const input = argValue('--input');
-  const output = argValue('--output') ?? SOURCE.output;
+  const output = argValue('--output') ?? DEFAULT_OUTPUT;
   if (!input) {
     throw new Error('Provide --input path/to/kanjidic2.xml.gz or run --dry-run. Network download is intentionally not automatic.');
   }
@@ -77,8 +97,8 @@ async function main() {
   const raw = await readFile(resolve(input));
   const xml = input.endsWith('.gz') ? gunzipSync(raw).toString('utf8') : raw.toString('utf8');
   const entries = extractKanji(xml, wanted);
-  await mkdir(dirname(resolve(output)), { recursive: true });
-  await writeFile(resolve(output), JSON.stringify({ source: SOURCE, generatedAt: new Date().toISOString(), entries }, null, 2));
+  const payload = { schemaVersion: 1, source: SOURCE, generatedAt: new Date().toISOString(), entries };
+  await writeImportArtifact(output, payload, renderTypeScript);
   console.log(JSON.stringify({ source: SOURCE.url, license: SOURCE.license, output, entries: entries.length }, null, 2));
 }
 

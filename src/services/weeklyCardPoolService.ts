@@ -7,7 +7,7 @@
 // table. We filter the lessons by weekNumber, then call createFlashcardDeck
 // and return the deck's card ids (in deck order).
 
-import { getAllLessons } from './lessonService';
+import { getAllCourseLessons } from './lessonService';
 import { createFlashcardDeck } from './flashcardService';
 import type { WeekTodo } from '../types/weeklyTodo';
 
@@ -39,7 +39,7 @@ export function resolveCardPool(
 ): CardPoolResolution {
   if (poolSpec == null) return emptyPool();
   if (poolSpec === 'week') {
-    const lessons = getAllLessons().filter(lesson => lesson.week === weekNumber);
+    const lessons = getAllCourseLessons().filter(lesson => lesson.week === weekNumber);
     const deck = createFlashcardDeck(lessons);
     const cardIds = deck.cards.map(card => card.id);
     if (cardIds.length === 0) return emptyPool();
@@ -48,7 +48,7 @@ export function resolveCardPool(
   if (poolSpec === 'level') {
     // 37b: N5 is the only level authored. Proposal §11.4 deferred per-learner
     // JLPT target to a later phase; we conservatively resolve to N5 lessons.
-    const lessons = getAllLessons().filter(lesson => lesson.level === 'N5');
+    const lessons = getAllCourseLessons().filter(lesson => lesson.level === 'N5');
     const deck = createFlashcardDeck(lessons);
     const cardIds = deck.cards.map(card => card.id);
     if (cardIds.length === 0) return emptyPool();

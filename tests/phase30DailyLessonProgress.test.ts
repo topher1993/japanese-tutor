@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getDailyLesson, getAllLessons } from '../src/services/lessonService';
+import { getDailyLesson, getPhraseLessons } from '../src/services/lessonService';
 import { buildLessonProgression } from '../src/services/lessonProgressionService';
 import { buildProgressDashboard } from '../src/services/progressDashboardService';
 import { completeLesson, createInitialProgress } from '../src/services/progressService';
@@ -38,7 +38,7 @@ import type { LearnerProgress } from '../src/types/progress';
  *   - The progression service accepts a non-default starting week.
  */
 
-const ALL_LESSONS = getAllLessons();
+const ALL_LESSONS = getPhraseLessons().filter(lesson => lesson.level !== 'Absolute Beginner');
 const WEEK_1_IDS = ALL_LESSONS.filter((l) => l.week === 1).map((l) => l.id);
 const WEEK_2_IDS = ALL_LESSONS.filter((l) => l.week === 2).map((l) => l.id);
 

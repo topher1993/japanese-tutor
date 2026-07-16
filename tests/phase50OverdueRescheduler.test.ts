@@ -4,7 +4,6 @@ import { resolve } from 'node:path';
 import { createSpacedRepetitionScheduler } from '../src/services/spacedRepetitionService';
 
 const srcPath = resolve(__dirname, '..', 'src', 'services', 'spacedRepetitionService.ts');
-const persistentPath = resolve(__dirname, '..', 'src', 'services', 'persistentSrsStore.ts');
 const source = readFileSync(srcPath, 'utf8');
 
 describe('phase50 overdue rescheduler', () => {
@@ -51,13 +50,14 @@ describe('phase50 overdue rescheduler', () => {
     // becomes 2026-07-14.
     const srs = createSpacedRepetitionScheduler();
     const synthetic = {
-      id: 'synth-mirror-1',
+      id: 'synth-mirror-preserve',
       refId: 'mirror-test-1',
       intervalDays: 12,
       repetitions: 3,
       easeFactor: 2.5,
       dueOn: '2026-06-08',
       lastReviewedOn: '2026-06-08',
+      stage: 'memorized' as const,
     };
     srs.adoptCard(synthetic);
     srs.dueCards(new Date('2026-07-08T00:00:00Z'));
@@ -78,6 +78,7 @@ describe('phase50 overdue rescheduler', () => {
       easeFactor: 2.5,
       dueOn: '2026-06-08',
       lastReviewedOn: '2026-06-08',
+      stage: 'memorized' as const,
     };
     srs.adoptCard(synthetic);
     srs.dueCards(new Date('2026-07-08T00:00:00Z'));
@@ -98,10 +99,63 @@ describe('phase50 overdue rescheduler', () => {
       easeFactor: 2.5,
       dueOn: '2026-06-08',
       lastReviewedOn: '2026-06-08',
+      stage: 'memorized' as const,
     };
     srs.adoptCard(synthetic);
     srs.dueCards(new Date('2026-07-08T00:00:00Z'));
     const catchUp = srs.overdueCatchUpCards(new Date('2026-07-08T00:00:00Z'));
     expect(catchUp.find(x => x.id === synthetic.id)).toBeDefined();
+  });
+
+  it('overdueCatchUpCards() enforces rescheduling when called directly', () => {
+    const srs = createSpacedRepetitionScheduler();
+    const synthetic = {
+      id: 'synth-direct-catchup',
+      refId: 'direct-catchup-test',
+      intervalDays: 12,
+      repetitions: 3,
+      easeFactor: 2.5,
+      dueOn: '2026-06-08',
+      lastReviewedOn: '2026-06-08',
+      stage: 'memorized' as const,
+    };
+    srs.adoptCard(synthetic);
+    const catchUp = srs.overdueCatchUpCards(new Date('2026-07-08T00:00:00Z'));
+    expect(catchUp.find(x => x.id === synthetic.id)).toBeDefined();
+    expect(srs.getCard(synthetic.id)?.dueOn).toBe('2026-07-14');
+  });
+
+  it('does not classify an ordinary future-due card as catch-up work', () => {
+    const srs = createSpacedRepetitionScheduler();
+    srs.adoptCard({
+      id: 'synth-normal-future',
+      refId: 'normal-future-test',
+      intervalDays: 12,
+      repetitions: 3,
+      easeFactor: 2.5,
+      // This date shape matched the old heuristic even though no catch-up
+      // transition occurred.
+      dueOn: '2026-07-14',
+      lastReviewedOn: '2026-07-02',
+      stage: 'memorized',
+    });
+
+    expect(srs.overdueCatchUpCards(new Date('2026-07-08T00:00:00Z'))).toEqual([]);
+  });
+
+  it('the in-memory persistent fallback lists adopted cards', async () => {
+    const { createInMemorySrsStore } = await import('../src/services/persistentSrsStore');
+    const srs = createInMemorySrsStore();
+    srs.adoptCard({
+      id: 'synth-adopt-list',
+      refId: 'adopt-list-test',
+      intervalDays: 3,
+      repetitions: 1,
+      easeFactor: 2.5,
+      dueOn: '2026-07-11',
+      lastReviewedOn: '2026-07-08',
+      stage: 'memorized',
+    });
+    expect((await srs.listCards()).map(card => card.id)).toContain('synth-adopt-list');
   });
 });

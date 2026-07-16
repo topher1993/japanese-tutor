@@ -1,4 +1,3 @@
-import React from 'react';
 import { ScrollView, Text, StyleSheet, View } from 'react-native';
 import { getWeeklyLessonSummary } from '../services/lessonService';
 import { ds } from '../theme/designSystem';

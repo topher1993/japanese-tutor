@@ -5,7 +5,6 @@
  * Renders the AppLogo at a generous size with an optional helper line
  * underneath (e.g. the learner's name, a phase label, "Welcome back").
  */
-import React from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { AppLogo } from './AppLogo';
 import { ds } from '../theme/designSystem';

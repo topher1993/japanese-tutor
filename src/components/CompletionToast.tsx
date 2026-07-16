@@ -67,9 +67,13 @@ export function CompletionToast() {
   const [payload, setPayload] = useState<ToastPayload | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-12)).current;
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const onPayload = (next: ToastPayload) => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      opacity.stopAnimation();
+      translateY.stopAnimation();
       setPayload(next);
       // Reset to invisible, then animate in.
       opacity.setValue(0);
@@ -79,15 +83,21 @@ export function CompletionToast() {
         Animated.timing(translateY, { toValue: 0, duration: 220, useNativeDriver: true }),
       ]).start();
       // Auto-hide after 3.5s.
-      setTimeout(() => {
+      hideTimerRef.current = setTimeout(() => {
         Animated.parallel([
           Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
           Animated.timing(translateY, { toValue: -12, duration: 220, useNativeDriver: true }),
         ]).start(() => setPayload(null));
+        hideTimerRef.current = null;
       }, 3500);
     };
     listeners.add(onPayload);
-    return () => { listeners.delete(onPayload); };
+    return () => {
+      listeners.delete(onPayload);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      opacity.stopAnimation();
+      translateY.stopAnimation();
+    };
   }, [opacity, translateY]);
 
   if (!payload) return null;
@@ -96,6 +106,7 @@ export function CompletionToast() {
   return (
     <Animated.View
       pointerEvents="none"
+      accessibilityLiveRegion="polite"
       style={[
         styles.wrap,
         { opacity, transform: [{ translateY }] },
@@ -124,9 +135,13 @@ export function LessonErrorToast() {
   const [payload, setPayload] = useState<LessonErrorPayload | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-12)).current;
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const onPayload = (next: LessonErrorPayload) => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      opacity.stopAnimation();
+      translateY.stopAnimation();
       setPayload(next);
       opacity.setValue(0);
       translateY.setValue(-12);
@@ -134,15 +149,21 @@ export function LessonErrorToast() {
         Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
         Animated.timing(translateY, { toValue: 0, duration: 220, useNativeDriver: true }),
       ]).start();
-      setTimeout(() => {
+      hideTimerRef.current = setTimeout(() => {
         Animated.parallel([
           Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
           Animated.timing(translateY, { toValue: -12, duration: 220, useNativeDriver: true }),
         ]).start(() => setPayload(null));
+        hideTimerRef.current = null;
       }, 3000);
     };
     errorListeners.add(onPayload);
-    return () => { errorListeners.delete(onPayload); };
+    return () => {
+      errorListeners.delete(onPayload);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      opacity.stopAnimation();
+      translateY.stopAnimation();
+    };
   }, [opacity, translateY]);
 
   if (!payload) return null;
@@ -151,6 +172,7 @@ export function LessonErrorToast() {
   return (
     <Animated.View
       pointerEvents="none"
+      accessibilityLiveRegion="assertive"
       style={[
         styles.wrap,
         styles.error,

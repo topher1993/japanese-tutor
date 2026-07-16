@@ -41,7 +41,7 @@ export function ScreenHeader({
   return (
     <View style={[styles.shell, { paddingTop: insets.top + ds.spacing.sm }, isBrand && styles.brand]}>
       {onBack ? (
-        <Pressable onPress={onBack} style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.7 : 1 }]} hitSlop={10}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onBack} style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.7 : 1 }]} hitSlop={10}>
           <Icon name="arrow-left" size={22} style={{ color: isBrand ? ds.colors.brandInk : ds.colors.text }} />
         </Pressable>
       ) : null}

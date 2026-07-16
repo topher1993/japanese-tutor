@@ -1,4 +1,6 @@
-export type StudyLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
+import { addLocalDateDays, localDateKey } from '../utils/localDate';
+
+export type StudyLevel = 'Absolute Beginner' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 
 export interface StudyTask {
   id: string;
@@ -20,19 +22,23 @@ export interface StudyPlanTracker {
 }
 
 function dayKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function dayDiff(a: string, b: string): number {
-  const ad = new Date(a + 'T00:00:00Z').getTime();
-  const bd = new Date(b + 'T00:00:00Z').getTime();
-  return Math.round((bd - ad) / 86_400_000);
+  return localDateKey(date);
 }
 
 export function createStudyPlanTracker(): StudyPlanTracker {
   const sessions = new Set<string>();
 
   function buildPlan(level: StudyLevel): DailyStudyPlan {
+    if (level === 'Absolute Beginner') {
+      const tasks: StudyTask[] = [
+        { id: `plan-${level}-review`, title: 'Review greetings and survival phrases', minutes: 10, category: 'review' },
+        { id: `plan-${level}-new`, title: 'Learn kana and first sentence patterns', minutes: 10, category: 'new-content' },
+        { id: `plan-${level}-listening`, title: 'Listen and repeat pronunciation', minutes: 5, category: 'listening' },
+        { id: `plan-${level}-quiz`, title: 'Check your understanding', minutes: 5, category: 'quiz' },
+      ];
+      return { level, totalMinutes: tasks.reduce((s, t) => s + t.minutes, 0), tasks };
+    }
+
     const baseMinutes = level === 'N5' ? 25 : level === 'N4' ? 30 : 35;
     const tasks: StudyTask[] = [
       { id: `plan-${level}-review`, title: `Spaced-repetition review (${level})`, minutes: 10, category: 'review' },
@@ -55,9 +61,7 @@ export function createStudyPlanTracker(): StudyPlanTracker {
       let cursor = today;
       while (sessions.has(cursor)) {
         count += 1;
-        const prev = new Date(cursor + 'T00:00:00Z');
-        prev.setUTCDate(prev.getUTCDate() - 1);
-        cursor = dayKey(prev);
+        cursor = addLocalDateDays(cursor, -1);
         if (count > 365) break;
       }
       return count;
@@ -67,5 +71,3 @@ export function createStudyPlanTracker(): StudyPlanTracker {
     },
   };
 }
-
-void dayDiff;

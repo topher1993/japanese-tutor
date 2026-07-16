@@ -1,0 +1,36 @@
+appId: com.belion.japanesetutor
+name: Main navigation smoke test
+tags:
+  - smoke
+  - navigation
+---
+- launchApp:
+    clearState: true
+- tapOn: Start setup
+- tapOn: Continue
+- tapOn: Set goal
+- tapOn: Open app
+- assertVisible: Home
+- tapOn:
+    id: tab-lessons
+- scrollUntilVisible:
+    element: Lesson path
+    direction: DOWN
+- assertVisible: Lesson path
+- tapOn:
+    id: tab-flashcards
+- assertVisible: Flashcards
+- tapOn:
+    id: tab-quiz
+- assertVisible: Quiz
+- tapOn:
+    id: tab-progress
+- assertVisible: Progress
+- tapOn:
+    id: tab-home
+- scrollUntilVisible:
+    element:
+      id: home-start-button
+    direction: DOWN
+- assertVisible:
+    id: home-start-button

@@ -145,9 +145,9 @@ describe('phase 39 — LessonsScreen mark-complete button (source contract)', ()
       expect(handler, 'markComplete useCallback body not found').not.toBeNull();
       const body = handler![0];
       expect(body).toMatch(/await\s+store\.completeCurrentLesson\(/);
-      // The completion must pass at least lesson.id + 100 (score) +
-      // an ISO date string. Use a generous regex on the three args.
-      expect(body).toMatch(/completeCurrentLesson\(\s*lesson\.id\s*,\s*100\s*,\s*new Date\(\)\.toISOString\(\)\.slice\(0,\s*10\)/);
+      // Daily Todo completion uses the learner's local calendar date so it
+      // resets at local midnight instead of UTC midnight.
+      expect(body).toMatch(/completeCurrentLesson\(\s*lesson\.id\s*,\s*100\s*,\s*localDateKey\(\)/);
       expect(body).toMatch(/const\s+refreshed\s*=\s*await\s+store\.getProgress\(\)/);
       expect(body).toMatch(/setProgress\(\s*refreshed\s*\)/);
       // setSelected must be called with EITHER next.id OR undefined.
@@ -315,26 +315,25 @@ describe('phase 44.2 — lesson_opened wiring in LessonsScreen (source contract)
 });
 
 describe('phase 44.2 — App.tsx analytics wiring (source contract)', () => {
-  it('App imports track() and the tab-change wrapper', () => {
+  it('App imports track() and injects it into the navigation owner', () => {
     const src = loadAppSource();
-    expect(src).toMatch(/import\s*\{\s*track\s*\}\s*from\s*['"]\.\/src\/services\/analyticsService['"]/);
-    expect(src).toMatch(/import\s*\{\s*wrapTabChangeForAnalytics\s*\}\s*from\s*['"]\.\/src\/utils\/wrapTabChangeForAnalytics['"]/);
+    expect(src).toMatch(/import\s*\{[^}]*\btrack\b[^}]*\}\s*from\s*['"]\.\/src\/services\/analyticsService['"]/);
+    expect(src).toContain('useAppNavigation(trackTabVisit)');
   });
 
-  it('App fires tab_visited on mount with initial: true', () => {
+  it('App fires the initial tab visit only after a real tab can be visible', () => {
     const src = loadAppSource();
-    // useEffect with empty deps fires once on mount; track('tab_visited')
-    // is called with { tab, initial: true } so dashboards can
-    // distinguish "user's starting tab" from "user switched here".
-    expect(src).toMatch(/useEffect\(\s*\(\)\s*=>\s*\{[\s\S]*?track\(\s*['"]tab_visited['"][\s\S]*?initial:\s*true[\s\S]*?\}\s*,\s*\[\s*\]\s*\)/);
+    // Splash/onboarding must not be reported as a phantom Home visit. The
+    // pure readiness predicate gates the one-time event on profile,
+    // navigation, onboarding, and the already-tracked ref.
+    expect(src).toMatch(/if\s*\(\s*!shouldTrackInitialTab\(\{[\s\S]*?profileReady[\s\S]*?navigationReady:[\s\S]*?onboarded[\s\S]*?alreadyTracked:[\s\S]*?\}\)\)\s*return;/);
+    expect(src).toMatch(/initialTabTracked\.current\s*=\s*true;[\s\S]*?track\(\s*['"]tab_visited['"][\s\S]*?initial:\s*true/);
   });
 
-  it('TabBar uses the analytics-wrapped onTabChange', () => {
+  it('TabBar uses the navigation handler that owns analytics', () => {
     const src = loadAppSource();
-    // The TabBar must receive the wrapped handler, not the raw
-    // nav.onTabChange — otherwise tab switches wouldn't fire events.
-    expect(src).toContain('onSelect={onTabChangeWithAnalytics}');
-    expect(src).not.toContain('onSelect={nav.onTabChange}');
+    expect(src).toContain('onSelect={nav.onTabChange}');
+    expect(src).toContain("track('tab_visited', { tab, initial: false })");
   });
 
   it('OnboardingScreen onDone fires onboarding_completed with the chosen language', () => {

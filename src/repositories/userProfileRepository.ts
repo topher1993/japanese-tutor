@@ -3,6 +3,13 @@ import { createTablesSql } from '../db/schema';
 import type { UserProfile } from '../types/userProfile';
 
 export const USER_PROFILE_ROW_KEY = 'primary';
+export const USER_PROFILE_STORAGE_KEY = 'japanese-tutor:user-profile:v1';
+
+export interface UserProfileKeyValueStorage {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
+}
 
 export interface UserProfileRepository {
   initialize(): Promise<void>;
@@ -15,13 +22,17 @@ export interface UserProfileRepository {
 function parseProfile(raw: string | null): UserProfile | null {
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as UserProfile;
-    if (!parsed || typeof parsed !== 'object') return null;
-    if (parsed.meta?.schemaVersion !== 1) return null;
-    return parsed;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isRecord(parsed) || !isRecord(parsed.static) || !isRecord(parsed.dynamic) || !isRecord(parsed.meta)) return null;
+    if (parsed.meta.schemaVersion !== 1) return null;
+    return parsed as unknown as UserProfile;
   } catch {
     return null;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function createSqliteUserProfileRepository(db: SqliteLikeDatabase): UserProfileRepository {
@@ -76,6 +87,35 @@ export function createInMemoryUserProfileRepository(initial?: UserProfile | null
     },
     async close() {
       // no-op for web/tests.
+    },
+  };
+}
+
+/** Durable browser repository backed by the same async storage contract used
+ * by onboarding. Keeping the profile in localStorage makes the web build
+ * behave like native across reloads instead of silently starting a new
+ * learner profile on every mount. */
+export function createKeyValueUserProfileRepository(
+  storage: UserProfileKeyValueStorage,
+): UserProfileRepository {
+  return {
+    async initialize() {
+      // The key-value backend has no schema setup step.
+    },
+    async load() {
+      return parseProfile(await storage.getItem(USER_PROFILE_STORAGE_KEY));
+    },
+    async save(profile) {
+      await storage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+      return profile;
+    },
+    async clear() {
+      const existed = await storage.getItem(USER_PROFILE_STORAGE_KEY);
+      await storage.removeItem(USER_PROFILE_STORAGE_KEY);
+      return existed ? 1 : 0;
+    },
+    async close() {
+      // Storage ownership stays with the browser adapter.
     },
   };
 }
