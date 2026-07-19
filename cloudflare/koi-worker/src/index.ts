@@ -4,6 +4,7 @@ export interface Env {
   MINIMAX_TOKEN_PLAN_KEY: string;
   FIREBASE_PROJECT_ID: string;
   KOI_DAILY_REQUEST_LIMIT?: string;
+  KOI_BETA_ENABLED?: string;
   KOI_USER: DurableObjectNamespace<KoiUserObject>;
   KOI_GLOBAL: DurableObjectNamespace<KoiGlobalObject>;
 }
@@ -229,6 +230,13 @@ export class KoiGlobalObject extends DurableObject<Env> {
     this.ctx.storage.sql.exec('INSERT OR REPLACE INTO semaphore (key, held) VALUES (?, ?)', 'provider', held + 1);
     return true;
   }
+  async authorizeUser(userId: string, betaEnabled: boolean): Promise<boolean> {
+    await this.ready;
+    const owner = await this.ctx.storage.get<string>('owner_uid');
+    if (betaEnabled) return true;
+    if (!owner) { await this.ctx.storage.put('owner_uid', userId); return true; }
+    return owner === userId;
+  }
   async release(): Promise<void> {
     await this.ready;
     const held = Number(this.ctx.storage.sql.exec<{ held: number }>('SELECT held FROM semaphore WHERE key = ?', 'provider').one()?.held ?? 0);
@@ -244,6 +252,7 @@ export default {
     if (!env.MINIMAX_TOKEN_PLAN_KEY || !env.FIREBASE_PROJECT_ID) return json({ error: 'provider_not_configured' }, 503);
     const userId = await verifyFirebaseToken(request, env.FIREBASE_PROJECT_ID);
     if (!userId) return json({ error: 'unauthorized' }, 401);
+    if (!await env.KOI_GLOBAL.getByName('global').authorizeUser(userId, env.KOI_BETA_ENABLED === 'true')) return json({ error: 'personal_mode_only' }, 403);
 
     const pathname = new URL(request.url).pathname;
     if (pathname === '/v1/koi/quiz/submit') {
