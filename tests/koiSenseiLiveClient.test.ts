@@ -89,6 +89,9 @@ describe('Koi Firebase live client configuration', () => {
     expect(provider).toContain('runtimeStage={koiRuntimeConfig.stage}');
     expect(provider).toContain('liveConfig={koiFirebaseLiveConfig}');
     expect(liveClient).toContain('limitedUseAppCheckTokens: true');
+    expect(liveClient).toContain('appCheckModule.getToken(appCheck)');
+    expect(liveClient).toContain("'X-Firebase-AppCheck': appCheckToken");
+    expect(liveClient).toContain("name === 'synthesizeKoiReply'");
     expect(liveClient).toContain("android: { provider: 'playIntegrity' }");
     expect(liveClient).toContain("apple: { provider: 'appAttestWithDeviceCheckFallback' }");
     expect(context).toContain('createKoiFirebaseLiveClient(liveConfig)');

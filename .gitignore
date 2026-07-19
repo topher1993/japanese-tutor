@@ -59,6 +59,7 @@ Thumbs.db
 
 # ---- Firebase / Koi backend secrets and generated output -----------------
 .firebase/
+.wrangler/
 firebase-debug.log*
 firestore-debug.log*
 ui-debug.log*

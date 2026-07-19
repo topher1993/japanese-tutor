@@ -155,6 +155,7 @@ export async function createKoiFirebaseLiveClient(
     import('@react-native-firebase/functions'),
   ]);
   const app = await initializeKoiFirebaseApp(config);
+  let appCheck: Awaited<ReturnType<typeof appCheckModule.initializeAppCheck>> | null = null;
   if (config.appCheckSiteKey || config.stage !== 'development') {
     const appCheckProvider = new appCheckModule.ReactNativeFirebaseAppCheckProvider({
       web: { provider: 'reCaptchaEnterprise', siteKey: config.appCheckSiteKey ?? '' },
@@ -162,7 +163,7 @@ export async function createKoiFirebaseLiveClient(
       apple: { provider: 'appAttestWithDeviceCheckFallback' },
       isTokenAutoRefreshEnabled: true,
     });
-    await appCheckModule.initializeAppCheck(app, {
+    appCheck = await appCheckModule.initializeAppCheck(app, {
       provider: appCheckProvider,
       isTokenAutoRefreshEnabled: true,
     });
@@ -198,20 +199,44 @@ export async function createKoiFirebaseLiveClient(
         throw new KoiClientError('AUTH_REQUIRED', 'A verified email-link account is required.');
       }
       try {
-        if (config.workerUrl && (name === 'askKoiSensei' || name === 'syncKoiLearningContext' || name === 'syncKoiPetPresentation' || name === 'upsertKoiMemory' || name === 'deleteKoiMemory' || name === 'exportKoiData' || name === 'deleteKoiData' || name === 'reportKoiMessage' || name === 'revokeKoiConsent' || name === 'completeKoiRegistration' || name === 'getKoiAllowance' || name === ('submitQuizAnswer' as KoiCallableName))) {
+        if (config.workerUrl && (name === 'askKoiSensei' || name === 'synthesizeKoiReply' || name === 'syncKoiLearningContext' || name === 'syncKoiPetPresentation' || name === 'upsertKoiMemory' || name === 'deleteKoiMemory' || name === 'exportKoiData' || name === 'deleteKoiData' || name === 'reportKoiMessage' || name === 'revokeKoiConsent' || name === 'completeKoiRegistration' || name === 'getKoiAllowance' || name === ('submitQuizAnswer' as KoiCallableName))) {
           const user = auth.currentUser;
-          const token = await user?.getIdToken();
+          const [token, appCheckToken] = await Promise.all([
+            user?.getIdToken(),
+            appCheck ? appCheckModule.getToken(appCheck).then(result => result.token) : Promise.resolve(null),
+          ]);
           if (!token) throw new KoiClientError('AUTH_REQUIRED', 'A verified email-link account is required.');
+          if (config.stage === 'production' && !appCheckToken) {
+            throw new KoiClientError('APP_CHECK_FAILED', 'Koi could not verify this app installation.');
+          }
           const endpoint = name === ('submitQuizAnswer' as KoiCallableName) ? 'quiz/submit' : `koi/${name}`;
           const response = await fetch(`${config.workerUrl}/v1/${endpoint}`, {
             method: 'POST',
-            headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+            headers: {
+              authorization: `Bearer ${token}`,
+              'content-type': 'application/json',
+              ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
+            },
             body: JSON.stringify(payload),
           });
           const data = await response.json().catch(() => null);
           if (!response.ok) {
             const error = typeof data === 'object' && data !== null && 'error' in data ? String(data.error) : 'provider_unavailable';
-            const reason = error === 'chat_allowance_exhausted' ? 'CHAT_ALLOWANCE_EXHAUSTED' : error === 'provider_busy' ? 'TOKEN_PLAN_BUSY' : 'PROVIDER_UNAVAILABLE';
+            const reason = error === 'chat_allowance_exhausted'
+              ? 'CHAT_ALLOWANCE_EXHAUSTED'
+              : error === 'provider_busy' || error === 'request_in_flight'
+                ? 'TOKEN_PLAN_BUSY'
+                : error === 'token_plan_exhausted'
+                  ? 'TOKEN_PLAN_EXHAUSTED'
+                  : error === 'capacity_stale'
+                    ? 'CAPACITY_STALE'
+                    : error === 'consent_required'
+                      ? 'CONSENT_REQUIRED'
+                      : error === 'app_check_failed'
+                        ? 'APP_CHECK_FAILED'
+                        : error === 'content_blocked'
+                          ? 'CONTENT_BLOCKED'
+                          : 'PROVIDER_UNAVAILABLE';
             throw new KoiClientError(reason, `Koi could not complete the request (${error}).`);
           }
           return data;

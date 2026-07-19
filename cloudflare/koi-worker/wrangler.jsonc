@@ -1,0 +1,24 @@
+{
+  "$schema": "https://developers.cloudflare.com/schema/wrangler.json",
+  "name": "koi-sensei-personal",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "FIREBASE_PROJECT_NUMBER": "1081977371730",
+    "KOI_DAILY_REQUEST_LIMIT": "100",
+    "KOI_BETA_ENABLED": "false",
+    "KOI_ACTIVE_ACCOUNT_LIMIT": "50",
+    "KOI_APP_CHECK_REQUIRED": "false",
+    "KOI_PROVIDER_ENABLED": "true"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "KOI_USER", "class_name": "KoiUserObject" },
+      { "name": "KOI_GLOBAL", "class_name": "KoiGlobalObject" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["KoiUserObject", "KoiGlobalObject"] }
+  ]
+}
