@@ -38,5 +38,11 @@ describe('Koi avatar renderer integration', () => {
     expect(threeStage).toContain('scene.getObjectByName(socketName)');
     expect(threeStage).toContain('socket.add(object)');
   });
-});
 
+  it('shares the native Three.js instance that owns the Expo loader polyfills', () => {
+    const metro = readFileSync('metro.config.js', 'utf8');
+    expect(metro).toContain("moduleName === 'three'");
+    expect(metro).toContain("platform === 'android' || platform === 'ios'");
+    expect(metro).toContain('threeCommonJsEntry');
+  });
+});
