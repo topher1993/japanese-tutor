@@ -332,21 +332,11 @@
   "330": "koiSenseiGateway.test.ts",
   "331": "SrsKeyValueStorage",
   "332": "phase37eHomeProgressIntegration.test.ts",
-  "333": "phase5WorkplaceSurvival.test.ts",
   "334": "phase22P0ColdStartPersistence.test.ts",
-  "335": "installId.ts",
   "336": "index.ts",
-  "337": "createExpoKoiDeviceSttAdapter",
-  "338": "UserProfileKeyValueStorage",
-  "339": "auth.ts",
   "340": "LessonProgression",
   "341": ".reportMessage",
-  "342": "KoiAvatarBoundary",
   "343": "FakeDB",
-  "344": "FakeDB",
-  "345": "scrubPii",
-  "346": ".reportMessage",
   "347": "AppProviders.tsx",
-  "348": "KoiLearningProgressionSubscription",
-  "349": "phaseUxSimplification.test.ts"
+  "348": "KoiLearningProgressionSubscription"
 }
