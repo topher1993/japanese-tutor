@@ -121,6 +121,7 @@ interface KoiStoredMessage {
 const protectedKoiOperations = new Set([
   'askKoiSensei',
   'getKoiAllowance',
+  'setKoiDetailedProgressConsent',
   'syncKoiLearningContext',
   'syncKoiPetPresentation',
   'upsertKoiMemory',
@@ -129,6 +130,69 @@ const protectedKoiOperations = new Set([
   'synthesizeKoiReply',
   'submitQuizAnswer',
 ]);
+
+const publicKoiOperations = new Set([
+  ...protectedKoiOperations,
+  'completeKoiRegistration',
+  'revokeKoiConsent',
+  'exportKoiData',
+  'deleteKoiData',
+]);
+
+const koiUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const isKoiUuid = (value: unknown): value is string => typeof value === 'string' && koiUuidPattern.test(value);
+const hasOnlyPayloadKeys = (payload: Record<string, unknown>, keys: readonly string[]): boolean => (
+  Object.keys(payload).every(key => keys.includes(key))
+);
+const hasKoiRequestEnvelope = (payload: Record<string, unknown>): boolean => (
+  payload.schemaVersion === 1 && isKoiUuid(payload.requestId)
+);
+
+const isValidPublicKoiPayload = (name: string, payload: Record<string, unknown>): boolean => {
+  if (!hasKoiRequestEnvelope(payload)) return false;
+  if (name === 'completeKoiRegistration') return isValidRegistrationPayload(payload)
+    && hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId', 'ageBand', 'aiPolicyVersion', 'privacyPolicyVersion', 'acknowledgedUsProcessing', 'supportLanguage']);
+  if (name === 'revokeKoiConsent') return payload.confirmation === 'REVOKE_KOI_AI_CONSENT'
+    && hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId', 'confirmation']);
+  if (name === 'getKoiAllowance' || name === 'exportKoiData') {
+    return hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId']);
+  }
+  if (name === 'deleteKoiData') return payload.confirmation === 'DELETE_KOI_DATA'
+    && hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId', 'confirmation']);
+  if (name === 'upsertKoiMemory') {
+    const text = typeof payload.text === 'string' ? payload.text.trim() : '';
+    return isKoiUuid(payload.memoryId)
+      && ['goal', 'preference', 'recurring_mistake', 'useful_phrase'].includes(String(payload.category))
+      && text.length >= 1 && text.length <= 160
+      && hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId', 'memoryId', 'category', 'text']);
+  }
+  if (name === 'deleteKoiMemory') return isKoiUuid(payload.memoryId)
+    && hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId', 'memoryId']);
+  if (name === 'reportKoiMessage') {
+    const noteValid = payload.note === undefined || (typeof payload.note === 'string' && payload.note.trim().length <= 240);
+    return isKoiUuid(payload.messageId)
+      && ['incorrect', 'unsafe', 'offensive', 'privacy', 'other'].includes(String(payload.reason))
+      && noteValid
+      && hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId', 'messageId', 'reason', 'note']);
+  }
+  if (name === 'askKoiSensei') {
+    const text = typeof payload.text === 'string' ? payload.text.trim() : '';
+    return isKoiUuid(payload.conversationId) && text.length >= 1 && text.length <= 2_000
+      && hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId', 'conversationId', 'text']);
+  }
+  if (name === 'synthesizeKoiReply') return isKoiUuid(payload.assistantMessageId)
+    && hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId', 'assistantMessageId']);
+  if (name === 'setKoiDetailedProgressConsent') return typeof payload.enabled === 'boolean'
+    && (payload.enabled
+      ? payload.policyVersion === 'koi-detailed-progress-2026-07-17'
+      : payload.policyVersion === undefined)
+    && hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId', 'enabled', 'policyVersion']);
+  if (name === 'syncKoiLearningContext') return typeof payload.context === 'object' && payload.context !== null
+    && hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId', 'context']);
+  if (name === 'syncKoiPetPresentation') return typeof payload.presentation === 'object' && payload.presentation !== null
+    && hasOnlyPayloadKeys(payload, ['schemaVersion', 'requestId', 'presentation']);
+  return false;
+};
 
 const isAllowanceLimits = (value: unknown): value is KoiAllowanceLimits => {
   if (typeof value !== 'object' || value === null) return false;
@@ -142,7 +206,7 @@ const isAllowanceLimits = (value: unknown): value is KoiAllowanceLimits => {
 const isValidRegistrationPayload = (payload: Record<string, unknown>): boolean => (
   payload.schemaVersion === 1
   && typeof payload.requestId === 'string'
-  && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(payload.requestId)
+  && koiUuidPattern.test(payload.requestId)
   && ['16_17', '18_plus'].includes(String(payload.ageBand))
   && payload.aiPolicyVersion === KOI_CURRENT_AI_POLICY_VERSION
   && payload.privacyPolicyVersion === KOI_CURRENT_PRIVACY_POLICY_VERSION
@@ -390,7 +454,8 @@ export class KoiUserObject extends DurableObject<KoiWorkerEnv> {
       return { schemaVersion: 1, requestId: payload.requestId, exportedAtMs: now, registration: registration ? { ageBand: registration.ageBand, supportLanguage: registration.supportLanguage, status: registration.status, createdAtMs: registration.createdAtMs } : null, learnerContext: state.learnerContext ?? null, messages: Array.isArray(state.messages) ? state.messages.slice(-200) : [], memories: Array.isArray(state.memories) ? state.memories.slice(-20) : [], reports: Array.isArray(state.reports) ? state.reports.slice(-200) : [] };
     }
     if (name === 'deleteKoiData') {
-      await this.ctx.storage.sql.exec('DELETE FROM koi_state WHERE key = ?', 'state');
+      this.ctx.storage.sql.exec('DELETE FROM koi_state WHERE key = ?', 'state');
+      await this.ctx.storage.deleteAlarm();
       return { schemaVersion: 1, requestId: payload.requestId, deleted: true, serverTimeMs: now };
     }
     return { error: 'not_implemented' };
@@ -491,6 +556,9 @@ export class KoiGlobalObject extends DurableObject<KoiWorkerEnv> {
   }
   async removeUser(userId: string): Promise<void> {
     this.ctx.storage.sql.exec('DELETE FROM active_accounts WHERE user_id = ?', userId);
+    if (await this.ctx.storage.get<string>('owner_uid') === userId) {
+      await this.ctx.storage.delete('owner_uid');
+    }
   }
   async release(): Promise<void> {
     const row = this.ctx.storage.sql
@@ -536,8 +604,9 @@ export default {
     }
     if (pathname.startsWith('/v1/koi/')) {
       const name = pathname.slice('/v1/koi/'.length);
-      if (!name || name.startsWith('_')) return json({ error: 'not_found' }, 404);
+      if (!name || name.startsWith('_') || !publicKoiOperations.has(name)) return json({ error: 'not_found' }, 404);
       const body = await request.json() as Record<string, unknown>;
+      if (!isValidPublicKoiPayload(name, body)) return json({ error: 'invalid_request' }, 400);
       const stub = env.KOI_USER.getByName(userId);
       const global = env.KOI_GLOBAL.getByName('global');
       if (name === 'completeKoiRegistration') {
@@ -557,6 +626,10 @@ export default {
         }
         const limits = await global.getCapacityLimits();
         const response = await stub.dispatch(name, { ...body, __limits: limits });
+        return json(response, (response as { error?: string }).error ? 403 : 200);
+      }
+      if (name === 'setKoiDetailedProgressConsent') {
+        const response = await stub.dispatch(name, body);
         return json(response, (response as { error?: string }).error ? 403 : 200);
       }
       if (name === 'askKoiSensei') {

@@ -25,6 +25,10 @@ export const koiAllowanceSchema = z.object({
   voiceLimit: z.number().int().min(0).max(4),
   voiceUsed: z.number().int().nonnegative(),
   capacityBand: z.enum(['high', 'normal', 'low', 'critical', 'paused']),
+  // Optional while legacy Firebase allowance documents are migrated. New
+  // Cloudflare grants always send an explicit mode and mobile treats an
+  // omitted mode as metered.
+  usageMode: z.enum(['personal_unlimited', 'metered']).optional(),
   providerRetryAtMs: z.number().int().nonnegative().optional(),
 }).strict();
 

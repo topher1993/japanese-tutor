@@ -22,6 +22,18 @@
 - Confirm analytics contain event names and coarse result bands only—never
   prompts, answers, memory text, raw progress, email addresses, or audio.
 
+## Stage 1.5 — personal live mode
+
+- Keep `KOI_BETA_ENABLED=false` and `KOI_USAGE_MODE=personal_unlimited`.
+- Admit only the first verified Firebase subject as the personal owner.
+- Do not enforce app-level chat/voice counters. Continue to fail closed on
+  stale or exhausted MiniMax Token Plan capacity, provider disablement, or more
+  than two simultaneous provider requests.
+- Verify the app displays "no app-imposed reply limit" and never describes the
+  MiniMax subscription itself as unlimited.
+- Detailed-progress sharing remains off by default and must be granted or
+  revoked through the authenticated Worker before any learning summary sync.
+
 ## Stage 2 — staging provider verification
 
 - Before creating a cloud staging project, the owner must either approve its

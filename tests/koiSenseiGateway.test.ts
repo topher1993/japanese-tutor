@@ -62,6 +62,49 @@ function answer() {
 }
 
 describe('Koi mobile gateway boundary', () => {
+  it('uses the server-authoritative detailed-progress consent contract', async () => {
+    const policyVersion = 'koi-detailed-progress-2026-07-17';
+    const invoke = vi.fn()
+      .mockResolvedValueOnce({
+        schemaVersion: 1,
+        requestId: REQUEST_ID,
+        enabled: true,
+        policyVersion,
+        serverTimeMs: 10,
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: 1,
+        requestId: REQUEST_ID,
+        enabled: false,
+        policyVersion: null,
+        serverTimeMs: 11,
+      });
+    const gateway = createKoiGateway({ invoke } as KoiCallableTransport, () => activeSession());
+
+    await expect(gateway.setDetailedProgressConsent({
+      requestId: REQUEST_ID,
+      enabled: true,
+      policyVersion,
+    })).resolves.toEqual({ enabled: true, policyVersion });
+    await expect(gateway.setDetailedProgressConsent({
+      requestId: REQUEST_ID,
+      enabled: false,
+      policyVersion,
+    })).resolves.toEqual({ enabled: false, policyVersion: null });
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'setKoiDetailedProgressConsent', {
+      schemaVersion: 1,
+      requestId: REQUEST_ID,
+      enabled: true,
+      policyVersion,
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, 'setKoiDetailedProgressConsent', {
+      schemaVersion: 1,
+      requestId: REQUEST_ID,
+      enabled: false,
+    });
+  });
+
   it('requires explicit approval for cloud memory writes and validates deletion', async () => {
     const invoke = vi.fn()
       .mockResolvedValueOnce({ schemaVersion: 1, requestId: REQUEST_ID, memoryId: MESSAGE_ID, stored: true, serverTimeMs: 10 })

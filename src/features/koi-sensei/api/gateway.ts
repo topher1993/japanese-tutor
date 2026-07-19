@@ -1,6 +1,7 @@
 export const KOI_CALLABLE_NAMES = [
   'completeKoiRegistration',
   'revokeKoiConsent',
+  'setKoiDetailedProgressConsent',
   'getKoiAllowance',
   'syncKoiLearningContext',
   'syncKoiPetPresentation',
@@ -165,6 +166,11 @@ export interface KoiGateway {
   }>;
   getAllowance(requestId: string): Promise<KoiAllowanceView>;
   revokeConsent(requestId: string): Promise<void>;
+  setDetailedProgressConsent(input: {
+    requestId: string;
+    enabled: boolean;
+    policyVersion: string;
+  }): Promise<{ enabled: boolean; policyVersion: string | null }>;
   upsertMemory(input: {
     requestId: string;
     memoryId: string;
@@ -475,6 +481,27 @@ export function createKoiGateway(
         || finiteInteger(response.serverTimeMs, 0, Number.MAX_SAFE_INTEGER) === null) {
         throw new KoiClientError('INVALID_RESPONSE', 'Koi did not confirm consent revocation.');
       }
+    },
+
+    async setDetailedProgressConsent(input) {
+      requireActiveSession(getSession());
+      const requestId = requireUuid('requestId', input.requestId);
+      if (!input.policyVersion.trim() || input.policyVersion.length > 160) {
+        throw new KoiClientError('INVALID_REQUEST', 'The detailed-progress policy version is invalid.');
+      }
+      const response = await transport.invoke('setKoiDetailedProgressConsent', {
+        schemaVersion: 1,
+        requestId,
+        enabled: input.enabled,
+        ...(input.enabled ? { policyVersion: input.policyVersion } : {}),
+      });
+      if (!isRecord(response) || response.schemaVersion !== 1 || response.requestId !== requestId
+        || response.enabled !== input.enabled
+        || (input.enabled ? response.policyVersion !== input.policyVersion : response.policyVersion !== null)
+        || finiteInteger(response.serverTimeMs, 0, Number.MAX_SAFE_INTEGER) === null) {
+        throw new KoiClientError('INVALID_RESPONSE', 'Koi did not confirm detailed-progress consent.');
+      }
+      return { enabled: input.enabled, policyVersion: input.enabled ? input.policyVersion : null };
     },
 
     async upsertMemory(input) {

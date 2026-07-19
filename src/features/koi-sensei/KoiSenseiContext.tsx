@@ -23,6 +23,7 @@ import {
   askAndPersistKoi,
   createKoiEligibilityRecord,
   evaluateKoiEligibility,
+  KOI_CURRENT_DETAILED_PROGRESS_POLICY_VERSION,
   openKoiSenseiRepository,
   type CreateKoiEligibilityInput,
   type KoiActiveDojoSessionV1,
@@ -73,6 +74,7 @@ export interface KoiSenseiContextValue {
   deleteCloudMemory(memoryId: string): Promise<void>;
   completeEligibility(input: CreateKoiEligibilityInput): Promise<void>;
   revokeAiConsent(): Promise<void>;
+  setDetailedProgressConsent(enabled: boolean): Promise<void>;
   askKoi(text: string): Promise<KoiAnswer>;
   synthesizeKoiReply(assistantMessageId: string): Promise<KoiSynthesisResult>;
   submitQuizAnswer(input: {
@@ -170,6 +172,9 @@ export function KoiSenseiProvider({
           consentedAtMs: eligibility.eligible
             ? stateRef.current?.eligibility?.consentedAt ?? undefined
             : undefined,
+          detailedProgressConsentVersion: stateRef.current?.preferences.detailedProgressConsent
+            ? KOI_CURRENT_DETAILED_PROGRESS_POLICY_VERSION
+            : undefined,
         };
       }),
     };
@@ -203,6 +208,9 @@ export function KoiSenseiProvider({
               privacyPolicyVersion: eligibility.eligible ? stateRef.current?.eligibility?.privacyPolicyVersion : undefined,
               usProcessingAcknowledged: eligibility.eligible,
               consentedAtMs: eligibility.eligible ? stateRef.current?.eligibility?.consentedAt ?? undefined : undefined,
+              detailedProgressConsentVersion: stateRef.current?.preferences.detailedProgressConsent
+                ? KOI_CURRENT_DETAILED_PROGRESS_POLICY_VERSION
+                : undefined,
             };
           }),
         };
@@ -391,6 +399,17 @@ export function KoiSenseiProvider({
     }
     await withRepository(repository => repository.revokeEligibility());
     if (remoteError) throw remoteError;
+  }, [runtimeStage, withRepository]);
+
+  const setDetailedProgressConsent = React.useCallback(async (enabled: boolean) => {
+    if (runtimeStage !== 'mock') {
+      await gatewayRef.current!.gateway.setDetailedProgressConsent({
+        requestId: createKoiUuid(),
+        enabled,
+        policyVersion: KOI_CURRENT_DETAILED_PROGRESS_POLICY_VERSION,
+      });
+    }
+    await withRepository(repository => repository.savePreferences({ detailedProgressConsent: enabled }));
   }, [runtimeStage, withRepository]);
 
   const exportCloudData = React.useCallback(async (): Promise<string> => {
@@ -598,6 +617,7 @@ export function KoiSenseiProvider({
     deleteCloudMemory,
     completeEligibility,
     revokeAiConsent,
+    setDetailedProgressConsent,
     askKoi,
     synthesizeKoiReply,
     submitQuizAnswer,
@@ -631,6 +651,7 @@ export function KoiSenseiProvider({
     saveCloudMemory,
     resetLocalState,
     revokeAiConsent,
+    setDetailedProgressConsent,
     runtimeStage,
     sendEmailSignInLink,
     state,

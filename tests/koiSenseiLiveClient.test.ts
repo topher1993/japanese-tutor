@@ -92,8 +92,9 @@ describe('Koi Firebase live client configuration', () => {
     expect(liveClient).toContain('appCheckModule.getToken(appCheck)');
     expect(liveClient).toContain('config.appCheckRequired && !appCheckToken');
     expect(liveClient).toContain("'X-Firebase-AppCheck': appCheckToken");
-    expect(liveClient).toContain("name === 'synthesizeKoiReply'");
+    expect(liveClient).toContain("'synthesizeKoiReply',");
     expect(liveClient).toContain("name === 'submitQuizAnswer' ? 'koi/quiz/submit'");
+    expect(liveClient).toContain("'setKoiDetailedProgressConsent',");
     expect(liveClient).toContain("android: { provider: 'playIntegrity' }");
     expect(liveClient).toContain("apple: { provider: 'appAttestWithDeviceCheckFallback' }");
     expect(context).toContain('createKoiFirebaseLiveClient(liveConfig)');

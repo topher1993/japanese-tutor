@@ -128,6 +128,23 @@ function clientError(cause: unknown): KoiClientError {
   return new KoiClientError(reason as KoiClientError['reason'], message);
 }
 
+const KOI_WORKER_CALLABLE_NAMES = new Set<KoiCallableName>([
+  'askKoiSensei',
+  'synthesizeKoiReply',
+  'syncKoiLearningContext',
+  'syncKoiPetPresentation',
+  'upsertKoiMemory',
+  'deleteKoiMemory',
+  'exportKoiData',
+  'deleteKoiData',
+  'reportKoiMessage',
+  'revokeKoiConsent',
+  'setKoiDetailedProgressConsent',
+  'completeKoiRegistration',
+  'getKoiAllowance',
+  'submitQuizAnswer',
+]);
+
 async function initializeKoiFirebaseApp(config: KoiFirebaseLiveConfig) {
   const appModule = await import('@react-native-firebase/app');
   // Android/iOS initialize the default app from google-services.json /
@@ -201,7 +218,7 @@ export async function createKoiFirebaseLiveClient(
         throw new KoiClientError('AUTH_REQUIRED', 'A verified email-link account is required.');
       }
       try {
-        if (config.workerUrl && (name === 'askKoiSensei' || name === 'synthesizeKoiReply' || name === 'syncKoiLearningContext' || name === 'syncKoiPetPresentation' || name === 'upsertKoiMemory' || name === 'deleteKoiMemory' || name === 'exportKoiData' || name === 'deleteKoiData' || name === 'reportKoiMessage' || name === 'revokeKoiConsent' || name === 'completeKoiRegistration' || name === 'getKoiAllowance' || name === 'submitQuizAnswer')) {
+        if (config.workerUrl && KOI_WORKER_CALLABLE_NAMES.has(name)) {
           const user = auth.currentUser;
           const [token, appCheckToken] = await Promise.all([
             user?.getIdToken(),
@@ -240,7 +257,9 @@ export async function createKoiFirebaseLiveClient(
                         ? 'APP_CHECK_FAILED'
                         : error === 'content_blocked'
                           ? 'CONTENT_BLOCKED'
-                          : 'PROVIDER_UNAVAILABLE';
+                          : error === 'invalid_request'
+                            ? 'INVALID_REQUEST'
+                            : 'PROVIDER_UNAVAILABLE';
             throw new KoiClientError(reason, `Koi could not complete the request (${error}).`);
           }
           return data;

@@ -199,6 +199,7 @@ describe('shared capacity cache and allowance refresh rate limits', () => {
     voiceLimit: 4,
     voiceUsed: 0,
     capacityBand: 'high',
+    usageMode: 'metered',
   };
 
   it('serves a fresh shared cache and single-flights stale provider refreshes', () => {

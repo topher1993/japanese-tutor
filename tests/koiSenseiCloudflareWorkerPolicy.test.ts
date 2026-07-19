@@ -86,6 +86,19 @@ describe('Koi Cloudflare authority policy', () => {
     expect(config).not.toContain('KOI_DAILY_REQUEST_LIMIT');
   });
 
+  it('keeps detailed-progress consent server-authoritative on Cloudflare', () => {
+    const worker = readFileSync('cloudflare/koi-worker/src/index.ts', 'utf8');
+    expect(worker).toContain("'setKoiDetailedProgressConsent'");
+    expect(worker).toContain("payload.policyVersion === 'koi-detailed-progress-2026-07-17'");
+    expect(worker).toContain('payload.policyVersion === undefined');
+  });
+
+  it('deletes the personal account identifier and retention alarm with Koi cloud data', () => {
+    const worker = readFileSync('cloudflare/koi-worker/src/index.ts', 'utf8');
+    expect(worker).toContain("this.ctx.storage.delete('owner_uid')");
+    expect(worker).toContain('await this.ctx.storage.deleteAlarm()');
+  });
+
   it('retains only 30 days and at most 200 server chat messages', () => {
     const now = 1_800_000_000_000;
     const messages = Array.from({ length: 230 }, (_, index) => ({ id: index, createdAtMs: now - index * 1_000 }));

@@ -633,6 +633,17 @@ export function KoiSettingsPanel() {
     }
   };
 
+  const updateDetailedProgressConsent = async (enabled: boolean) => {
+    try {
+      await koi.setDetailedProgressConsent(enabled);
+      setStatus(enabled
+        ? 'Detailed learning context sharing is enabled.'
+        : 'Detailed learning context sharing is disabled.');
+    } catch (cause) {
+      setStatus(cause instanceof Error ? cause.message : 'Detailed-progress consent could not be updated.');
+    }
+  };
+
   const prepareCloudExport = async () => {
     try {
       setExportText(await koi.exportCloudData());
@@ -715,7 +726,7 @@ export function KoiSettingsPanel() {
             label="Detailed learning context"
             description="Optional consent to share detailed in-app progress with Koi after secure sync is enabled. Off by default."
             value={preferences.detailedProgressConsent}
-            onValueChange={value => save({ detailedProgressConsent: value })}
+            onValueChange={value => { void updateDetailedProgressConsent(value); }}
             testID="koi-setting-progress-consent"
           />
           <PreferenceSwitch

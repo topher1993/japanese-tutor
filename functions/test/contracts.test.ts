@@ -44,9 +44,9 @@ describe('Koi callable contracts', () => {
         voiceLimit: 4,
         voiceUsed: 0,
         capacityBand: 'high',
+        usageMode: 'personal_unlimited',
       },
     });
     expect(parsed.success).toBe(true);
   });
 });
-

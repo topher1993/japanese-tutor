@@ -332,6 +332,7 @@ const allowanceFrom = (data: DocumentData | undefined): KoiAllowanceGrantV1 | nu
     voiceLimit: parsed.data.voiceLimit,
     voiceUsed: parsed.data.voiceUsed,
     capacityBand: parsed.data.capacityBand,
+    usageMode: parsed.data.usageMode ?? 'metered',
   };
 };
 

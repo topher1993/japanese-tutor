@@ -2,8 +2,9 @@
 
 Koi Sensei is the optional, 16+ virtual-pet tutor inside Japanese Tutor. The
 existing five-tab learning app remains local-first; Home opens Koi as a
-full-screen overlay. Koi's online features are a capped beta for at most 50
-active accounts.
+full-screen overlay. Live mode currently admits one personal owner account;
+the architecture can later be switched to a capped beta of at most 50 active
+accounts.
 
 ## Non-negotiable boundaries
 
@@ -13,9 +14,9 @@ active accounts.
 - Only the owner's active yearly **Token Plan key** may be configured. Standard
   API keys, pay-as-you-go keys, balance top-ups, Credits fallback, provider
   failover, and silent model upgrades are forbidden.
-- Live provider mode stays disabled until MiniMax gives written approval for a
-  capped 50-person beta and confirms how to make the Token Plan key stop before
-  it can consume Credits.
+- Personal live mode uses only the owner's Token Plan key. A future shared beta
+  stays disabled until MiniMax gives written approval and confirms how to stop
+  the Token Plan key before it can consume Credits.
 - The backend checks a fresh provider-capacity snapshot before every MiniMax
   call, globally permits at most two calls at once, and fails closed if quota
   state is stale or exhausted.
@@ -24,10 +25,13 @@ active accounts.
   included system voice. Raw microphone audio is never uploaded or persisted.
 - Course progress stays on the device by default. A learner must separately opt
   in before a bounded learning summary can be synced to Koi.
-- Koi stars and mastery cosmetics are local-first high-water marks in this
-  checkpoint. The backend deliberately exposes no reward-minting callable yet:
-  a server-authoritative sync must wait for a verifiable learning-evidence
-  ledger, so a client cannot forge stars, cosmetics, coins, or league points.
+- Governed N5/N4 Dojo answers are checked by Cloudflare and deduplicated before
+  they can mint practice/mastery evidence or cosmetics. Ungoverned domains and
+  N3-N1 remain fail-closed.
+- Personal mode has no app-imposed per-user chat or voice counter. MiniMax Token
+  Plan availability, the provider kill switch, and the global two-call
+  semaphore remain authoritative. Future shared mode can restore metering with
+  `KOI_USAGE_MODE=metered`.
 
 ## Runtime shape
 
@@ -51,12 +55,10 @@ staging, and production projects provide the real callable transport only after
 their public client configs are supplied. The deterministic mock transport is
 the default and consumes no provider quota.
 
-Cloud Functions deployment itself is not zero-cost-guaranteed: Firebase
-requires the Blaze pay-as-you-go plan, and its budget alerts do not impose a
-hard spending cap. Therefore this repository may run the Firebase Local
-Emulator Suite, but no cloud project may be upgraded or deployed under the
-owner's no-additional-cost rule. Live hosting needs a separately approved,
-hard-capped solution or an explicit change to that rule.
+Firebase supplies email-link identity, while Koi state, retention, consent,
+rewards, and provider controls live in the Cloudflare Worker/Durable Objects.
+Firebase Functions are retained only as a contract-compatible emulator and are
+not deployed under the owner's no-additional-cost rule.
 
 ## Progression
 

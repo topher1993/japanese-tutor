@@ -3,6 +3,7 @@ export const KOI_ELIGIBILITY_SCHEMA_VERSION = 1 as const;
 /** Bump either value whenever its corresponding learner-facing notice changes. */
 export const KOI_CURRENT_AI_POLICY_VERSION = 'koi-ai-data-2026-07-16';
 export const KOI_CURRENT_PRIVACY_POLICY_VERSION = 'koi-privacy-2026-07-16';
+export const KOI_CURRENT_DETAILED_PROGRESS_POLICY_VERSION = 'koi-detailed-progress-2026-07-17';
 
 export const KOI_AGE_BANDS = ['under16', '16_17', '18_plus'] as const;
 export type KoiAgeBand = (typeof KOI_AGE_BANDS)[number];
