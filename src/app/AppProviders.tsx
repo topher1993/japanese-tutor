@@ -30,6 +30,7 @@ const koiPublicEnvironment: KoiPublicEnvironment = {
   EXPO_PUBLIC_FIREBASE_FUNCTIONS_EMULATOR_ORIGIN: process.env.EXPO_PUBLIC_FIREBASE_FUNCTIONS_EMULATOR_ORIGIN,
   EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_ORIGIN: process.env.EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_ORIGIN,
   EXPO_PUBLIC_KOI_EMAIL_LINK_URL: process.env.EXPO_PUBLIC_KOI_EMAIL_LINK_URL,
+  EXPO_PUBLIC_KOI_WORKER_URL: process.env.EXPO_PUBLIC_KOI_WORKER_URL,
   // These forbidden names are referenced deliberately so an accidental Expo
   // public provider secret fails startup instead of being silently bundled.
   EXPO_PUBLIC_MINIMAX_TOKEN_PLAN_KEY: process.env.EXPO_PUBLIC_MINIMAX_TOKEN_PLAN_KEY,
