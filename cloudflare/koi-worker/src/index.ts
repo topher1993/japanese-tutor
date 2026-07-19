@@ -128,7 +128,11 @@ export class KoiUserObject extends DurableObject<Env> {
       return { allowed: true, chatUsed, windowStart };
     }
     if (name === 'synthesizeKoiReply') {
-      return { error: 'provider_unavailable' };
+      const messages = Array.isArray(state.messages) ? state.messages : [];
+      const message = messages.find((item) => (item as { id?: unknown }).id === payload.assistantMessageId) as { text?: string } | undefined;
+      const now = Date.now();
+      const allowance = { schemaVersion: 1, grantedAtMs: now, expiresAtMs: now + 5 * 60 * 60 * 1_000, chatLimit: 12, chatUsed: Number(state.chatUsed ?? 0), voiceLimit: 4, voiceUsed: 0, capacityBand: 'normal' };
+      return { schemaVersion: 1, requestId: payload.requestId, status: 'system_voice_fallback', reason: 'PROVIDER_UNAVAILABLE', spokenText: String(message?.text ?? '').slice(0, 240), dailyCharacterRemaining: 4_000, allowance };
     }
     if (name === 'recordKoiChat') {
       const windowStart = Number(state.allowanceWindowStartMs ?? now);
@@ -230,8 +234,9 @@ export default {
           const answerText = result.content?.find((part) => part.type === 'text')?.text?.trim();
           if (!answerText) return json({ error: 'provider_unavailable' }, 503);
           const now = Date.now();
-          await stub.dispatch('recordKoiChat', { message: { id: crypto.randomUUID(), conversationId: body.conversationId, role: 'assistant', text: answerText, createdAtMs: now } });
-          return json({ schemaVersion: 1, status: 'answered', requestId: body.requestId, assistantMessage: { id: crypto.randomUUID(), conversationId: body.conversationId, text: answerText, spokenText: answerText.slice(0, 240), expression: 'base', createdAtMs: now }, citations: [], allowance: { schemaVersion: 1, grantedAtMs: now, expiresAtMs: now + 5 * 60 * 60 * 1_000, chatLimit: 12, chatUsed: Number((gate as { chatUsed?: number }).chatUsed ?? 0) + 1, voiceLimit: 4, voiceUsed: 0, capacityBand: capacity.band } });
+          const assistantId = crypto.randomUUID();
+          await stub.dispatch('recordKoiChat', { message: { id: assistantId, conversationId: body.conversationId, role: 'assistant', text: answerText, createdAtMs: now } });
+          return json({ schemaVersion: 1, status: 'answered', requestId: body.requestId, assistantMessage: { id: assistantId, conversationId: body.conversationId, text: answerText, spokenText: answerText.slice(0, 240), expression: 'base', createdAtMs: now }, citations: [], allowance: { schemaVersion: 1, grantedAtMs: now, expiresAtMs: now + 5 * 60 * 60 * 1_000, chatLimit: 12, chatUsed: Number((gate as { chatUsed?: number }).chatUsed ?? 0) + 1, voiceLimit: 4, voiceUsed: 0, capacityBand: capacity.band } });
         } finally { await global.release(); }
       }
       const response = await stub.dispatch(name, body);
