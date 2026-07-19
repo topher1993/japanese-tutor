@@ -3945,8 +3945,8 @@
     "semantic_hash": ""
   },
   "cloudflare/koi-worker/src/index.ts": {
-    "mtime": 1784446598.818204,
-    "ast_hash": "5caef9704e84b71d65c43072e73a54ab",
+    "mtime": 1784446778.6445472,
+    "ast_hash": "9a459f5b60ca4f14e387a9a4c4aefe6b",
     "semantic_hash": ""
   },
   "docs/koi-sensei-v2/cloudflare-backend-migration.md": {
