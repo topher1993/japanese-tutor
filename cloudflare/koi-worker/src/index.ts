@@ -73,7 +73,26 @@ export class KoiUserObject extends DurableObject<Env> {
       await this.save(state);
       return { schemaVersion: 1, status: 'active', activeAccountLimit: 50, aiPolicyVersion: payload.aiPolicyVersion, privacyPolicyVersion: payload.privacyPolicyVersion, consentedAtMs: now, serverTimeMs: now };
     }
+    if (name === 'revokeKoiConsent') {
+      state.revokedAtMs = now;
+      await this.save(state);
+      return { schemaVersion: 1, requestId: payload.requestId, revoked: true, serverTimeMs: now };
+    }
+    if (name === 'setKoiDetailedProgressConsent') {
+      const enabled = payload.enabled === true;
+      state.detailedProgress = enabled ? { enabled: true, policyVersion: payload.policyVersion, grantedAtMs: now } : { enabled: false, policyVersion: null, grantedAtMs: now };
+      await this.save(state);
+      return { schemaVersion: 1, requestId: payload.requestId, enabled, policyVersion: enabled ? payload.policyVersion : null, serverTimeMs: now };
+    }
+    if (name === 'syncKoiPetPresentation') {
+      const current = state.presentation as { revision?: number } | undefined;
+      const incoming = payload.presentation as { revision?: number } | undefined;
+      const revision = Number(incoming?.revision ?? 0);
+      if (!current || revision >= Number(current.revision ?? 0)) { state.presentation = incoming; await this.save(state); }
+      return { schemaVersion: 1, requestId: payload.requestId, acceptedRevision: Math.max(Number(current?.revision ?? 0), revision), serverTimeMs: now };
+    }
     if (name === 'getKoiAllowance') {
+      if (state.revokedAtMs) return { schemaVersion: 1, requestId: payload.requestId, allowance: { schemaVersion: 1, grantedAtMs: now, expiresAtMs: now, chatLimit: 0, chatUsed: 0, voiceLimit: 0, voiceUsed: 0, capacityBand: 'paused' }, serverTimeMs: now };
       const windowStart = Number(state.allowanceWindowStartMs ?? now);
       const used = Number(state.chatUsed ?? 0);
       const activeWindow = now - windowStart < 5 * 60 * 60 * 1_000;
