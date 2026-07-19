@@ -45,6 +45,16 @@ const json = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json; charset=utf-8' },
   });
 
+async function providerCapacity(key: string): Promise<{ remaining: number; band: 'high' | 'normal' | 'low' | 'critical' }> {
+  const response = await fetch('https://www.minimax.io/v1/token_plan/remains', { headers: { authorization: `Bearer ${key}` } });
+  if (!response.ok) throw new Error('capacity_unavailable');
+  const value = await response.json() as Record<string, unknown>;
+  const candidates = [value.remaining, value.remaining_requests, value.remainingRequests, value.quotaRemaining].filter((item): item is number => typeof item === 'number' && Number.isFinite(item));
+  const remaining = candidates[0];
+  if (remaining === undefined || remaining < 0) throw new Error('capacity_unreadable');
+  return { remaining, band: remaining <= 0 ? 'critical' : remaining <= 2 ? 'low' : remaining <= 5 ? 'normal' : 'high' };
+}
+
 export class KoiUserObject extends DurableObject<Env> {
   private ready: Promise<void>;
 
@@ -209,6 +219,9 @@ export default {
         const global = env.KOI_GLOBAL.getByName('global');
         if (!await global.acquire()) return json({ error: 'provider_busy' }, 429);
         try {
+          let capacity: { remaining: number; band: 'high' | 'normal' | 'low' | 'critical' };
+          try { capacity = await providerCapacity(env.MINIMAX_TOKEN_PLAN_KEY); } catch { return json({ error: 'capacity_stale' }, 503); }
+          if (capacity.remaining <= 0) return json({ error: 'token_plan_exhausted' }, 429);
           const text = String(body.text ?? '').trim();
           if (!text || text.length > 2_000) return json({ error: 'invalid_request' }, 400);
           const upstream = await fetch('https://api.minimax.io/anthropic/v1/messages', { method: 'POST', headers: { authorization: `Bearer ${env.MINIMAX_TOKEN_PLAN_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ model: 'MiniMax-M2.7', max_tokens: 800, messages: [{ role: 'user', content: text }] }) });
@@ -218,7 +231,7 @@ export default {
           if (!answerText) return json({ error: 'provider_unavailable' }, 503);
           const now = Date.now();
           await stub.dispatch('recordKoiChat', { message: { id: crypto.randomUUID(), conversationId: body.conversationId, role: 'assistant', text: answerText, createdAtMs: now } });
-          return json({ schemaVersion: 1, status: 'answered', requestId: body.requestId, assistantMessage: { id: crypto.randomUUID(), conversationId: body.conversationId, text: answerText, spokenText: answerText.slice(0, 240), expression: 'base', createdAtMs: now }, citations: [], allowance: { schemaVersion: 1, grantedAtMs: now, expiresAtMs: now + 5 * 60 * 60 * 1_000, chatLimit: 12, chatUsed: Number((gate as { chatUsed?: number }).chatUsed ?? 0) + 1, voiceLimit: 4, voiceUsed: 0, capacityBand: 'normal' } });
+          return json({ schemaVersion: 1, status: 'answered', requestId: body.requestId, assistantMessage: { id: crypto.randomUUID(), conversationId: body.conversationId, text: answerText, spokenText: answerText.slice(0, 240), expression: 'base', createdAtMs: now }, citations: [], allowance: { schemaVersion: 1, grantedAtMs: now, expiresAtMs: now + 5 * 60 * 60 * 1_000, chatLimit: 12, chatUsed: Number((gate as { chatUsed?: number }).chatUsed ?? 0) + 1, voiceLimit: 4, voiceUsed: 0, capacityBand: capacity.band } });
         } finally { await global.release(); }
       }
       const response = await stub.dispatch(name, body);
