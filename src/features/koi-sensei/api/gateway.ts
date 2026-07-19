@@ -171,7 +171,7 @@ export interface KoiGateway {
   }): Promise<void>;
   deleteMemory(input: { requestId: string; memoryId: string }): Promise<void>;
   ask(input: { requestId: string; conversationId: string; text: string }): Promise<KoiAnswer>;
-  submitQuizAnswer(input: { requestId: string; questionId: string; answer: string; domain: 'vocabulary' | 'grammar' | 'phrases' | 'quizzes'; rank: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' }): Promise<{ correct: boolean; evidenceCount: number; practiceStars: number; masteryStars: number }>;
+  submitQuizAnswer(input: { requestId: string; questionId: string; answer: string; domain: 'vocabulary' | 'grammar' | 'phrases' | 'quizzes'; rank: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' }): Promise<{ correct: boolean; evidenceCount: number; practiceStars: number; masteryStars: number; unlockedCosmeticIds: string[] }>;
   syncLearningSummary(input: { requestId: string; context: KoiLearningSummary }): Promise<void>;
   syncPetPresentation(input: {
     requestId: string;
@@ -543,10 +543,12 @@ export function createKoiGateway(
         || typeof response.correct !== 'boolean'
         || finiteInteger(response.evidenceCount, 0, Number.MAX_SAFE_INTEGER) === null
         || finiteInteger(response.practiceStars, 0, 8) === null
-        || finiteInteger(response.masteryStars, 0, 8) === null) {
+        || finiteInteger(response.masteryStars, 0, 8) === null
+        || !Array.isArray(response.unlockedCosmeticIds)
+        || response.unlockedCosmeticIds.some(item => typeof item !== 'string' || item.length > 160)) {
         throw new KoiClientError('INVALID_RESPONSE', 'Koi returned an invalid quiz evidence result.');
       }
-      return { correct: response.correct, evidenceCount: response.evidenceCount as number, practiceStars: response.practiceStars as number, masteryStars: response.masteryStars as number };
+      return { correct: response.correct, evidenceCount: response.evidenceCount as number, practiceStars: response.practiceStars as number, masteryStars: response.masteryStars as number, unlockedCosmeticIds: response.unlockedCosmeticIds as string[] };
     },
 
     async syncLearningSummary(input) {

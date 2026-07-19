@@ -95,7 +95,14 @@ export class KoiUserObject extends DurableObject<Env> {
       state.evidence = evidence;
       await this.save(state);
       const practiceStars = Math.min(8, Math.floor(Number(evidence[key] ?? 0) / 1));
-      return { schemaVersion: 1, requestId: payload.requestId, questionId: payload.questionId, correct, evidenceCount: Number(evidence[key] ?? 0), practiceStars, masteryStars: practiceStars >= 8 ? 1 : 0, serverTimeMs: now };
+      const cosmeticByKey: Record<string, string> = {
+        'N5:vocabulary': 'mastery-n5-vocabulary-ink-brush',
+        'N5:grammar': 'mastery-n5-grammar-sakura-pin',
+        'N5:phrases': 'mastery-n5-phrases-travel-scroll',
+        'N5:quizzes': 'mastery-n5-quizzes-vocab-card-fan',
+      };
+      const unlockedCosmeticIds = practiceStars >= 8 && cosmeticByKey[key] ? [cosmeticByKey[key]] : [];
+      return { schemaVersion: 1, requestId: payload.requestId, questionId: payload.questionId, correct, evidenceCount: Number(evidence[key] ?? 0), practiceStars, masteryStars: practiceStars >= 8 ? 1 : 0, unlockedCosmeticIds, serverTimeMs: now };
     }
     if (name === 'completeKoiRegistration') {
       state.registration = { ageBand: payload.ageBand, aiPolicyVersion: payload.aiPolicyVersion, privacyPolicyVersion: payload.privacyPolicyVersion, supportLanguage: payload.supportLanguage, consentedAtMs: now };
