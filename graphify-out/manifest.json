@@ -3440,8 +3440,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/gateway.ts": {
-    "mtime": 1784217866.9971263,
-    "ast_hash": "1456d805f71f7f81b0b1c1df3906ba61",
+    "mtime": 1784447503.4709592,
+    "ast_hash": "d1e4628cd623c65fbc3c0f68a0354f76",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/index.ts": {
@@ -3845,8 +3845,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/firebaseLiveClient.ts": {
-    "mtime": 1784446644.6575892,
-    "ast_hash": "6c7abeb42e9a2c707ce8dc7ab07c1f7b",
+    "mtime": 1784447406.9450078,
+    "ast_hash": "e2910e92ef2976c05596ccffe5272451",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/data/koiDojo.ts": {
@@ -3945,8 +3945,8 @@
     "semantic_hash": ""
   },
   "cloudflare/koi-worker/src/index.ts": {
-    "mtime": 1784446778.6445472,
-    "ast_hash": "9a459f5b60ca4f14e387a9a4c4aefe6b",
+    "mtime": 1784447604.8649077,
+    "ast_hash": "7eb72f75e54d11ce5dafefc74e36deb2",
     "semantic_hash": ""
   },
   "docs/koi-sensei-v2/cloudflare-backend-migration.md": {
