@@ -99,6 +99,7 @@ describe('Koi Firebase live client configuration', () => {
     expect(context).toContain('createKoiFirebaseLiveClient(liveConfig)');
     expect(chat).toContain('testID="koi-live-email-send"');
     expect(chat).toContain('testID="koi-live-registration-retry"');
+    expect(chat).toContain('no app-imposed reply limit');
   });
 });
 

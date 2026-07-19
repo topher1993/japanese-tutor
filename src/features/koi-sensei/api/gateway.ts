@@ -75,6 +75,7 @@ export interface KoiClientSession {
 }
 
 export interface KoiAllowanceView {
+  usageMode: 'personal_unlimited' | 'metered';
   chatLimit: number;
   chatUsed: number;
   voiceLimit: number;
@@ -251,6 +252,7 @@ function parseAllowance(value: unknown): KoiAllowanceView {
     ? undefined
     : finiteInteger(value.providerRetryAtMs, 0, Number.MAX_SAFE_INTEGER);
   const capacityBand = value.capacityBand;
+  const usageMode = value.usageMode === undefined ? 'metered' : value.usageMode;
   if (value.schemaVersion !== 1 || grantedAtMs === null
     || chatLimit === null || chatUsed === null || voiceLimit === null || voiceUsed === null
     || expiresAtMs === null
@@ -264,12 +266,15 @@ function parseAllowance(value: unknown): KoiAllowanceView {
       'voiceLimit',
       'voiceUsed',
       'capacityBand',
+      'usageMode',
       'providerRetryAtMs',
     ])
+    || !['personal_unlimited', 'metered'].includes(String(usageMode))
     || !['high', 'normal', 'low', 'critical', 'paused'].includes(String(capacityBand))) {
     throw new KoiClientError('INVALID_RESPONSE', 'The Koi allowance response is invalid.');
   }
   return {
+    usageMode: usageMode as KoiAllowanceView['usageMode'],
     chatLimit,
     chatUsed,
     voiceLimit,

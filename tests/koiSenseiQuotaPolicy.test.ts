@@ -91,6 +91,23 @@ describe('Koi subscription-only dynamic quota policy', () => {
     });
   });
 
+  it('does not enforce per-user chat or voice counters in personal mode', () => {
+    const limits = deriveKoiAllowanceLimits(capacity(90), NOW, 'personal_unlimited');
+    const grant = {
+      ...reconcileKoiAllowanceGrant(null, limits, NOW),
+      chatUsed: 12,
+      voiceUsed: 4,
+    };
+    expect(consumeKoiAllowance(grant, 'chat', limits)).toMatchObject({
+      allowed: true,
+      grant: { usageMode: 'personal_unlimited', chatUsed: 13 },
+    });
+    expect(consumeKoiAllowance(grant, 'voice', limits)).toMatchObject({
+      allowed: true,
+      grant: { usageMode: 'personal_unlimited', voiceUsed: 5 },
+    });
+  });
+
   it('reserves no more than two concurrent provider calls', () => {
     expect(KOI_PROVIDER_MAX_CONCURRENCY).toBe(2);
   });

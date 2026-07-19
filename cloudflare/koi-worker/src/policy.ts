@@ -8,6 +8,7 @@ export const KOI_CURRENT_AI_POLICY_VERSION = 'koi-ai-data-2026-07-16';
 export const KOI_CURRENT_PRIVACY_POLICY_VERSION = 'koi-privacy-2026-07-16';
 
 export type KoiCapacityBand = 'high' | 'normal' | 'low' | 'critical' | 'paused';
+export type KoiUsageMode = 'personal_unlimited' | 'metered';
 
 export interface KoiProviderCapacitySnapshot {
   rollingRemainingPercent: number;
@@ -18,6 +19,7 @@ export interface KoiProviderCapacitySnapshot {
 
 export interface KoiAllowanceLimits {
   band: KoiCapacityBand;
+  usageMode: KoiUsageMode;
   chatLimit: number;
   voiceLimit: number;
   reason?: 'capacity_stale' | 'token_plan_exhausted';
@@ -33,6 +35,7 @@ export interface KoiAllowanceGrant {
   voiceLimit: number;
   voiceUsed: number;
   capacityBand: KoiCapacityBand;
+  usageMode: KoiUsageMode;
   providerRetryAtMs?: number;
 }
 
@@ -119,22 +122,23 @@ export function parseMiniMaxCapacity(
 export function deriveKoiAllowanceLimits(
   snapshot: KoiProviderCapacitySnapshot,
   nowMs: number,
+  usageMode: KoiUsageMode = 'metered',
 ): KoiAllowanceLimits {
   const effective = Math.min(
     snapshot.rollingRemainingPercent,
     snapshot.weeklyRemainingPercent ?? snapshot.rollingRemainingPercent,
   );
   if (nowMs - snapshot.fetchedAtMs > KOI_CAPACITY_STALE_AFTER_MS) {
-    return { band: 'paused', chatLimit: 0, voiceLimit: 0, reason: 'capacity_stale', retryAtMs: snapshot.retryAtMs };
+    return { band: 'paused', usageMode, chatLimit: 0, voiceLimit: 0, reason: 'capacity_stale', retryAtMs: snapshot.retryAtMs };
   }
   if (!Number.isFinite(effective) || effective < 10) {
-    return { band: 'paused', chatLimit: 0, voiceLimit: 0, reason: 'token_plan_exhausted', retryAtMs: snapshot.retryAtMs };
+    return { band: 'paused', usageMode, chatLimit: 0, voiceLimit: 0, reason: 'token_plan_exhausted', retryAtMs: snapshot.retryAtMs };
   }
-  if (effective < 15) return { band: 'critical', chatLimit: 5, voiceLimit: 0 };
-  if (effective < 20) return { band: 'critical', chatLimit: 5, voiceLimit: 1 };
-  if (effective < 40) return { band: 'low', chatLimit: 8, voiceLimit: 2 };
-  if (effective < 70) return { band: 'normal', chatLimit: 10, voiceLimit: 3 };
-  return { band: 'high', chatLimit: 12, voiceLimit: 4 };
+  if (effective < 15) return { band: 'critical', usageMode, chatLimit: 5, voiceLimit: 0 };
+  if (effective < 20) return { band: 'critical', usageMode, chatLimit: 5, voiceLimit: 1 };
+  if (effective < 40) return { band: 'low', usageMode, chatLimit: 8, voiceLimit: 2 };
+  if (effective < 70) return { band: 'normal', usageMode, chatLimit: 10, voiceLimit: 3 };
+  return { band: 'high', usageMode, chatLimit: 12, voiceLimit: 4 };
 }
 
 export function reconcileKoiAllowance(
@@ -152,6 +156,7 @@ export function reconcileKoiAllowance(
       voiceLimit: limits.voiceLimit,
       voiceUsed: 0,
       capacityBand: limits.band,
+      usageMode: limits.usageMode,
       ...(limits.retryAtMs === undefined ? {} : { providerRetryAtMs: limits.retryAtMs }),
     };
   }
@@ -160,6 +165,7 @@ export function reconcileKoiAllowance(
     chatLimit: Math.max(previous.chatLimit, limits.chatLimit),
     voiceLimit: Math.max(previous.voiceLimit, limits.voiceLimit),
     capacityBand: limits.band,
+    usageMode: limits.usageMode,
     ...(limits.retryAtMs === undefined ? {} : { providerRetryAtMs: limits.retryAtMs }),
   };
 }
@@ -171,7 +177,7 @@ export function reserveChat(
 ): { allowed: true; allowance: KoiAllowanceGrant } | { allowed: false; reason: string; allowance: KoiAllowanceGrant } {
   const allowance = reconcileKoiAllowance(previous, limits, nowMs);
   if (limits.reason) return { allowed: false, reason: limits.reason, allowance };
-  if (allowance.chatUsed >= allowance.chatLimit) {
+  if (limits.usageMode === 'metered' && allowance.chatUsed >= allowance.chatLimit) {
     return { allowed: false, reason: 'chat_allowance_exhausted', allowance };
   }
   return { allowed: true, allowance: { ...allowance, chatUsed: allowance.chatUsed + 1 } };

@@ -47,8 +47,23 @@ describe('Koi deterministic mobile mock', () => {
     expect(answer.citations).toEqual([]);
   });
 
-  it('simulates the exact high-band 12-chat rolling allowance', async () => {
+  it('does not impose the former 12-chat cap in personal mode', async () => {
     const transport = createKoiMockTransport({ now: () => 100 });
+    let response: unknown;
+    for (let index = 0; index < 13; index += 1) {
+      const suffix = index.toString(16).padStart(12, '0');
+      response = await transport.invoke('askKoiSensei', {
+        schemaVersion: 1,
+        requestId: `123e4567-e89b-42d3-a456-${suffix}`,
+        conversationId: CONVERSATION_ID,
+        text: 'Japanese grammar',
+      });
+    }
+    expect(response).toMatchObject({ allowance: { usageMode: 'personal_unlimited', chatUsed: 13 } });
+  });
+
+  it('retains metered mode for a future multi-user rollout', async () => {
+    const transport = createKoiMockTransport({ now: () => 100, usageMode: 'metered' });
     for (let index = 0; index < 12; index += 1) {
       const suffix = index.toString(16).padStart(12, '0');
       await transport.invoke('askKoiSensei', {

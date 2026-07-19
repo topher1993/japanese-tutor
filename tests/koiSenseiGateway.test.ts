@@ -39,6 +39,7 @@ function allowance() {
     voiceLimit: 4,
     voiceUsed: 0,
     capacityBand: 'high',
+    usageMode: 'personal_unlimited',
   };
 }
 
@@ -228,6 +229,7 @@ describe('Koi mobile gateway boundary', () => {
         voiceUsed: 0,
         expiresAtMs: 100,
         capacityBand: 'high' as const,
+        usageMode: 'personal_unlimited' as const,
       },
     };
     expect(getKoiSystemVoiceText({

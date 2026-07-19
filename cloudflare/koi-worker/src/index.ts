@@ -21,11 +21,11 @@ import {
 
 type RuntimeConfigKey =
   | 'FIREBASE_PROJECT_NUMBER'
-  | 'KOI_DAILY_REQUEST_LIMIT'
   | 'KOI_BETA_ENABLED'
   | 'KOI_ACTIVE_ACCOUNT_LIMIT'
   | 'KOI_APP_CHECK_REQUIRED'
-  | 'KOI_PROVIDER_ENABLED';
+  | 'KOI_PROVIDER_ENABLED'
+  | 'KOI_USAGE_MODE';
 
 type KoiWorkerEnv = Omit<Env, RuntimeConfigKey | 'KOI_USER' | 'KOI_GLOBAL'> & Record<RuntimeConfigKey, string> & {
   MINIMAX_TOKEN_PLAN_KEY: string;
@@ -134,6 +134,7 @@ const isAllowanceLimits = (value: unknown): value is KoiAllowanceLimits => {
   if (typeof value !== 'object' || value === null) return false;
   const input = value as Partial<KoiAllowanceLimits>;
   return ['high', 'normal', 'low', 'critical', 'paused'].includes(String(input.band))
+    && ['personal_unlimited', 'metered'].includes(String(input.usageMode))
     && Number.isInteger(input.chatLimit) && Number(input.chatLimit) >= 0 && Number(input.chatLimit) <= 12
     && Number.isInteger(input.voiceLimit) && Number(input.voiceLimit) >= 0 && Number(input.voiceLimit) <= 4;
 };
@@ -353,7 +354,7 @@ export class KoiUserObject extends DurableObject<KoiWorkerEnv> {
       const messages = Array.isArray(state.messages) ? state.messages : [];
       const message = messages.find((item) => (item as { id?: unknown }).id === payload.assistantMessageId) as { text?: string } | undefined;
       const now = Date.now();
-      const allowance = { schemaVersion: 1, grantedAtMs: now, expiresAtMs: now + 5 * 60 * 60 * 1_000, chatLimit: 12, chatUsed: Number(state.chatUsed ?? 0), voiceLimit: 4, voiceUsed: 0, capacityBand: 'normal' };
+      const allowance = (state.allowance as KoiAllowanceGrant | undefined) ?? { schemaVersion: 1, grantedAtMs: now, expiresAtMs: now + 5 * 60 * 60 * 1_000, chatLimit: 12, chatUsed: 0, voiceLimit: 4, voiceUsed: 0, capacityBand: 'normal', usageMode: 'personal_unlimited' };
       return { schemaVersion: 1, requestId: payload.requestId, status: 'system_voice_fallback', reason: 'PROVIDER_UNAVAILABLE', spokenText: String(message?.text ?? '').slice(0, 240), dailyCharacterRemaining: 4_000, allowance };
     }
     if (name === 'recordKoiChat') {
@@ -415,12 +416,13 @@ export class KoiGlobalObject extends DurableObject<KoiWorkerEnv> {
 
   async getCapacityLimits(): Promise<KoiAllowanceLimits> {
     const now = Date.now();
+    const usageMode = this.env.KOI_USAGE_MODE === 'metered' ? 'metered' : 'personal_unlimited';
     const cached = this.ctx.storage.sql
       .exec<{ value: string }>('SELECT value FROM provider_capacity WHERE key = ?', 'minimax')
       .toArray()[0];
     if (cached) {
       const snapshot = JSON.parse(cached.value) as KoiProviderCapacitySnapshot;
-      if (now - snapshot.fetchedAtMs <= KOI_CAPACITY_CACHE_MS) return deriveKoiAllowanceLimits(snapshot, now);
+      if (now - snapshot.fetchedAtMs <= KOI_CAPACITY_CACHE_MS) return deriveKoiAllowanceLimits(snapshot, now, usageMode);
     }
     if (this.capacityRefresh) return this.capacityRefresh;
     this.capacityRefresh = this.refreshCapacity(now);
@@ -432,6 +434,7 @@ export class KoiGlobalObject extends DurableObject<KoiWorkerEnv> {
   }
 
   private async refreshCapacity(now: number): Promise<KoiAllowanceLimits> {
+    const usageMode = this.env.KOI_USAGE_MODE === 'metered' ? 'metered' : 'personal_unlimited';
     let response: Response;
     try {
       response = await fetch('https://www.minimax.io/v1/token_plan/remains', {
@@ -440,23 +443,23 @@ export class KoiGlobalObject extends DurableObject<KoiWorkerEnv> {
         signal: AbortSignal.timeout(8_000),
       });
     } catch {
-      return { band: 'paused', chatLimit: 0, voiceLimit: 0, reason: 'capacity_stale' };
+      return { band: 'paused', usageMode, chatLimit: 0, voiceLimit: 0, reason: 'capacity_stale' };
     }
-    if (!response.ok) return { band: 'paused', chatLimit: 0, voiceLimit: 0, reason: 'capacity_stale' };
+    if (!response.ok) return { band: 'paused', usageMode, chatLimit: 0, voiceLimit: 0, reason: 'capacity_stale' };
     let payload: unknown;
     try {
       payload = await response.json();
     } catch {
-      return { band: 'paused', chatLimit: 0, voiceLimit: 0, reason: 'capacity_stale' };
+      return { band: 'paused', usageMode, chatLimit: 0, voiceLimit: 0, reason: 'capacity_stale' };
     }
     const snapshot = parseMiniMaxCapacity(payload, 'MiniMax-M2.7', now);
-    if (!snapshot) return { band: 'paused', chatLimit: 0, voiceLimit: 0, reason: 'capacity_stale' };
+    if (!snapshot) return { band: 'paused', usageMode, chatLimit: 0, voiceLimit: 0, reason: 'capacity_stale' };
     this.ctx.storage.sql.exec(
       'INSERT OR REPLACE INTO provider_capacity (key, value) VALUES (?, ?)',
       'minimax',
       JSON.stringify(snapshot),
     );
-    return deriveKoiAllowanceLimits(snapshot, now);
+    return deriveKoiAllowanceLimits(snapshot, now, usageMode);
   }
   async acquire(): Promise<boolean> {
     const row = this.ctx.storage.sql

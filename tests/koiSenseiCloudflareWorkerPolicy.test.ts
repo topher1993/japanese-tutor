@@ -53,6 +53,39 @@ describe('Koi Cloudflare authority policy', () => {
     expect(rejected).toMatchObject({ allowed: false, reason: 'token_plan_exhausted', allowance: { chatLimit: 12 } });
   });
 
+  it('removes the app chat cap in personal mode while keeping provider exhaustion fail-closed', () => {
+    const now = 1_800_000_000_000;
+    const personal = deriveKoiAllowanceLimits(
+      { rollingRemainingPercent: 90, fetchedAtMs: now },
+      now,
+      'personal_unlimited',
+    );
+    const exhaustedGrant = {
+      ...reconcileKoiAllowance(null, personal, now),
+      chatUsed: 12,
+    };
+    expect(reserveChat(exhaustedGrant, personal, now + 1)).toMatchObject({
+      allowed: true,
+      allowance: { usageMode: 'personal_unlimited', chatUsed: 13 },
+    });
+
+    const providerExhausted = deriveKoiAllowanceLimits(
+      { rollingRemainingPercent: 0, fetchedAtMs: now + 2 },
+      now + 2,
+      'personal_unlimited',
+    );
+    expect(reserveChat(exhaustedGrant, providerExhausted, now + 2)).toMatchObject({
+      allowed: false,
+      reason: 'token_plan_exhausted',
+    });
+  });
+
+  it('configures the deployed Worker for personal unlimited usage without a daily app limit', () => {
+    const config = readFileSync('cloudflare/koi-worker/wrangler.jsonc', 'utf8');
+    expect(config).toContain('"KOI_USAGE_MODE": "personal_unlimited"');
+    expect(config).not.toContain('KOI_DAILY_REQUEST_LIMIT');
+  });
+
   it('retains only 30 days and at most 200 server chat messages', () => {
     const now = 1_800_000_000_000;
     const messages = Array.from({ length: 230 }, (_, index) => ({ id: index, createdAtMs: now - index * 1_000 }));

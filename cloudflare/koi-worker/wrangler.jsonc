@@ -6,11 +6,11 @@
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
     "FIREBASE_PROJECT_NUMBER": "1081977371730",
-    "KOI_DAILY_REQUEST_LIMIT": "100",
     "KOI_BETA_ENABLED": "false",
     "KOI_ACTIVE_ACCOUNT_LIMIT": "50",
     "KOI_APP_CHECK_REQUIRED": "false",
-    "KOI_PROVIDER_ENABLED": "true"
+    "KOI_PROVIDER_ENABLED": "true",
+    "KOI_USAGE_MODE": "personal_unlimited"
   },
   "durable_objects": {
     "bindings": [

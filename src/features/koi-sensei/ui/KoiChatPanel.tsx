@@ -372,6 +372,7 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
   const remaining = koi.allowance
     ? Math.max(0, koi.allowance.chatLimit - koi.allowance.chatUsed)
     : 0;
+  const hasPersonalUnlimitedUsage = koi.allowance?.usageMode === 'personal_unlimited';
 
   React.useEffect(() => {
     if (draft === '' && koi.state?.draft) setDraft(koi.state.draft);
@@ -540,7 +541,9 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
           </Text>
           <Text accessibilityLiveRegion="polite" style={styles.allowance} testID="koi-chat-allowance">
             {koi.allowance
-              ? `${remaining} of ${koi.allowance.chatLimit} chat replies remain in this rolling 24-hour window.`
+              ? hasPersonalUnlimitedUsage
+                ? 'Personal MiniMax access — no app-imposed reply limit. Token Plan availability still applies.'
+                : `${remaining} of ${koi.allowance.chatLimit} chat replies remain in this rolling 24-hour window.`
               : 'Chat allowance is unavailable.'}
           </Text>
         </Card>
@@ -687,7 +690,7 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
         />
         <Button
           label="Send"
-          disabled={!draft.trim() || sending || !koi.ready || remaining === 0}
+          disabled={!draft.trim() || sending || !koi.ready || (!hasPersonalUnlimitedUsage && remaining === 0)}
           fullWidth={false}
           onPress={() => { void send(); }}
           size="md"

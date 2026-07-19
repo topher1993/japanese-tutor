@@ -130,6 +130,7 @@ export function KoiSenseiProvider({
   const [allowance, setAllowance] = React.useState<KoiAllowanceView | null>(() => (
     runtimeStage === 'mock'
       ? {
+          usageMode: 'personal_unlimited',
           chatLimit: 12,
           chatUsed: 0,
           voiceLimit: 4,

@@ -9,6 +9,7 @@ import type { KoiCallableName, KoiCallableTransport } from './gateway';
 export interface KoiMockTransportOptions {
   now?: () => number;
   remainingPercent?: number;
+  usageMode?: 'personal_unlimited' | 'metered';
 }
 
 export class KoiMockTransportError extends Error {
@@ -89,7 +90,7 @@ export function createKoiMockTransport(
         rollingRemainingPercent: remainingPercent,
         weeklyRemainingPercent: remainingPercent,
         fetchedAtMs: nowMs,
-      }, nowMs);
+      }, nowMs, options.usageMode ?? 'personal_unlimited');
       grant = reconcileKoiAllowanceGrant(grant, limits, nowMs);
 
       if (name === 'syncKoiLearningContext') {

@@ -60,6 +60,7 @@ describe('Koi tutor model-evaluation contract', () => {
         voiceUsed: 0,
         expiresAtMs: 1,
         capacityBand: 'paused',
+        usageMode: 'personal_unlimited',
       },
     });
     expect(result.passed).toBe(false);
