@@ -14,6 +14,7 @@ export interface KoiFirebaseLiveConfig {
   appCheckSiteKey: string;
   functionsEmulator?: { host: string; port: number };
   authEmulatorOrigin?: string;
+  workerUrl?: string;
 }
 
 export interface KoiLiveAuthSnapshot {
@@ -89,6 +90,7 @@ export function resolveKoiFirebaseLiveConfig(
     appCheckSiteKey: required(environment, 'EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY'),
     ...(emulator ? { functionsEmulator: { host: emulator.hostname, port: Number(emulator.port) } } : {}),
     ...(authEmulatorOrigin ? { authEmulatorOrigin } : {}),
+    ...(runtime.workerUrl ? { workerUrl: runtime.workerUrl } : {}),
   };
 }
 
@@ -179,6 +181,23 @@ export async function createKoiFirebaseLiveClient(
         throw new KoiClientError('AUTH_REQUIRED', 'A verified email-link account is required.');
       }
       try {
+        if (name === 'askKoiSensei' && config.workerUrl) {
+          const user = auth.currentUser;
+          const token = await user?.getIdToken();
+          if (!token) throw new KoiClientError('AUTH_REQUIRED', 'A verified email-link account is required.');
+          const response = await fetch(`${config.workerUrl}/v1/koi/askKoiSensei`, {
+            method: 'POST',
+            headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await response.json().catch(() => null);
+          if (!response.ok) {
+            const error = typeof data === 'object' && data !== null && 'error' in data ? String(data.error) : 'provider_unavailable';
+            const reason = error === 'chat_allowance_exhausted' ? 'CHAT_ALLOWANCE_EXHAUSTED' : error === 'provider_busy' ? 'TOKEN_PLAN_BUSY' : 'PROVIDER_UNAVAILABLE';
+            throw new KoiClientError(reason, `Koi could not complete the request (${error}).`);
+          }
+          return data;
+        }
         const callable = functionsModule.httpsCallable<Record<string, unknown>, unknown>(functions, name, {
           timeout: 55_000,
           limitedUseAppCheckTokens: true,

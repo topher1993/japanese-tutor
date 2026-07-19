@@ -6,6 +6,7 @@ export interface KoiPublicRuntimeConfig {
   functionsRegion: string;
   useEmulators: boolean;
   functionsEmulatorOrigin?: string;
+  workerUrl?: string;
 }
 
 export interface KoiPublicEnvironment {
@@ -13,6 +14,7 @@ export interface KoiPublicEnvironment {
   EXPO_PUBLIC_FIREBASE_PROJECT_ID?: string;
   EXPO_PUBLIC_FIREBASE_FUNCTIONS_REGION?: string;
   EXPO_PUBLIC_FIREBASE_FUNCTIONS_EMULATOR_ORIGIN?: string;
+  EXPO_PUBLIC_KOI_WORKER_URL?: string;
   [name: string]: string | undefined;
 }
 
@@ -49,6 +51,7 @@ export function resolveKoiPublicRuntimeConfig(
   }
   const firebaseProjectId = environment.EXPO_PUBLIC_FIREBASE_PROJECT_ID?.trim() || undefined;
   const emulatorOrigin = normalizeOrigin(environment.EXPO_PUBLIC_FIREBASE_FUNCTIONS_EMULATOR_ORIGIN);
+  const workerUrl = normalizeOrigin(environment.EXPO_PUBLIC_KOI_WORKER_URL);
   if (stage !== 'mock' && !firebaseProjectId) {
     throw new Error('A Firebase project id is required outside Koi mock mode.');
   }
@@ -61,6 +64,6 @@ export function resolveKoiPublicRuntimeConfig(
     functionsRegion,
     useEmulators: stage !== 'production' && Boolean(emulatorOrigin),
     functionsEmulatorOrigin: emulatorOrigin,
+    workerUrl,
   };
 }
-
