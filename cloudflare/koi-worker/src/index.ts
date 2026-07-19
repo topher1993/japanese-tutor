@@ -255,6 +255,19 @@ export class KoiGlobalObject extends DurableObject<Env> {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const requestUrl = new URL(request.url);
+    if (request.method === 'GET' && requestUrl.pathname === '/auth/email-link') {
+      const appLink = new URL('japanese-tutor://auth/email-link');
+      requestUrl.searchParams.forEach((value, key) => appLink.searchParams.append(key, value));
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: appLink.toString(),
+          'cache-control': 'no-store',
+          'referrer-policy': 'no-referrer',
+        },
+      });
+    }
     if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
     if (request.method !== 'POST') return json({ error: 'not_found' }, 404);
     if (!env.MINIMAX_TOKEN_PLAN_KEY || !env.FIREBASE_PROJECT_ID) return json({ error: 'provider_not_configured' }, 503);
@@ -262,7 +275,7 @@ export default {
     if (!userId) return json({ error: 'unauthorized' }, 401);
     if (!await env.KOI_GLOBAL.getByName('global').authorizeUser(userId, env.KOI_BETA_ENABLED === 'true')) return json({ error: 'personal_mode_only' }, 403);
 
-    const pathname = new URL(request.url).pathname;
+    const pathname = requestUrl.pathname;
     if (pathname === '/v1/koi/quiz/submit') {
       const body = await request.json() as Record<string, unknown>;
       const result = await env.KOI_USER.getByName(userId).dispatch('submitQuizAnswer', body);

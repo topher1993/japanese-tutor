@@ -23,7 +23,7 @@
     },
     "android": {
       "icon": "./assets/icon-v1.png",
-      "package": "com.belion.japanesetutor",
+      "package": "koi.sensei_personal123",
       "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-foreground-v1.png",

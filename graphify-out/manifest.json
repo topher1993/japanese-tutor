@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   "app.json": {
-    "mtime": 1784215140.052278,
-    "ast_hash": "ca06b4fed9ed852077d05b188fa9ac5d",
+    "mtime": 1784451936.6107702,
+    "ast_hash": "d78d5594b1d2e130d3449dc6f6b426bc",
     "semantic_hash": ""
   },
   "babel.config.js": {
@@ -2025,8 +2025,8 @@
     "semantic_hash": ""
   },
   "src/app/AppProviders.tsx": {
-    "mtime": 1784214575.8907728,
-    "ast_hash": "1f7e7492b901877ddda387894e545824",
+    "mtime": 1784449795.5540018,
+    "ast_hash": "c5bf9d25f3818d1e33f98770490ce7b3",
     "semantic_hash": ""
   },
   "src/app/AppShell.tsx": {
@@ -2640,8 +2640,8 @@
     "semantic_hash": ""
   },
   "android/app/build.gradle": {
-    "mtime": 1784212995.2859771,
-    "ast_hash": "9f632e92347526f6282ddfdcc34c0096",
+    "mtime": 1784464117.8711605,
+    "ast_hash": "6b71d88763cc28486aec44baa0194f6a",
     "semantic_hash": ""
   },
   "android/app/src/main/java/com/belion/japanesetutor/MainActivity.kt": {
@@ -2650,13 +2650,13 @@
     "semantic_hash": ""
   },
   "android/app/src/main/java/com/belion/japanesetutor/MainApplication.kt": {
-    "mtime": 1783859498.2036123,
-    "ast_hash": "a5aaac78c7393098daf002863dc8dead",
+    "mtime": 1784464125.0868468,
+    "ast_hash": "8d89d207723b68312d0aa78a0feceaff",
     "semantic_hash": ""
   },
   "android/build.gradle": {
-    "mtime": 1783656357.111516,
-    "ast_hash": "55cec08c744fbe7b1f1294009fe3f65d",
+    "mtime": 1784451780.1867511,
+    "ast_hash": "98e76ed0afe69aa0356c3a8d5ff6bdc4",
     "semantic_hash": ""
   },
   "android/gradlew": {
@@ -3440,8 +3440,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/gateway.ts": {
-    "mtime": 1784447503.4709592,
-    "ast_hash": "d1e4628cd623c65fbc3c0f68a0354f76",
+    "mtime": 1784447913.4903603,
+    "ast_hash": "76d95ea2e843dd9413a18e9f762bddd4",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/index.ts": {
@@ -3565,8 +3565,8 @@
     "semantic_hash": ""
   },
   "tests/koiSenseiGateway.test.ts": {
-    "mtime": 1784217923.7543838,
-    "ast_hash": "804ec207ce2738fb7a5c3c4e19f0ee5d",
+    "mtime": 1784447832.2195396,
+    "ast_hash": "56930f79317eb77321ac8aef3c564231",
     "semantic_hash": ""
   },
   "tests/koiSenseiMediaAvatarRetention.test.ts": {
@@ -3845,8 +3845,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/firebaseLiveClient.ts": {
-    "mtime": 1784447406.9450078,
-    "ast_hash": "e2910e92ef2976c05596ccffe5272451",
+    "mtime": 1784466700.488674,
+    "ast_hash": "435bb88d459cf4dbd3e06f722a69afe0",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/data/koiDojo.ts": {
@@ -3945,8 +3945,8 @@
     "semantic_hash": ""
   },
   "cloudflare/koi-worker/src/index.ts": {
-    "mtime": 1784447726.0619402,
-    "ast_hash": "0f2b9c67e125d94d64a9e9d818e4d8a4",
+    "mtime": 1784467485.9305413,
+    "ast_hash": "3845d82bdbc28b1a0562a87c93c81140",
     "semantic_hash": ""
   },
   "docs/koi-sensei-v2/cloudflare-backend-migration.md": {

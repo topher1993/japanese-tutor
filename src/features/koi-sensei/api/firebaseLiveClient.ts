@@ -114,11 +114,12 @@ function clientError(cause: unknown): KoiClientError {
 }
 
 async function initializeKoiFirebaseApp(config: KoiFirebaseLiveConfig) {
-  const [storageModule, appModule] = await Promise.all([
-    import('@react-native-async-storage/async-storage'),
-    import('@react-native-firebase/app'),
-  ]);
-  appModule.setReactNativeAsyncStorage(storageModule.createAsyncStorage('koi-firebase-auth'));
+  const appModule = await import('@react-native-firebase/app');
+  // Android/iOS initialize the default app from google-services.json /
+  // GoogleService-Info.plist before React Native starts. Native Firebase Auth
+  // owns its persistence, so no JS AsyncStorage adapter is required.
+  const nativeDefault = appModule.getApps().find(candidate => candidate.name === '[DEFAULT]');
+  if (nativeDefault) return nativeDefault;
   const appName = `koi-${config.stage}`;
   const existing = appModule.getApps().find(candidate => candidate.name === appName);
   if (existing) return existing;
