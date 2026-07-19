@@ -79,6 +79,24 @@ export class KoiUserObject extends DurableObject<Env> {
   async dispatch(name: string, payload: Record<string, unknown>): Promise<unknown> {
     const state = await this.state();
     const now = Date.now();
+    if (name === 'submitQuizAnswer') {
+      const bank: Record<string, { answer: string; domain: string; rank: string }> = {
+        'n5-grammar-001': { answer: 'B', domain: 'grammar', rank: 'N5' },
+        'n5-vocabulary-001': { answer: 'A', domain: 'vocabulary', rank: 'N5' },
+        'n5-phrases-001': { answer: 'C', domain: 'phrases', rank: 'N5' },
+        'n5-quiz-001': { answer: 'A', domain: 'quizzes', rank: 'N5' },
+      };
+      const question = bank[String(payload.questionId)];
+      if (!question || question.domain !== payload.domain || question.rank !== payload.rank) return { error: 'invalid_question' };
+      const correct = String(payload.answer).toUpperCase() === question.answer;
+      const evidence = (state.evidence as Record<string, number> | undefined) ?? {};
+      const key = `${question.rank}:${question.domain}`;
+      if (correct) evidence[key] = Number(evidence[key] ?? 0) + 1;
+      state.evidence = evidence;
+      await this.save(state);
+      const practiceStars = Math.min(8, Math.floor(Number(evidence[key] ?? 0) / 1));
+      return { schemaVersion: 1, requestId: payload.requestId, questionId: payload.questionId, correct, evidenceCount: Number(evidence[key] ?? 0), practiceStars, masteryStars: practiceStars >= 8 ? 1 : 0, serverTimeMs: now };
+    }
     if (name === 'completeKoiRegistration') {
       state.registration = { ageBand: payload.ageBand, aiPolicyVersion: payload.aiPolicyVersion, privacyPolicyVersion: payload.privacyPolicyVersion, supportLanguage: payload.supportLanguage, consentedAtMs: now };
       await this.save(state);
@@ -213,6 +231,11 @@ export default {
     if (!userId) return json({ error: 'unauthorized' }, 401);
 
     const pathname = new URL(request.url).pathname;
+    if (pathname === '/v1/koi/quiz/submit') {
+      const body = await request.json() as Record<string, unknown>;
+      const result = await env.KOI_USER.getByName(userId).dispatch('submitQuizAnswer', body);
+      return json(result, (result as { error?: string }).error ? 400 : 200);
+    }
     if (pathname.startsWith('/v1/koi/')) {
       const name = pathname.slice('/v1/koi/'.length);
       const body = await request.json() as Record<string, unknown>;
