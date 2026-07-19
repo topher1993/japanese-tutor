@@ -171,7 +171,7 @@ export interface KoiGateway {
   }): Promise<void>;
   deleteMemory(input: { requestId: string; memoryId: string }): Promise<void>;
   ask(input: { requestId: string; conversationId: string; text: string }): Promise<KoiAnswer>;
-  submitQuizAnswer(input: { requestId: string; questionId: string; answer: string; domain: 'vocabulary' | 'grammar' | 'phrases' | 'quizzes'; rank: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' }): Promise<{ correct: boolean; evidenceCount: number; practiceStars: number; masteryStars: number; unlockedCosmeticIds: string[] }>;
+  submitQuizAnswer(input: { requestId: string; questionId: string; answer: string; domain: 'vocabulary' | 'grammar' | 'phrases' | 'quizzes'; rank: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' }): Promise<{ correct: boolean; evidenceCount: number; practiceStars: number; masteryStars: number; unlockedCosmeticIds: string[]; highestRank?: 'N5' | 'N4' | 'N3' | 'N2' | 'N1'; domainStars?: Record<string, number> }>;
   syncLearningSummary(input: { requestId: string; context: KoiLearningSummary }): Promise<void>;
   syncPetPresentation(input: {
     requestId: string;
@@ -548,7 +548,11 @@ export function createKoiGateway(
         || response.unlockedCosmeticIds.some(item => typeof item !== 'string' || item.length > 160)) {
         throw new KoiClientError('INVALID_RESPONSE', 'Koi returned an invalid quiz evidence result.');
       }
-      return { correct: response.correct, evidenceCount: response.evidenceCount as number, practiceStars: response.practiceStars as number, masteryStars: response.masteryStars as number, unlockedCosmeticIds: response.unlockedCosmeticIds as string[] };
+      const highestRank = ['N5', 'N4', 'N3', 'N2', 'N1'].includes(String(response.highestRank)) ? response.highestRank as 'N5' | 'N4' | 'N3' | 'N2' | 'N1' : undefined;
+      const domainStars = isRecord(response.domainStars)
+        ? Object.fromEntries(Object.entries(response.domainStars).filter(([, value]) => finiteInteger(value, 0, 8) !== null).map(([key, value]) => [key, value as number]))
+        : undefined;
+      return { correct: response.correct, evidenceCount: response.evidenceCount as number, practiceStars: response.practiceStars as number, masteryStars: response.masteryStars as number, unlockedCosmeticIds: response.unlockedCosmeticIds as string[], ...(highestRank ? { highestRank } : {}), ...(domainStars ? { domainStars } : {}) };
     },
 
     async syncLearningSummary(input) {

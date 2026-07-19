@@ -111,7 +111,15 @@ export class KoiUserObject extends DurableObject<Env> {
         'N4:quizzes': 'mastery-n4-quizzes-folding-fan',
       };
       const unlockedCosmeticIds = practiceStars >= 8 && cosmeticByKey[key] ? [cosmeticByKey[key]] : [];
-      return { schemaVersion: 1, requestId: payload.requestId, questionId: payload.questionId, correct, evidenceCount: Number(evidence[key] ?? 0), practiceStars, masteryStars: practiceStars >= 8 ? 1 : 0, unlockedCosmeticIds, serverTimeMs: now };
+      const ranks = ['N5', 'N4', 'N3', 'N2', 'N1'];
+      const domains = ['vocabulary', 'grammar', 'phrases', 'quizzes'];
+      let highestRank = 'N5';
+      for (const candidate of ranks) {
+        if (candidate === 'N3' || candidate === 'N2' || candidate === 'N1') break;
+        if (domains.every(domain => Number(evidence[`${candidate}:${domain}`] ?? 0) >= 8)) highestRank = candidate;
+      }
+      const domainStars = Object.fromEntries(domains.map(domain => [domain, Math.min(8, Math.floor(Number(evidence[`${question.rank}:${domain}`] ?? 0)))]));
+      return { schemaVersion: 1, requestId: payload.requestId, questionId: payload.questionId, correct, evidenceCount: Number(evidence[key] ?? 0), practiceStars, masteryStars: practiceStars >= 8 ? 1 : 0, unlockedCosmeticIds, highestRank, domainStars, serverTimeMs: now };
     }
     if (name === 'completeKoiRegistration') {
       state.registration = { ageBand: payload.ageBand, aiPolicyVersion: payload.aiPolicyVersion, privacyPolicyVersion: payload.privacyPolicyVersion, supportLanguage: payload.supportLanguage, consentedAtMs: now };
