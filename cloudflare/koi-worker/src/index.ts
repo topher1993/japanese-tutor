@@ -5,6 +5,7 @@ export interface Env {
   FIREBASE_PROJECT_ID: string;
   KOI_DAILY_REQUEST_LIMIT?: string;
   KOI_USER: DurableObjectNamespace<KoiUserObject>;
+  KOI_GLOBAL: DurableObjectNamespace<KoiGlobalObject>;
 }
 
 let keyCache: { expiresAt: number; keys: Record<string, JsonWebKey> } | undefined;
@@ -100,6 +101,24 @@ export class KoiUserObject extends DurableObject<Env> {
       if (!activeWindow) { state.allowanceWindowStartMs = now; state.chatUsed = 0; await this.save(state); }
       return { schemaVersion: 1, requestId: payload.requestId, allowance: { schemaVersion: 1, grantedAtMs: now, expiresAtMs: (activeWindow ? windowStart : now) + 5 * 60 * 60 * 1_000, chatLimit: 12, chatUsed, voiceLimit: 4, voiceUsed: 0, capacityBand: 'normal' }, serverTimeMs: now };
     }
+    if (name === 'askKoiSensei') {
+      const windowStart = Number(state.allowanceWindowStartMs ?? now);
+      const activeWindow = now - windowStart < 5 * 60 * 60 * 1_000;
+      const chatUsed = activeWindow ? Number(state.chatUsed ?? 0) : 0;
+      if (chatUsed >= 12) return { error: 'chat_allowance_exhausted' };
+      return { allowed: true, chatUsed, windowStart };
+    }
+    if (name === 'recordKoiChat') {
+      const windowStart = Number(state.allowanceWindowStartMs ?? now);
+      const activeWindow = now - windowStart < 5 * 60 * 60 * 1_000;
+      state.allowanceWindowStartMs = activeWindow ? windowStart : now;
+      state.chatUsed = (activeWindow ? Number(state.chatUsed ?? 0) : 0) + 1;
+      const messages = Array.isArray(state.messages) ? state.messages : [];
+      messages.push(payload.message);
+      state.messages = messages.slice(-200);
+      await this.save(state);
+      return { ok: true };
+    }
     return { error: 'not_implemented' };
   }
 
@@ -107,6 +126,29 @@ export class KoiUserObject extends DurableObject<Env> {
     const body = await request.json() as { name?: string; payload?: Record<string, unknown> };
     return Response.json(await this.dispatch(body.name ?? '', body.payload ?? {}));
   }
+}
+
+export class KoiGlobalObject extends DurableObject<Env> {
+  private ready: Promise<void>;
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.ready = ctx.blockConcurrencyWhile(async () => {
+      await ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS semaphore (key TEXT PRIMARY KEY, held INTEGER NOT NULL)');
+    });
+  }
+  async acquire(): Promise<boolean> {
+    await this.ready;
+    const held = Number(this.ctx.storage.sql.exec<{ held: number }>('SELECT held FROM semaphore WHERE key = ?', 'provider').one()?.held ?? 0);
+    if (held >= 2) return false;
+    this.ctx.storage.sql.exec('INSERT OR REPLACE INTO semaphore (key, held) VALUES (?, ?)', 'provider', held + 1);
+    return true;
+  }
+  async release(): Promise<void> {
+    await this.ready;
+    const held = Number(this.ctx.storage.sql.exec<{ held: number }>('SELECT held FROM semaphore WHERE key = ?', 'provider').one()?.held ?? 0);
+    this.ctx.storage.sql.exec('INSERT OR REPLACE INTO semaphore (key, held) VALUES (?, ?)', 'provider', Math.max(0, held - 1));
+  }
+  async fetch(request: Request): Promise<Response> { return Response.json({ ok: true }); }
 }
 
 export default {
@@ -122,6 +164,24 @@ export default {
       const name = pathname.slice('/v1/koi/'.length);
       const body = await request.json() as Record<string, unknown>;
       const stub = env.KOI_USER.getByName(userId);
+      if (name === 'askKoiSensei') {
+        const gate = await stub.dispatch(name, body);
+        if ((gate as { error?: string }).error === 'chat_allowance_exhausted') return json({ error: 'chat_allowance_exhausted' }, 429);
+        const global = env.KOI_GLOBAL.getByName('global');
+        if (!await global.acquire()) return json({ error: 'provider_busy' }, 429);
+        try {
+          const text = String(body.text ?? '').trim();
+          if (!text || text.length > 2_000) return json({ error: 'invalid_request' }, 400);
+          const upstream = await fetch('https://api.minimax.io/anthropic/v1/messages', { method: 'POST', headers: { authorization: `Bearer ${env.MINIMAX_TOKEN_PLAN_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ model: 'MiniMax-M2.7', max_tokens: 800, messages: [{ role: 'user', content: text }] }) });
+          if (!upstream.ok) return json({ error: 'provider_unavailable' }, 503);
+          const result = await upstream.json() as { content?: Array<{ type?: string; text?: string }> };
+          const answerText = result.content?.find((part) => part.type === 'text')?.text?.trim();
+          if (!answerText) return json({ error: 'provider_unavailable' }, 503);
+          const now = Date.now();
+          await stub.dispatch('recordKoiChat', { message: { id: crypto.randomUUID(), conversationId: body.conversationId, role: 'assistant', text: answerText, createdAtMs: now } });
+          return json({ schemaVersion: 1, status: 'answered', requestId: body.requestId, assistantMessage: { id: crypto.randomUUID(), conversationId: body.conversationId, text: answerText, spokenText: answerText.slice(0, 240), expression: 'base', createdAtMs: now }, citations: [], allowance: { schemaVersion: 1, grantedAtMs: now, expiresAtMs: now + 5 * 60 * 60 * 1_000, chatLimit: 12, chatUsed: Number((gate as { chatUsed?: number }).chatUsed ?? 0) + 1, voiceLimit: 4, voiceUsed: 0, capacityBand: 'normal' } });
+        } finally { await global.release(); }
+      }
       const response = await stub.dispatch(name, body);
       return json(response, (response as { error?: string }).error === 'not_implemented' ? 501 : 200);
     }

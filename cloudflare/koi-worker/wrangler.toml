@@ -6,8 +6,11 @@ compatibility_date = "2026-07-17"
 KOI_DAILY_REQUEST_LIMIT = "100"
 
 [durable_objects]
-bindings = [{ name = "KOI_USER", class_name = "KoiUserObject" }]
+bindings = [
+  { name = "KOI_USER", class_name = "KoiUserObject" },
+  { name = "KOI_GLOBAL", class_name = "KoiGlobalObject" }
+]
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["KoiUserObject"]
+new_sqlite_classes = ["KoiUserObject", "KoiGlobalObject"]
