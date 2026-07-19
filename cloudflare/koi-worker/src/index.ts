@@ -1,7 +1,10 @@
+import { DurableObject } from 'cloudflare:workers';
+
 export interface Env {
   MINIMAX_TOKEN_PLAN_KEY: string;
   FIREBASE_PROJECT_ID: string;
   KOI_DAILY_REQUEST_LIMIT?: string;
+  KOI_USER: DurableObjectNamespace<KoiUserObject>;
 }
 
 let keyCache: { expiresAt: number; keys: Record<string, JsonWebKey> } | undefined;
@@ -18,21 +21,21 @@ async function firebaseKeySet(): Promise<Record<string, JsonWebKey>> {
 
 const base64UrlBytes = (value: string) => Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4)), (char) => char.charCodeAt(0));
 
-async function verifyFirebaseToken(request: Request, projectId: string): Promise<boolean> {
+async function verifyFirebaseToken(request: Request, projectId: string): Promise<string | null> {
   const authorization = request.headers.get('authorization');
-  if (!authorization?.startsWith('Bearer ')) return false;
+  if (!authorization?.startsWith('Bearer ')) return null;
   const token = authorization.slice(7).trim();
   const parts = token.split('.');
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) return null;
   try {
     const header = JSON.parse(new TextDecoder().decode(base64UrlBytes(parts[0]))) as { alg?: string; kid?: string };
     const payload = JSON.parse(new TextDecoder().decode(base64UrlBytes(parts[1]))) as { aud?: string; iss?: string; sub?: string; exp?: number; iat?: number };
-    if (header.alg !== 'RS256' || !header.kid || payload.aud !== projectId || payload.iss !== `https://securetoken.google.com/${projectId}` || !payload.sub || !payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) return false;
+    if (header.alg !== 'RS256' || !header.kid || payload.aud !== projectId || payload.iss !== `https://securetoken.google.com/${projectId}` || !payload.sub || !payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) return null;
     const jwk = (await firebaseKeySet())[header.kid];
-    if (!jwk) return false;
+    if (!jwk) return null;
     const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
-    return crypto.subtle.verify({ name: 'RSASSA-PKCS1-v1_5' }, key, base64UrlBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`));
-  } catch { return false; }
+    return await crypto.subtle.verify({ name: 'RSASSA-PKCS1-v1_5' }, key, base64UrlBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`)) ? payload.sub : null;
+  } catch { return null; }
 }
 
 const json = (body: unknown, status = 200) =>
@@ -41,12 +44,69 @@ const json = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json; charset=utf-8' },
   });
 
+export class KoiUserObject extends DurableObject<Env> {
+  private ready: Promise<void>;
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.ready = ctx.blockConcurrencyWhile(async () => {
+      await ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS koi_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+    });
+  }
+
+  private async state(): Promise<Record<string, unknown>> {
+    await this.ready;
+    const row = this.ctx.storage.sql.exec<{ value: string }>('SELECT value FROM koi_state WHERE key = ?', 'state').one();
+    return row ? JSON.parse(row.value) as Record<string, unknown> : {};
+  }
+
+  private async save(value: Record<string, unknown>): Promise<void> {
+    await this.ready;
+    this.ctx.storage.sql.exec('INSERT OR REPLACE INTO koi_state (key, value) VALUES (?, ?)', 'state', JSON.stringify(value));
+  }
+
+  async dispatch(name: string, payload: Record<string, unknown>): Promise<unknown> {
+    const state = await this.state();
+    const now = Date.now();
+    if (name === 'completeKoiRegistration') {
+      state.registration = { ageBand: payload.ageBand, aiPolicyVersion: payload.aiPolicyVersion, privacyPolicyVersion: payload.privacyPolicyVersion, supportLanguage: payload.supportLanguage, consentedAtMs: now };
+      await this.save(state);
+      return { schemaVersion: 1, status: 'active', activeAccountLimit: 50, aiPolicyVersion: payload.aiPolicyVersion, privacyPolicyVersion: payload.privacyPolicyVersion, consentedAtMs: now, serverTimeMs: now };
+    }
+    if (name === 'getKoiAllowance') {
+      const windowStart = Number(state.allowanceWindowStartMs ?? now);
+      const used = Number(state.chatUsed ?? 0);
+      const activeWindow = now - windowStart < 5 * 60 * 60 * 1_000;
+      const chatUsed = activeWindow ? used : 0;
+      if (!activeWindow) { state.allowanceWindowStartMs = now; state.chatUsed = 0; await this.save(state); }
+      return { schemaVersion: 1, requestId: payload.requestId, allowance: { schemaVersion: 1, grantedAtMs: now, expiresAtMs: (activeWindow ? windowStart : now) + 5 * 60 * 60 * 1_000, chatLimit: 12, chatUsed, voiceLimit: 4, voiceUsed: 0, capacityBand: 'normal' }, serverTimeMs: now };
+    }
+    return { error: 'not_implemented' };
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const body = await request.json() as { name?: string; payload?: Record<string, unknown> };
+    return Response.json(await this.dispatch(body.name ?? '', body.payload ?? {}));
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
-    if (request.method !== 'POST' || new URL(request.url).pathname !== '/chat') return json({ error: 'not_found' }, 404);
+    if (request.method !== 'POST') return json({ error: 'not_found' }, 404);
     if (!env.MINIMAX_TOKEN_PLAN_KEY || !env.FIREBASE_PROJECT_ID) return json({ error: 'provider_not_configured' }, 503);
-    if (!(await verifyFirebaseToken(request, env.FIREBASE_PROJECT_ID))) return json({ error: 'unauthorized' }, 401);
+    const userId = await verifyFirebaseToken(request, env.FIREBASE_PROJECT_ID);
+    if (!userId) return json({ error: 'unauthorized' }, 401);
+
+    const pathname = new URL(request.url).pathname;
+    if (pathname.startsWith('/v1/koi/')) {
+      const name = pathname.slice('/v1/koi/'.length);
+      const body = await request.json() as Record<string, unknown>;
+      const stub = env.KOI_USER.getByName(userId);
+      const response = await stub.dispatch(name, body);
+      return json(response, (response as { error?: string }).error === 'not_implemented' ? 501 : 200);
+    }
+    if (pathname !== '/chat') return json({ error: 'not_found' }, 404);
 
     let body: Record<string, unknown>;
     try { body = await request.json() as Record<string, unknown>; } catch { return json({ error: 'invalid_json' }, 400); }
