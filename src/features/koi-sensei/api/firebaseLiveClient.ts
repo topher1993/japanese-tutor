@@ -181,7 +181,7 @@ export async function createKoiFirebaseLiveClient(
         throw new KoiClientError('AUTH_REQUIRED', 'A verified email-link account is required.');
       }
       try {
-        if (name === 'askKoiSensei' && config.workerUrl) {
+        if (config.workerUrl && (name === 'askKoiSensei' || name === 'syncKoiLearningContext' || name === 'syncKoiPetPresentation' || name === 'upsertKoiMemory' || name === 'deleteKoiMemory' || name === 'exportKoiData' || name === 'deleteKoiData' || name === 'reportKoiMessage' || name === 'revokeKoiConsent' || name === 'completeKoiRegistration' || name === 'getKoiAllowance')) {
           const user = auth.currentUser;
           const token = await user?.getIdToken();
           if (!token) throw new KoiClientError('AUTH_REQUIRED', 'A verified email-link account is required.');
