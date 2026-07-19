@@ -270,6 +270,33 @@ describe('Koi mobile gateway boundary', () => {
       .rejects.toBeInstanceOf(KoiClientError);
   });
 
+  it('accepts server-verified quiz evidence and cosmetic unlocks', async () => {
+    const gateway = createKoiGateway({
+      invoke: async () => ({
+        schemaVersion: 1,
+        requestId: REQUEST_ID,
+        correct: true,
+        evidenceCount: 8,
+        practiceStars: 8,
+        masteryStars: 1,
+        unlockedCosmeticIds: ['mastery-n5-grammar-reading-glasses'],
+      }),
+    }, () => activeSession());
+    await expect(gateway.submitQuizAnswer({
+      requestId: REQUEST_ID,
+      questionId: 'n5-grammar-001',
+      answer: 'B',
+      domain: 'grammar',
+      rank: 'N5',
+    })).resolves.toEqual({
+      correct: true,
+      evidenceCount: 8,
+      practiceStars: 8,
+      masteryStars: 1,
+      unlockedCosmeticIds: ['mastery-n5-grammar-reading-glasses'],
+    });
+  });
+
   it('uses the exact callable names exported by the backend', () => {
     expect(KOI_CALLABLE_NAMES).toContain('getKoiAllowance');
     expect(KOI_CALLABLE_NAMES).toContain('deleteKoiData');
@@ -286,6 +313,7 @@ describe('Koi public runtime configuration', () => {
       functionsRegion: 'us-central1',
       useEmulators: false,
       functionsEmulatorOrigin: undefined,
+      workerUrl: undefined,
     });
   });
 
