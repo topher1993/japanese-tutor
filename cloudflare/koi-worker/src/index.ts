@@ -119,6 +119,33 @@ export class KoiUserObject extends DurableObject<Env> {
       await this.save(state);
       return { ok: true };
     }
+    if (name === 'upsertKoiMemory') {
+      const memories = Array.isArray(state.memories) ? state.memories.filter((item) => (item as { id?: unknown }).id !== payload.memoryId) : [];
+      const memory = { id: payload.memoryId, category: payload.category, text: payload.text, createdAtMs: now, updatedAtMs: now };
+      memories.push(memory);
+      state.memories = memories.slice(-20);
+      await this.save(state);
+      return { schemaVersion: 1, requestId: payload.requestId, memoryId: payload.memoryId, stored: true, serverTimeMs: now };
+    }
+    if (name === 'deleteKoiMemory') {
+      state.memories = (Array.isArray(state.memories) ? state.memories : []).filter((item) => (item as { id?: unknown }).id !== payload.memoryId);
+      await this.save(state);
+      return { schemaVersion: 1, requestId: payload.requestId, memoryId: payload.memoryId, deleted: true, serverTimeMs: now };
+    }
+    if (name === 'reportKoiMessage') {
+      const reports = Array.isArray(state.reports) ? state.reports : [];
+      reports.push({ id: crypto.randomUUID(), messageId: payload.messageId, reason: payload.reason, ...(payload.note ? { note: payload.note } : {}), createdAtMs: now });
+      state.reports = reports.slice(-200);
+      await this.save(state);
+      return { schemaVersion: 1, requestId: payload.requestId, accepted: true, serverTimeMs: now };
+    }
+    if (name === 'exportKoiData') {
+      return { schemaVersion: 1, requestId: payload.requestId, exportedAtMs: now, registration: state.registration ?? null, learnerContext: state.learnerContext ?? null, messages: Array.isArray(state.messages) ? state.messages.slice(-200) : [], memories: Array.isArray(state.memories) ? state.memories.slice(-20) : [], reports: Array.isArray(state.reports) ? state.reports.slice(-200) : [] };
+    }
+    if (name === 'deleteKoiData') {
+      await this.ctx.storage.sql.exec('DELETE FROM koi_state WHERE key = ?', 'state');
+      return { schemaVersion: 1, requestId: payload.requestId, deleted: true, serverTimeMs: now };
+    }
     return { error: 'not_implemented' };
   }
 
