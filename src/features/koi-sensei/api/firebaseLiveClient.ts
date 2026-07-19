@@ -11,7 +11,7 @@ export interface KoiFirebaseLiveConfig {
   messagingSenderId: string;
   region: string;
   emailLinkUrl: string;
-  appCheckSiteKey: string;
+  appCheckSiteKey?: string;
   functionsEmulator?: { host: string; port: number };
   authEmulatorOrigin?: string;
   workerUrl?: string;
@@ -87,7 +87,9 @@ export function resolveKoiFirebaseLiveConfig(
     messagingSenderId: required(environment, 'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
     region: runtime.functionsRegion,
     emailLinkUrl,
-    appCheckSiteKey: required(environment, 'EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY'),
+    ...(environment.EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY?.trim()
+      ? { appCheckSiteKey: environment.EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY.trim() }
+      : runtime.stage === 'development' ? {} : { appCheckSiteKey: required(environment, 'EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY') }),
     ...(emulator ? { functionsEmulator: { host: emulator.hostname, port: Number(emulator.port) } } : {}),
     ...(authEmulatorOrigin ? { authEmulatorOrigin } : {}),
     ...(runtime.workerUrl ? { workerUrl: runtime.workerUrl } : {}),
@@ -139,16 +141,18 @@ export async function createKoiFirebaseLiveClient(
     import('@react-native-firebase/functions'),
   ]);
   const app = await initializeKoiFirebaseApp(config);
-  const appCheckProvider = new appCheckModule.ReactNativeFirebaseAppCheckProvider({
-    web: { provider: 'reCaptchaEnterprise', siteKey: config.appCheckSiteKey },
-    android: { provider: 'playIntegrity' },
-    apple: { provider: 'appAttestWithDeviceCheckFallback' },
-    isTokenAutoRefreshEnabled: true,
-  });
-  await appCheckModule.initializeAppCheck(app, {
-    provider: appCheckProvider,
-    isTokenAutoRefreshEnabled: true,
-  });
+  if (config.appCheckSiteKey || config.stage !== 'development') {
+    const appCheckProvider = new appCheckModule.ReactNativeFirebaseAppCheckProvider({
+      web: { provider: 'reCaptchaEnterprise', siteKey: config.appCheckSiteKey ?? '' },
+      android: { provider: 'playIntegrity' },
+      apple: { provider: 'appAttestWithDeviceCheckFallback' },
+      isTokenAutoRefreshEnabled: true,
+    });
+    await appCheckModule.initializeAppCheck(app, {
+      provider: appCheckProvider,
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
 
   const auth = authModule.getAuth(app);
   const functions = functionsModule.getFunctions(app, config.region);
