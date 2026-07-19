@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import { useLearningContext } from '../../services/learningContext';
 import { useUserProfileContext } from '../../services/userProfileContext';
@@ -183,6 +183,10 @@ export function KoiSenseiProvider({
 
   React.useEffect(() => {
     if (runtimeStage === 'mock') return undefined;
+    // @react-native-firebase/auth depends on its registered native component.
+    // Keep the web preview in local/unconfigured mode instead of surfacing a
+    // raw native-module error; Android/iOS continue through the live path.
+    if (Platform.OS === 'web') return undefined;
     if (!liveConfig) {
       setError('Live Koi configuration is incomplete. No provider request can be sent.');
       return undefined;

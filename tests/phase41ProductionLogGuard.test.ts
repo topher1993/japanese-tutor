@@ -15,22 +15,28 @@ const SRC_DIR = path.resolve(__dirname, '..', 'src');
 
 async function walk(dir: string): Promise<string[]> {
   const out: string[] = [];
-  for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const nested = await Promise.all(entries.map(async entry => {
     const p = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      out.push(...await walk(p));
+      return walk(p);
     } else if (/\.tsx?$/.test(entry.name)) {
-      out.push(p);
+      return [p];
     }
-  }
+    return [];
+  }));
+  for (const files of nested) out.push(...files);
   return out;
 }
 
 async function findUnguardedWarns(): Promise<{ file: string; line: number; text: string }[]> {
   const files = await walk(SRC_DIR);
   const unguarded: { file: string; line: number; text: string }[] = [];
-  for (const file of files) {
-    const text = await fs.readFile(file, 'utf-8');
+  const sourceFiles = await Promise.all(files.map(async file => ({
+    file,
+    text: await fs.readFile(file, 'utf-8'),
+  })));
+  for (const { file, text } of sourceFiles) {
     const lines = text.split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];

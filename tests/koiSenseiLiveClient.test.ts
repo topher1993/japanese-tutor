@@ -58,10 +58,22 @@ describe('Koi Firebase live client configuration', () => {
       resolveKoiPublicRuntimeConfig(environment),
     )).toMatchObject({
       stage: 'staging',
+      databaseURL: 'https://koi-staging.firebaseio.com',
       projectId: 'koi-staging',
       region: 'asia-northeast1',
       emailLinkUrl: 'https://koi-staging.example.com/auth/finish',
     });
+  });
+
+  it('uses an explicit regional Firebase database URL when provided', () => {
+    const environment = {
+      ...liveEnvironment(),
+      EXPO_PUBLIC_FIREBASE_DATABASE_URL: 'https://koi-staging.asia-southeast1.firebasedatabase.app',
+    };
+    expect(resolveKoiFirebaseLiveConfig(
+      environment,
+      resolveKoiPublicRuntimeConfig(environment),
+    )).toMatchObject({ databaseURL: environment.EXPO_PUBLIC_FIREBASE_DATABASE_URL });
   });
 
   it('keeps Android App Check optional until enforcement and rejects unsafe production links', () => {
@@ -98,6 +110,7 @@ describe('Koi Firebase live client configuration', () => {
     expect(liveClient).toContain("android: { provider: 'playIntegrity' }");
     expect(liveClient).toContain("apple: { provider: 'appAttestWithDeviceCheckFallback' }");
     expect(context).toContain('createKoiFirebaseLiveClient(liveConfig)');
+    expect(context).toContain("Platform.OS === 'web'");
     expect(chat).toContain('testID="koi-live-email-send"');
     expect(chat).toContain('testID="koi-live-registration-retry"');
     expect(chat).toContain('no app-imposed reply limit');

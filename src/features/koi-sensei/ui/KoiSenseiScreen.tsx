@@ -72,7 +72,7 @@ export function KoiSenseiScreen({ supportLanguage, onBack }: KoiSenseiScreenProp
   const stars = getKoiRankStars(progression);
   const effect = getKoiEffectProfile(rank, stars, {
     effectPreference: koi.state?.preferences.effectPreference ?? 'full',
-    avatarMode: koi.state?.preferences.avatarMode ?? '2d',
+    avatarMode: koi.state?.preferences.avatarMode ?? '3d',
     reducedMotion,
     lowPowerMode: false,
   });

@@ -15,13 +15,13 @@
     "semantic_hash": ""
   },
   "metro.config.js": {
-    "mtime": 1784211869.0484476,
+    "mtime": 1784503804.357307,
     "ast_hash": "d6c128ee0a20fb1aba98b0d83d788bee",
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1784214408.2528143,
-    "ast_hash": "ba487adb5159bfeab05fbe2bc5ab8ad1",
+    "mtime": 1784504500.0855434,
+    "ast_hash": "11a7b1a301375116197cce8d1dc64b6e",
     "semantic_hash": ""
   },
   "scripts/add-translation-status.mjs": {
@@ -80,13 +80,13 @@
     "semantic_hash": ""
   },
   "src/assets/assetRequireMap.test.ts": {
-    "mtime": 1784211903.557721,
-    "ast_hash": "480140fe9783d3d589c723ec768de91e",
+    "mtime": 1784503601.8233511,
+    "ast_hash": "2c46b7cea9b609dd1ed1efa06733cb93",
     "semantic_hash": ""
   },
   "src/assets/assetRequireMap.ts": {
-    "mtime": 1784211902.1642134,
-    "ast_hash": "1c1b972c662cdbc9a5207caaea6853e1",
+    "mtime": 1784503583.9932005,
+    "ast_hash": "9b7618fa8585e8f1de1d940de2974c72",
     "semantic_hash": ""
   },
   "src/assets/lint/no-direct-asset-require.js": {
@@ -95,13 +95,13 @@
     "semantic_hash": ""
   },
   "src/assets/manifest.test.ts": {
-    "mtime": 1784211904.963449,
-    "ast_hash": "010d819719962de125dc9e6864df5fd3",
+    "mtime": 1784503599.841631,
+    "ast_hash": "fd583c27edf63c92d2a49ccf78cdd1e5",
     "semantic_hash": ""
   },
   "src/assets/manifest.ts": {
-    "mtime": 1784211900.7607098,
-    "ast_hash": "7f7ce5f60239d90e49b13398889186fb",
+    "mtime": 1784503582.2269745,
+    "ast_hash": "0b8e755760d4f57b73f1ac9b4def320f",
     "semantic_hash": ""
   },
   "src/components/AppLogo.tsx": {
@@ -380,8 +380,8 @@
     "semantic_hash": ""
   },
   "src/screens/HomeScreen.tsx": {
-    "mtime": 1784201886.1601462,
-    "ast_hash": "efba7e50043c064a7d4c68531462bec7",
+    "mtime": 1784503596.003745,
+    "ast_hash": "2b9c976221e81f2a7cf1a28f74407b9e",
     "semantic_hash": ""
   },
   "src/screens/KanjiSectionPanel.tsx": {
@@ -1380,8 +1380,8 @@
     "semantic_hash": ""
   },
   "docs/phase-22-dependency-audit.md": {
-    "mtime": 1784027569.524865,
-    "ast_hash": "351484d676e6e738fd763f2574027912",
+    "mtime": 1784504627.4983196,
+    "ast_hash": "7323736fd48c120ebef3bfce37df6642",
     "semantic_hash": ""
   },
   "docs/phase-23-implementation-report.md": {
@@ -2025,8 +2025,8 @@
     "semantic_hash": ""
   },
   "src/app/AppProviders.tsx": {
-    "mtime": 1784449795.5540018,
-    "ast_hash": "c5bf9d25f3818d1e33f98770490ce7b3",
+    "mtime": 1784504243.7075753,
+    "ast_hash": "e960b36b2e18d321823e596052c2714e",
     "semantic_hash": ""
   },
   "src/app/AppShell.tsx": {
@@ -2235,8 +2235,8 @@
     "semantic_hash": ""
   },
   "tests/phase41ProductionLogGuard.test.ts": {
-    "mtime": 1784018347.9091482,
-    "ast_hash": "33d6d877365dcf18e5af09ee0c52d306",
+    "mtime": 1784503597.841545,
+    "ast_hash": "413bd0ea7693c70988ba0b9b532fd9c9",
     "semantic_hash": ""
   },
   "tests/phase42TodoBlobSchema.test.ts": {
@@ -3425,8 +3425,8 @@
     "semantic_hash": ""
   },
   "shared/koi/contracts.ts": {
-    "mtime": 1784217777.8478422,
-    "ast_hash": "964944c5817a6c31e1078323c4c4cf32",
+    "mtime": 1784475710.2747116,
+    "ast_hash": "c51825d5547986c9e17eff3d375912a5",
     "semantic_hash": ""
   },
   "shared/koi/index.ts": {
@@ -3435,13 +3435,13 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/KoiSenseiContext.tsx": {
-    "mtime": 1784217879.5274692,
-    "ast_hash": "ef8539bd6e658f20297eac625eaf8959",
+    "mtime": 1784504727.1723425,
+    "ast_hash": "ba56121e33d1211d9e5678de2c277f55",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/gateway.ts": {
-    "mtime": 1784447913.4903603,
-    "ast_hash": "76d95ea2e843dd9413a18e9f762bddd4",
+    "mtime": 1784477307.298948,
+    "ast_hash": "b88fa8b5342a8d6b3c82e8a1f6239203",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/index.ts": {
@@ -3450,13 +3450,13 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/mockTransport.ts": {
-    "mtime": 1784213291.2637422,
-    "ast_hash": "849079fed505537117bea320cae80e4f",
+    "mtime": 1784474817.8394678,
+    "ast_hash": "78ccb44f4de8e82d9ea1afd128ddfd83",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/quotaPolicy.ts": {
-    "mtime": 1784202111.477308,
-    "ast_hash": "0b46fd75b3bfbf44e0ad2ac2b1329f45",
+    "mtime": 1784474816.1102762,
+    "ast_hash": "525e42f1d59d8bd546dba99595deb06d",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/runtimeConfig.ts": {
@@ -3475,8 +3475,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/data/koiSenseiRepository.ts": {
-    "mtime": 1784213839.676073,
-    "ast_hash": "ad545bd9c5d7cca2db5639ec2fc2b440",
+    "mtime": 1784479427.9314055,
+    "ast_hash": "6fc9ee1538ee1f97ce108c3ba83b52ca",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/domain/availability.ts": {
@@ -3485,8 +3485,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/domain/cosmetics.ts": {
-    "mtime": 1784202061.7708302,
-    "ast_hash": "77ade63627a7dcf622ce2a55b425ff58",
+    "mtime": 1784503588.113082,
+    "ast_hash": "907846e9719db65ce3a0f429f2bfda7c",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/domain/effects.ts": {
@@ -3545,18 +3545,18 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/ui/KoiExperiencePanels.tsx": {
-    "mtime": 1784216013.3816848,
-    "ast_hash": "2368494fbb30bfb7cea8e6648605d5c0",
+    "mtime": 1784503802.3503056,
+    "ast_hash": "d3bb2615b772eaa30722de1be256a62e",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/ui/KoiSenseiScreen.tsx": {
-    "mtime": 1784213233.232051,
-    "ast_hash": "d201be79dcc16437d43e75195b620191",
+    "mtime": 1784503592.1064248,
+    "ast_hash": "c0537b46033af9206231d1de007c4976",
     "semantic_hash": ""
   },
   "tests/koiSenseiDomainCatalogEffects.test.ts": {
-    "mtime": 1784208420.7575169,
-    "ast_hash": "3f4cec7030d6dfad79a3c65d09abc800",
+    "mtime": 1784503607.6037555,
+    "ast_hash": "5134efc7f933dd5367c5a8f68f94a40c",
     "semantic_hash": ""
   },
   "tests/koiSenseiDomainProgression.test.ts": {
@@ -3565,8 +3565,8 @@
     "semantic_hash": ""
   },
   "tests/koiSenseiGateway.test.ts": {
-    "mtime": 1784447832.2195396,
-    "ast_hash": "56930f79317eb77321ac8aef3c564231",
+    "mtime": 1784475959.6537125,
+    "ast_hash": "0429f6967d1c307f8c12336d3913968d",
     "semantic_hash": ""
   },
   "tests/koiSenseiMediaAvatarRetention.test.ts": {
@@ -3580,28 +3580,28 @@
     "semantic_hash": ""
   },
   "tests/koiSenseiMockTransport.test.ts": {
-    "mtime": 1784213444.451534,
-    "ast_hash": "9d8a76faabc5ea36f7579d21179ef812",
+    "mtime": 1784474942.7469022,
+    "ast_hash": "43725f642d85749fe6635743227b919b",
     "semantic_hash": ""
   },
   "tests/koiSenseiNavigation.test.ts": {
-    "mtime": 1784214028.5404432,
-    "ast_hash": "a01c5140868008e7c2ea06d76d743053",
+    "mtime": 1784503808.746992,
+    "ast_hash": "7f6b459af9f250f1cf510b4e8efd0c50",
     "semantic_hash": ""
   },
   "tests/koiSenseiQuotaPolicy.test.ts": {
-    "mtime": 1784208244.4728026,
-    "ast_hash": "04c06c4ede21a73f0d11d669d28d04c4",
+    "mtime": 1784474941.035181,
+    "ast_hash": "88dd9eb7af89cd36f870849e93ee562d",
     "semantic_hash": ""
   },
   "tests/koiSenseiRepository.test.ts": {
-    "mtime": 1784210694.5097053,
-    "ast_hash": "4b71db356cf11b73874d6da4c7ec2bb8",
+    "mtime": 1784479431.745334,
+    "ast_hash": "3bd5ab8c9e39e76b92a72e429ff64c06",
     "semantic_hash": ""
   },
   "docs/koi-sensei-v2/README.md": {
-    "mtime": 1784217668.52732,
-    "ast_hash": "ad1f5621cb1f8904218b5537658da5be",
+    "mtime": 1784478587.989337,
+    "ast_hash": "c0eef40533d35f09387544bbe9ee6494",
     "semantic_hash": ""
   },
   "docs/koi-sensei-v2/live-provider-approval-template.md": {
@@ -3610,13 +3610,13 @@
     "semantic_hash": ""
   },
   "docs/koi-sensei-v2/release-runbook.md": {
-    "mtime": 1784209845.4398994,
-    "ast_hash": "40c4ecfc3c47dd86d3da0d08cd4c455d",
+    "mtime": 1784476225.6516333,
+    "ast_hash": "0c72a8841d6353855fc3d6603114cdb1",
     "semantic_hash": ""
   },
   "functions/src/store.ts": {
-    "mtime": 1784217841.3246453,
-    "ast_hash": "5d519d44bb96c6cb24a18cfd9d14332f",
+    "mtime": 1784475711.8157449,
+    "ast_hash": "964957e06e5044a864be450379ad3e4a",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/media/placeholder/generatePlaceholderGlb.mjs": {
@@ -3670,8 +3670,8 @@
     "semantic_hash": ""
   },
   "functions/test/contracts.test.ts": {
-    "mtime": 1784210163.6545105,
-    "ast_hash": "6067221e81c6b0a08ad195d23fdbe24f",
+    "mtime": 1784475935.6960018,
+    "ast_hash": "938d2ef6d44d5ce41e58152dd200cc40",
     "semantic_hash": ""
   },
   "functions/test/minimaxProvider.test.ts": {
@@ -3715,8 +3715,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/data/eligibility.ts": {
-    "mtime": 1784210253.589614,
-    "ast_hash": "8858f789bc70bc254109deea1fd6e1ca",
+    "mtime": 1784475871.735269,
+    "ast_hash": "f9d81bba00d9d6df17fa90619c608387",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/data/localChat.ts": {
@@ -3745,8 +3745,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/ui/KoiChatPanel.tsx": {
-    "mtime": 1784217437.368881,
-    "ast_hash": "57ae90f029b6f8acf93efc667c939374",
+    "mtime": 1784474821.2561538,
+    "ast_hash": "da35cd6ffe1ee73fa6f0e7baf6311103",
     "semantic_hash": ""
   },
   "tests/koiSenseiAnalytics.test.ts": {
@@ -3765,8 +3765,8 @@
     "semantic_hash": ""
   },
   "tests/koiSenseiTutorEvaluation.test.ts": {
-    "mtime": 1784210849.719801,
-    "ast_hash": "088fe03cedd20dace0ede85e4cdf43fc",
+    "mtime": 1784474888.4952273,
+    "ast_hash": "613a0ae8bbd675e7da7d956572f18598",
     "semantic_hash": ""
   },
   "functions/README.md": {
@@ -3815,8 +3815,8 @@
     "semantic_hash": ""
   },
   "functions/test/backendHardening.test.ts": {
-    "mtime": 1784216821.2952633,
-    "ast_hash": "cc520141c6762f0396b5ae5f1d032aae",
+    "mtime": 1784475934.1480758,
+    "ast_hash": "f85091da9b3b6fa0e6e446f72c36e2ac",
     "semantic_hash": ""
   },
   "functions/test/retention.test.ts": {
@@ -3845,8 +3845,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/api/firebaseLiveClient.ts": {
-    "mtime": 1784466700.488674,
-    "ast_hash": "435bb88d459cf4dbd3e06f722a69afe0",
+    "mtime": 1784504441.9760668,
+    "ast_hash": "5f39b893f607c6ee2cb12194c6c23c59",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/data/koiDojo.ts": {
@@ -3855,8 +3855,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/integration/index.ts": {
-    "mtime": 1784213353.6368065,
-    "ast_hash": "e355cd5f533da3f1a68f009a78645b6a",
+    "mtime": 1784477123.287088,
+    "ast_hash": "f97f154911438caf7857831d0d74e4ad",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/integration/learningProgressionBridge.ts": {
@@ -3870,13 +3870,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/ui/KoiAvatarStage.tsx": {
-    "mtime": 1784213231.633324,
-    "ast_hash": "25a75e422c6be0102d0e2bdf83be7a08",
-    "semantic_hash": ""
-  },
-  "src/features/koi-sensei/ui/KoiAvatarThreeStage.tsx": {
-    "mtime": 1784213313.6539955,
-    "ast_hash": "71f18acfe752fd2969e581f0c140ff19",
+    "mtime": 1784504247.7383356,
+    "ast_hash": "c02c25de4f6b0f570c11a948832309bc",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/ui/KoiRankEffectLayer.tsx": {
@@ -3885,8 +3880,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/ui/avatarCosmeticVisuals.ts": {
-    "mtime": 1784213199.9033322,
-    "ast_hash": "871bf789c02f86faf1d897db0555ec29",
+    "mtime": 1784503585.9567053,
+    "ast_hash": "44b6851a80ed73cbf3d95541b712a014",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/ui/koiEffectDecorations.ts": {
@@ -3900,8 +3895,8 @@
     "semantic_hash": ""
   },
   "tests/koiSenseiAvatarRenderer.test.ts": {
-    "mtime": 1784213350.3573666,
-    "ast_hash": "a94e94187222e5f32dc7efeb5743b340",
+    "mtime": 1784503806.696314,
+    "ast_hash": "0ee98100e0f3c840e6062b29d0777bb8",
     "semantic_hash": ""
   },
   "tests/koiSenseiDojoCatalog.test.ts": {
@@ -3925,8 +3920,8 @@
     "semantic_hash": ""
   },
   "tests/koiSenseiLiveClient.test.ts": {
-    "mtime": 1784215114.225555,
-    "ast_hash": "c953adcebb0ede316b6d9c7e93e8d27a",
+    "mtime": 1784504728.8319826,
+    "ast_hash": "de02ad7fae4d62d8a5f3101a07f2157f",
     "semantic_hash": ""
   },
   "tests/koiSenseiNativeSpeechInput.test.ts": {
@@ -3935,23 +3930,78 @@
     "semantic_hash": ""
   },
   ".maestro/koi-sensei-smoke.yaml": {
-    "mtime": 1784213490.650752,
-    "ast_hash": "a8e08dbdefd7aa78305da68b01d01ed4",
+    "mtime": 1784477310.4836893,
+    "ast_hash": "9759b74be05603e206bb86fe1d48c81c",
     "semantic_hash": ""
   },
   "docs/koi-sensei-v2/maestro.md": {
-    "mtime": 1784213492.1128073,
-    "ast_hash": "9d90d6a1dd844838b733019a22a97e64",
+    "mtime": 1784478506.410089,
+    "ast_hash": "9b298450cfaf09eeb489f444ad8cf54f",
     "semantic_hash": ""
   },
   "cloudflare/koi-worker/src/index.ts": {
-    "mtime": 1784467485.9305413,
-    "ast_hash": "3845d82bdbc28b1a0562a87c93c81140",
+    "mtime": 1784478586.3380606,
+    "ast_hash": "fe834f121de106da86dd0b5555e187d7",
     "semantic_hash": ""
   },
   "docs/koi-sensei-v2/cloudflare-backend-migration.md": {
-    "mtime": 1784442721.4050376,
-    "ast_hash": "663db5fa521d91baf0de907e504a64aa",
+    "mtime": 1784478504.283912,
+    "ast_hash": "6a37dff927883d474941616f2aa9aa59",
+    "semantic_hash": ""
+  },
+  "cloudflare/koi-worker/package.json": {
+    "mtime": 1784471891.6672034,
+    "ast_hash": "f00249ee4f826f1bbd37e1bad743346e",
+    "semantic_hash": ""
+  },
+  "cloudflare/koi-worker/src/policy.ts": {
+    "mtime": 1784479429.6063359,
+    "ast_hash": "e50b52d4a8a8d854bd25c7125e6fb9a0",
+    "semantic_hash": ""
+  },
+  "cloudflare/koi-worker/src/worker-configuration.d.ts": {
+    "mtime": 1784474841.6982095,
+    "ast_hash": "f0709d303562483db39234ae14708036",
+    "semantic_hash": ""
+  },
+  "cloudflare/koi-worker/tsconfig.json": {
+    "mtime": 1784471801.9523127,
+    "ast_hash": "f1e82896700b6ca4fc732880580a3a8d",
+    "semantic_hash": ""
+  },
+  "tests/koiSenseiCloudflareWorkerPolicy.test.ts": {
+    "mtime": 1784478149.1909113,
+    "ast_hash": "2c8d229116ba01caa5dd95563e8848d9",
+    "semantic_hash": ""
+  },
+  "src/features/koi-sensei/integration/learningSummaryBridge.ts": {
+    "mtime": 1784477121.843647,
+    "ast_hash": "6b9243df2e55002d1d336c4ec21519aa",
+    "semantic_hash": ""
+  },
+  "tests/koiSenseiLearningSummary.test.ts": {
+    "mtime": 1784477126.5123255,
+    "ast_hash": "f056bb55040b497ad74173f0d25dca1a",
+    "semantic_hash": ""
+  },
+  "tests/koiSenseiModelEvaluation.test.ts": {
+    "mtime": 1784478369.5084393,
+    "ast_hash": "95e32b3e447e5d92b8737aea9472f3c2",
+    "semantic_hash": ""
+  },
+  "docs/koi-sensei-v2/personal-live-verification-2026-07-20.md": {
+    "mtime": 1784479626.294063,
+    "ast_hash": "5c1c9668147b98be0fd4bb34d9478e08",
+    "semantic_hash": ""
+  },
+  "src/features/koi-sensei/ui/KoiPet.tsx": {
+    "mtime": 1784503642.4165852,
+    "ast_hash": "19bd2d990915ad2dc88498924e42c1f8",
+    "semantic_hash": ""
+  },
+  "src/assets/source/mascot/koi-tanuki.png": {
+    "mtime": 1784503201.81,
+    "ast_hash": "080974ed3a3aa03dd5fd9799cea67d3e",
     "semantic_hash": ""
   }
 }

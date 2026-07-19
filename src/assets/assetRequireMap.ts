@@ -70,8 +70,8 @@ export const assetRequireMap = {
   'logo.appLogo': require('../assets/source/logo/app-logo.png'),
   'logo.appLogo1024': require('../assets/source/logo/app-logo-1024.png'),
 
-  // Koi Sensei engineering-only GLB. The safe 2D mascot remains the default
-  // until this local asset passes the runtime 3D readiness contract.
+  // Koi Sensei's production 2D tanuki and engineering-only GLB contract.
+  'avatar.koiTanukiPng': require('../assets/source/mascot/koi-tanuki.png'),
   'avatar.koiPlaceholderGlb': require('../../assets/koi-sensei/koi-sensei-placeholder.glb'),
 
   // Badges (8 achievement + 2 JLPT — PNG renderings of the hand-authored SVGs)

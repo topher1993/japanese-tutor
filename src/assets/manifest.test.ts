@@ -77,4 +77,9 @@ describe('asset manifest', () => {
     expect(manifest.avatar.koiPlaceholderGlb.path).toBe('assets/koi-sensei/koi-sensei-placeholder.glb');
     expect(manifest.avatar.koiPlaceholderGlb.maxBytes).toBe(4 * 1_024 * 1_024);
   });
+
+  it('Koi Sensei tanuki sprite is registered and size-capped', () => {
+    expect(manifest.avatar.koiTanukiPng.path).toBe('src/assets/source/mascot/koi-tanuki.png');
+    expect(manifest.avatar.koiTanukiPng.maxBytes).toBe(1_000_000);
+  });
 });

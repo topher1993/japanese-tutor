@@ -269,6 +269,11 @@ export const manifest = {
     },
   },
   avatar: {
+    koiTanukiPng: {
+      key: 'avatar.koiTanukiPng',
+      path: 'src/assets/source/mascot/koi-tanuki.png',
+      maxBytes: 1_000_000,
+    },
     koiPlaceholderGlb: {
       key: 'avatar.koiPlaceholderGlb',
       path: 'assets/koi-sensei/koi-sensei-placeholder.glb',

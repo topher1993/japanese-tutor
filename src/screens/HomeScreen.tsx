@@ -7,6 +7,7 @@ import { EmptyStateArt } from '../components/EmptyStateArt';
 import { HeroLogo } from '../components/HeroLogo';
 import { Icon } from '../components/Icon';
 import { Mascot } from '../components/Mascot';
+import { KoiPet } from '../features/koi-sensei/ui/KoiPet';
 import { ScreenScaffold } from '../components/ScreenScaffold';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { StreakFlame } from '../components/StreakFlame';
@@ -310,7 +311,7 @@ export function HomeScreen({
             style={({ pressed }) => [styles.mascotButton, pressed && styles.mascotButtonPressed]}
             testID="home-koi-mascot"
           >
-            <Mascot expression="base" size={64} />
+            <KoiPet expression="base" size={64} />
           </Pressable>
           <View style={styles.greetingText}>
             <ScreenHeader
@@ -323,7 +324,7 @@ export function HomeScreen({
       {onOpenKoiSensei ? (
         <Card shadow="hero" tone="brand" style={styles.koiCard}>
           <View style={styles.koiHeader}>
-            <Mascot expression="happy" size={58} />
+            <KoiPet expression="happy" size={58} />
             <View style={styles.koiCopy}>
               <Text style={styles.koiLabel}>NEW IN VERSION 2.0</Text>
               <Text style={styles.koiTitle}>Meet Koi Sensei</Text>

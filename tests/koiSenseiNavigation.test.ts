@@ -30,8 +30,8 @@ describe('Koi Sensei navigation foundation', () => {
     const avatar = read('src/features/koi-sensei/ui/KoiAvatarStage.tsx');
     const chat = read('src/features/koi-sensei/ui/KoiChatPanel.tsx');
     expect(screen).toContain('<KoiAvatarStage');
-    expect(avatar).toContain('<Mascot expression={expression');
-    expect(avatar).toContain("plan.renderer === '3d'");
+    expect(avatar).toContain('<KoiPet accessible={false} expression={expression');
+    expect(avatar).toContain("assetStatus: 'missing'");
     expect(screen).toContain('<KoiChatPanel');
     expect(chat).toContain('Question for Koi Sensei');
     expect(chat).toContain('message.text');

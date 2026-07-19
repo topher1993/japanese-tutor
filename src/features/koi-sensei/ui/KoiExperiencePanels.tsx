@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Button } from '../../../components/Button';
 import { Card } from '../../../components/Card';
-import { Mascot } from '../../../components/Mascot';
 import { useLearningContext } from '../../../services/learningContext';
 import { ds } from '../../../theme/designSystem';
 import { localDateKey } from '../../../utils/localDate';
@@ -35,6 +34,8 @@ import {
   type KoiLocalPreferencesV1,
   type KoiScoreBand,
 } from '../data';
+import { getKoiEquippedCosmeticVisuals } from './avatarCosmeticVisuals';
+import { KoiPet } from './KoiPet';
 
 const SLOT_LABELS: Record<KoiCosmeticSlot, string> = {
   crest: 'Crest · vocabulary mastery',
@@ -46,7 +47,7 @@ const SLOT_LABELS: Record<KoiCosmeticSlot, string> = {
 function LoadingCard() {
   return (
     <Card tone="soft" shadow="none" style={styles.centeredCard}>
-      <Mascot expression="thinking" size={72} />
+      <KoiPet expression="thinking" size={72} />
       <Text style={styles.cardTitle}>Preparing Koi…</Text>
       <Text style={styles.bodyMuted}>Local progress is loading on this device.</Text>
     </Card>
@@ -89,7 +90,7 @@ export function KoiCarePanel() {
     <>
       <ErrorNotice />
       <Card tone="brand" shadow="hero" style={styles.careHero}>
-        <Mascot expression="happy" size={92} />
+        <KoiPet expression="happy" size={92} />
         <View style={styles.flexCopy}>
           <Text style={styles.brandEyebrow}>CALM BOND</Text>
           <Text style={styles.brandTitle}>{petSnapshot.bond} bond</Text>
@@ -178,6 +179,7 @@ export function KoiClosetPanel() {
             const requirement = cosmetic.unlock.kind === 'starter'
               ? 'Starter item'
               : `${cosmetic.unlock.rank} ${cosmetic.unlock.domain} mastery`;
+            const visual = getKoiEquippedCosmeticVisuals({ [slot]: cosmetic.id })[0];
             return (
               <Pressable
                 key={cosmetic.id}
@@ -194,6 +196,12 @@ export function KoiClosetPanel() {
                 ]}
                 testID={`koi-cosmetic-${cosmetic.id}`}
               >
+                <View
+                  accessible={false}
+                  style={[styles.cosmeticPreview, { backgroundColor: visual?.color ?? ds.colors.surfaceAlt }]}
+                >
+                  <Text style={styles.cosmeticPreviewSymbol}>{visual?.symbol ?? '装'}</Text>
+                </View>
                 <View style={styles.actionCopy}>
                   <Text style={styles.cardTitle}>{cosmetic.label}</Text>
                   <Text style={styles.bodyMuted}>{requirement}</Text>
@@ -352,7 +360,7 @@ export function KoiDojoPanel() {
       <>
         <ErrorNotice />
         <Card tone="success" shadow="hero" style={styles.centeredCard}>
-          <Mascot expression={completion.score >= 4 ? 'celebrate' : 'encourage'} size={92} />
+          <KoiPet expression={completion.score >= 4 ? 'celebrate' : 'encourage'} size={92} />
           <Text accessibilityRole="header" style={styles.resultScore}>{completion.score} / 5</Text>
           <Text style={styles.cardTitle}>Dojo complete</Text>
           <Text style={styles.bodyMuted}>
@@ -370,7 +378,7 @@ export function KoiDojoPanel() {
       <>
         <ErrorNotice />
         <Card tone="brand" shadow="hero" style={styles.centeredCard}>
-          <Mascot expression="happy" size={92} />
+          <KoiPet expression="happy" size={92} />
           <Text style={styles.brandTitle}>Five calm vocabulary rounds</Text>
           <Text style={styles.brandBody}>Untimed, offline, and one answer at a time. No AI allowance is used.</Text>
         </Card>
@@ -405,7 +413,7 @@ export function KoiDojoPanel() {
   if (catalogError) {
     return (
       <Card tone="warm" shadow="hero" style={styles.centeredCard}>
-        <Mascot expression="encourage" size={84} />
+        <KoiPet expression="encourage" size={84} />
         <Text accessibilityRole="alert" style={styles.cardTitle}>Vocabulary needs to be reopened</Text>
         <Text style={styles.bodyMuted}>{catalogError} Your saved checkpoint still contains IDs only.</Text>
         <Button label="Start a fresh five" onPress={() => { void start(); }} disabled={busy} />
@@ -417,7 +425,7 @@ export function KoiDojoPanel() {
     const isLast = feedback.session.currentRound === feedback.session.questionContentIds.length;
     return (
       <Card tone={feedback.correct ? 'success' : 'warm'} shadow="hero" style={styles.centeredCard}>
-        <Mascot expression={feedback.correct ? 'celebrate' : 'encourage'} size={84} />
+        <KoiPet expression={feedback.correct ? 'celebrate' : 'encourage'} size={84} />
         <Text accessibilityLiveRegion="assertive" style={styles.resultScore}>{feedback.correct ? 'Correct!' : 'Keep going'}</Text>
         <Text style={styles.bodyMuted}>The answer is “{feedback.correctLabel}”. Nothing is lost for a mistake.</Text>
         {evidenceNotice ? <Text accessibilityRole="alert" style={styles.disclaimer}>{evidenceNotice}</Text> : null}
@@ -443,7 +451,7 @@ export function KoiDojoPanel() {
   if (!question) {
     return (
       <Card tone="warm" shadow="hero" style={styles.centeredCard}>
-        <Mascot expression="encourage" size={84} />
+        <KoiPet expression="encourage" size={84} />
         <Text accessibilityRole="alert" style={styles.cardTitle}>This round is no longer in the catalog</Text>
         <Text style={styles.bodyMuted}>Your ID-only checkpoint is safe. Start a fresh five from the current governed vocabulary.</Text>
         <Button label="Start a fresh five" onPress={() => { void start(); }} disabled={busy} />
@@ -508,7 +516,7 @@ export function KoiLeaguePanel() {
       <>
         <ErrorNotice />
         <Card tone="brand" shadow="hero" style={styles.centeredCard}>
-          <Mascot expression="happy" size={88} />
+          <KoiPet expression="happy" size={88} />
           <Text style={styles.brandTitle}>A gentle weekly cohort</Text>
           <Text style={styles.brandBody}>Use the pseudonym “{state.experience.league.alias}”. No real name, chat, public profile, demotion, or league cosmetics.</Text>
         </Card>
@@ -674,11 +682,11 @@ export function KoiSettingsPanel() {
       <View style={styles.section}>
         <Text accessibilityRole="header" style={styles.sectionTitle}>Avatar and effects</Text>
         <Card shadow="none" style={styles.settingsCard}>
-          <Text style={styles.cardTitle}>Avatar mode</Text>
-          <Text style={styles.bodyMuted}>The 2D avatar remains a complete fallback when 3D is unavailable.</Text>
+          <Text style={styles.cardTitle}>Pet motion</Text>
+          <Text style={styles.bodyMuted}>Koi uses polished tanuki art. Choose gentle floating or keep the pet completely still.</Text>
           <View style={styles.segmentRow}>
-            <PreferenceChoice label="3D when available" selected={preferences.avatarMode === '3d'} onPress={() => save({ avatarMode: '3d' })} testID="koi-setting-avatar-3d" />
-            <PreferenceChoice label="Always 2D" selected={preferences.avatarMode === '2d'} onPress={() => save({ avatarMode: '2d' })} testID="koi-setting-avatar-2d" />
+            <PreferenceChoice label="Float gently" selected={preferences.avatarMode === '3d'} onPress={() => save({ avatarMode: '3d' })} testID="koi-setting-avatar-3d" />
+            <PreferenceChoice label="Keep still" selected={preferences.avatarMode === '2d'} onPress={() => save({ avatarMode: '2d' })} testID="koi-setting-avatar-2d" />
           </View>
         </Card>
         <Card shadow="none" style={styles.settingsCard}>
@@ -835,6 +843,16 @@ const styles = StyleSheet.create({
     borderColor: ds.colors.border,
     backgroundColor: ds.colors.surface,
   },
+  cosmeticPreview: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: ds.colors.brandInk,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cosmeticPreviewSymbol: { color: ds.colors.brandDark, fontSize: 20, fontWeight: '900' },
   selectedRow: { borderColor: ds.colors.success, backgroundColor: ds.colors.successSoft },
   lockedRow: { backgroundColor: ds.colors.surfaceAlt, opacity: 0.66 },
   statusPill: { color: ds.colors.textMuted, backgroundColor: ds.colors.surfaceAlt, borderRadius: ds.radius.pill, paddingHorizontal: ds.spacing.sm, paddingVertical: ds.spacing.xs, fontSize: ds.type.micro, fontWeight: '900', overflow: 'hidden' },

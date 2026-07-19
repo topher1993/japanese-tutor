@@ -6,6 +6,7 @@ export interface KoiFirebaseLiveConfig {
   apiKey: string;
   appId: string;
   authDomain: string;
+  databaseURL: string;
   projectId: string;
   storageBucket: string;
   messagingSenderId: string;
@@ -73,6 +74,7 @@ export function resolveKoiFirebaseLiveConfig(
   runtime: KoiPublicRuntimeConfig,
 ): KoiFirebaseLiveConfig | null {
   if (runtime.stage === 'mock') return null;
+  const projectId = runtime.firebaseProjectId!;
   const emailLinkUrl = required(environment, 'EXPO_PUBLIC_KOI_EMAIL_LINK_URL');
   let link: URL;
   try {
@@ -96,7 +98,12 @@ export function resolveKoiFirebaseLiveConfig(
     apiKey: required(environment, 'EXPO_PUBLIC_FIREBASE_API_KEY'),
     appId: required(environment, 'EXPO_PUBLIC_FIREBASE_APP_ID'),
     authDomain: required(environment, 'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN'),
-    projectId: runtime.firebaseProjectId!,
+    // React Native Firebase requires this option even when the Realtime
+    // Database module is not installed. The conventional project URL is a
+    // safe compatibility fallback; regional databases can override it.
+    databaseURL: environment.EXPO_PUBLIC_FIREBASE_DATABASE_URL?.trim()
+      || `https://${projectId}.firebaseio.com`,
+    projectId,
     storageBucket: required(environment, 'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET'),
     messagingSenderId: required(environment, 'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
     region: runtime.functionsRegion,
@@ -159,6 +166,7 @@ async function initializeKoiFirebaseApp(config: KoiFirebaseLiveConfig) {
     apiKey: config.apiKey,
     appId: config.appId,
     authDomain: config.authDomain,
+    databaseURL: config.databaseURL,
     projectId: config.projectId,
     storageBucket: config.storageBucket,
     messagingSenderId: config.messagingSenderId,
@@ -168,6 +176,15 @@ async function initializeKoiFirebaseApp(config: KoiFirebaseLiveConfig) {
 export async function createKoiFirebaseLiveClient(
   config: KoiFirebaseLiveConfig,
 ): Promise<KoiFirebaseLiveClient> {
+  // The React Native Firebase web adapter schedules bridge events with the
+  // Node-style setImmediate API, which browsers do not provide. Supply the
+  // standard zero-delay equivalent before loading any Firebase modules.
+  const immediateGlobal = globalThis as unknown as {
+    setImmediate?: (callback: () => void) => ReturnType<typeof setTimeout>;
+  };
+  if (typeof immediateGlobal.setImmediate !== 'function') {
+    immediateGlobal.setImmediate = (callback: () => void) => setTimeout(callback, 0);
+  }
   const [authModule, appCheckModule, functionsModule] = await Promise.all([
     import('@react-native-firebase/auth'),
     import('@react-native-firebase/app-check'),

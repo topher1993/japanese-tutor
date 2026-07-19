@@ -151,4 +151,8 @@ describe('manifest ↔ component wiring', () => {
   it('Koi Sensei placeholder GLB is registered for Metro bundling', () => {
     expect(assetRequireMap['avatar.koiPlaceholderGlb']).toBeDefined();
   });
+
+  it('Koi Sensei tanuki sprite is registered for Metro bundling', () => {
+    expect(assetRequireMap['avatar.koiTanukiPng']).toBeDefined();
+  });
 });

@@ -31,9 +31,9 @@ const expectedMasteryLabels: Record<KoiRank, Record<KoiDomain, string>> = {
     quizzes: 'Vocab Card Fan',
   },
   N4: {
-    vocabulary: 'Koi-Fin Crest',
+    vocabulary: 'Maple Leaf Crest',
     grammar: 'Blue Reading Lens',
-    phrases: 'Koinobori Banner',
+    phrases: 'Festival Banner',
     quizzes: 'Folding Fan',
   },
   N3: {
@@ -121,7 +121,7 @@ describe('Koi Sensei mastery cosmetic catalog', () => {
       },
     });
     expect(state.rankProgress.N4.domainStars.vocabulary).toBe(2);
-    expect(getKoiUnlockedCosmetics(state).map(item => item.label)).not.toContain('Koi-Fin Crest');
+    expect(getKoiUnlockedCosmetics(state).map(item => item.label)).not.toContain('Maple Leaf Crest');
   });
 
   it('makes all twenty mastery rewards available only in a fully mastered N1 state', () => {

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { getKoiEquippedCosmeticVisuals } from '../src/features/koi-sensei/ui/avatarCosmeticVisuals';
@@ -11,7 +11,7 @@ describe('Koi avatar renderer integration', () => {
       back: 'mastery-n4-phrases-koinobori-banner',
       hand: 'mastery-n1-quizzes-golden-pointer',
     })).toMatchObject([
-      { slot: 'back', primitive: 'pack', label: 'Koinobori Banner' },
+      { slot: 'back', primitive: 'pack', label: 'Festival Banner' },
       { slot: 'crest', primitive: 'crest', label: 'Sakura Pin' },
       { slot: 'face', primitive: 'glasses', label: 'Sunset Shades' },
       { slot: 'hand', primitive: 'tool', label: 'Golden Pointer' },
@@ -25,24 +25,23 @@ describe('Koi avatar renderer integration', () => {
     })).toEqual([]);
   });
 
-  it('wires the bundled GLB, render-plan fallback, animation, and socket attachments into the hub', () => {
+  it('ships only the animated tanuki renderer while retaining the safe render plan', () => {
     const screen = readFileSync('src/features/koi-sensei/ui/KoiSenseiScreen.tsx', 'utf8');
     const stage = readFileSync('src/features/koi-sensei/ui/KoiAvatarStage.tsx', 'utf8');
-    const threeStage = readFileSync('src/features/koi-sensei/ui/KoiAvatarThreeStage.tsx', 'utf8');
+    const pet = readFileSync('src/features/koi-sensei/ui/KoiPet.tsx', 'utf8');
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { dependencies: Record<string, string> };
     expect(screen).toContain('<KoiAvatarStage');
     expect(screen).toContain('equippedCosmeticIds=');
     expect(stage).toContain('selectKoiAvatarRenderPlan');
     expect(stage).toContain('KoiAvatarTwoDimensional');
-    expect(threeStage).toContain("getAsset('avatar.koiPlaceholderGlb')");
-    expect(threeStage).toContain('new THREE.AnimationMixer');
-    expect(threeStage).toContain('scene.getObjectByName(socketName)');
-    expect(threeStage).toContain('socket.add(object)');
-  });
-
-  it('shares the native Three.js instance that owns the Expo loader polyfills', () => {
-    const metro = readFileSync('metro.config.js', 'utf8');
-    expect(metro).toContain("moduleName === 'three'");
-    expect(metro).toContain("platform === 'android' || platform === 'ios'");
-    expect(metro).toContain('threeCommonJsEntry');
+    expect(stage).toContain('Animated.loop');
+    expect(stage).toContain("assetStatus: 'missing'");
+    expect(stage).toContain("motionDisabled = reducedMotion || avatarMode === '2d'");
+    expect(pet).toContain("getAsset('avatar.koiTanukiPng')");
+    expect(pet).toContain('magical tanuki virtual pet, never a fish');
+    expect(existsSync('src/features/koi-sensei/ui/KoiAvatarThreeStage.tsx')).toBe(false);
+    expect(packageJson.dependencies).not.toHaveProperty('@react-three/fiber');
+    expect(packageJson.dependencies).not.toHaveProperty('expo-gl');
+    expect(packageJson.dependencies).not.toHaveProperty('three');
   });
 });
