@@ -35,6 +35,19 @@ export interface KoiFirebaseLiveClient {
   dispose(): void;
 }
 
+export function reconcileKoiAuthSnapshot(
+  previous: KoiLiveAuthSnapshot,
+  previousUserId: string | null,
+  user: { uid: string; emailVerified: boolean } | null,
+): KoiLiveAuthSnapshot {
+  const sameAuthenticatedUser = user !== null && user.uid === previousUserId;
+  return {
+    authenticated: user !== null,
+    emailVerified: user?.emailVerified === true,
+    enrollmentStatus: sameAuthenticatedUser ? previous.enrollmentStatus : 'not_registered',
+  };
+}
+
 function required(environment: KoiPublicEnvironment, name: keyof KoiPublicEnvironment): string {
   const value = environment[name]?.trim();
   if (!value) throw new Error(`${String(name)} is required outside Koi mock mode.`);
@@ -167,17 +180,16 @@ export async function createKoiFirebaseLiveClient(
     emailVerified: false,
     enrollmentStatus: 'not_registered',
   };
+  let currentUserId: string | null = null;
   const listeners = new Set<(next: KoiLiveAuthSnapshot) => void>();
   const publish = (next: KoiLiveAuthSnapshot) => {
     snapshot = next;
     listeners.forEach(listener => listener(next));
   };
   const unsubscribeAuth = authModule.onAuthStateChanged(auth, user => {
-    publish({
-      authenticated: Boolean(user),
-      emailVerified: user?.emailVerified === true,
-      enrollmentStatus: 'not_registered',
-    });
+    const next = reconcileKoiAuthSnapshot(snapshot, currentUserId, user);
+    currentUserId = user?.uid ?? null;
+    publish(next);
   });
 
   const transport: KoiCallableTransport = {

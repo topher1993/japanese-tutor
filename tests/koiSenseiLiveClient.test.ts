@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   KOI_CALLABLE_NAMES,
   createKoiGateway,
+  reconcileKoiAuthSnapshot,
   resolveKoiFirebaseLiveConfig,
   resolveKoiPublicRuntimeConfig,
   type KoiCallableName,
@@ -27,6 +28,28 @@ function liveEnvironment() {
 }
 
 describe('Koi Firebase live client configuration', () => {
+  it('preserves enrollment when Firebase refreshes the same signed-in user', () => {
+    const active = {
+      authenticated: true,
+      emailVerified: true,
+      enrollmentStatus: 'active' as const,
+    };
+
+    expect(reconcileKoiAuthSnapshot(active, 'user-1', {
+      uid: 'user-1',
+      emailVerified: true,
+    })).toEqual(active);
+    expect(reconcileKoiAuthSnapshot(active, 'user-1', {
+      uid: 'user-2',
+      emailVerified: true,
+    })).toMatchObject({ enrollmentStatus: 'not_registered' });
+    expect(reconcileKoiAuthSnapshot(active, 'user-1', null)).toEqual({
+      authenticated: false,
+      emailVerified: false,
+      enrollmentStatus: 'not_registered',
+    });
+  });
+
   it('keeps mock mode credential-free and validates complete staging configuration', () => {
     expect(resolveKoiFirebaseLiveConfig({}, resolveKoiPublicRuntimeConfig({}))).toBeNull();
     const environment = liveEnvironment();
@@ -130,4 +153,3 @@ describe('Koi registration, allowance bootstrap, and revocation gateway', () => 
     expect(invoked).toEqual(['completeKoiRegistration', 'getKoiAllowance', 'revokeKoiConsent']);
   });
 });
-
