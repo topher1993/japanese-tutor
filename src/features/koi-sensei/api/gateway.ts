@@ -171,6 +171,7 @@ export interface KoiGateway {
   }): Promise<void>;
   deleteMemory(input: { requestId: string; memoryId: string }): Promise<void>;
   ask(input: { requestId: string; conversationId: string; text: string }): Promise<KoiAnswer>;
+  submitQuizAnswer(input: { requestId: string; questionId: string; answer: string; domain: 'vocabulary' | 'grammar' | 'phrases' | 'quizzes'; rank: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' }): Promise<{ correct: boolean; evidenceCount: number; practiceStars: number; masteryStars: number }>;
   syncLearningSummary(input: { requestId: string; context: KoiLearningSummary }): Promise<void>;
   syncPetPresentation(input: {
     requestId: string;
@@ -520,6 +521,32 @@ export function createKoiGateway(
         text,
       });
       return parseAnswer(response, requestId, conversationId);
+    },
+
+    async submitQuizAnswer(input) {
+      requireActiveSession(getSession());
+      const requestId = requireUuid('requestId', input.requestId);
+      if (!input.questionId.trim() || input.questionId.length > 160 || !input.answer.trim()
+        || !['vocabulary', 'grammar', 'phrases', 'quizzes'].includes(input.domain)
+        || !['N5', 'N4', 'N3', 'N2', 'N1'].includes(input.rank)) {
+        throw new KoiClientError('INVALID_REQUEST', 'The quiz submission is invalid.');
+      }
+      const response = await transport.invoke('submitQuizAnswer' as KoiCallableName, {
+        schemaVersion: 1,
+        requestId,
+        questionId: input.questionId,
+        answer: input.answer,
+        domain: input.domain,
+        rank: input.rank,
+      });
+      if (!isRecord(response) || response.schemaVersion !== 1 || response.requestId !== requestId
+        || typeof response.correct !== 'boolean'
+        || finiteInteger(response.evidenceCount, 0, Number.MAX_SAFE_INTEGER) === null
+        || finiteInteger(response.practiceStars, 0, 8) === null
+        || finiteInteger(response.masteryStars, 0, 8) === null) {
+        throw new KoiClientError('INVALID_RESPONSE', 'Koi returned an invalid quiz evidence result.');
+      }
+      return { correct: response.correct, evidenceCount: response.evidenceCount as number, practiceStars: response.practiceStars as number, masteryStars: response.masteryStars as number };
     },
 
     async syncLearningSummary(input) {

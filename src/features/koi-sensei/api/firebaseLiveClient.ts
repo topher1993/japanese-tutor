@@ -181,11 +181,12 @@ export async function createKoiFirebaseLiveClient(
         throw new KoiClientError('AUTH_REQUIRED', 'A verified email-link account is required.');
       }
       try {
-        if (config.workerUrl && (name === 'askKoiSensei' || name === 'syncKoiLearningContext' || name === 'syncKoiPetPresentation' || name === 'upsertKoiMemory' || name === 'deleteKoiMemory' || name === 'exportKoiData' || name === 'deleteKoiData' || name === 'reportKoiMessage' || name === 'revokeKoiConsent' || name === 'completeKoiRegistration' || name === 'getKoiAllowance')) {
+        if (config.workerUrl && (name === 'askKoiSensei' || name === 'syncKoiLearningContext' || name === 'syncKoiPetPresentation' || name === 'upsertKoiMemory' || name === 'deleteKoiMemory' || name === 'exportKoiData' || name === 'deleteKoiData' || name === 'reportKoiMessage' || name === 'revokeKoiConsent' || name === 'completeKoiRegistration' || name === 'getKoiAllowance' || name === ('submitQuizAnswer' as KoiCallableName))) {
           const user = auth.currentUser;
           const token = await user?.getIdToken();
           if (!token) throw new KoiClientError('AUTH_REQUIRED', 'A verified email-link account is required.');
-          const response = await fetch(`${config.workerUrl}/v1/koi/askKoiSensei`, {
+          const endpoint = name === ('submitQuizAnswer' as KoiCallableName) ? 'quiz/submit' : `koi/${name}`;
+          const response = await fetch(`${config.workerUrl}/v1/${endpoint}`, {
             method: 'POST',
             headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
             body: JSON.stringify(payload),
