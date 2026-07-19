@@ -36,7 +36,7 @@ import {
   type KoiSenseiLocalStateV1,
   type KoiSenseiRepository,
 } from './data';
-import { subscribeKoiLearningProgression } from './integration';
+import { buildKoiLearningSummary, subscribeKoiLearningProgression } from './integration';
 import {
   createDefaultKoiProgression,
   mergeKoiProgressionHighWater,
@@ -125,6 +125,7 @@ export function KoiSenseiProvider({
   const [pendingEmailLink, setPendingEmailLink] = React.useState<string | null>(null);
   const progressionSyncDrainRef = React.useRef<() => Promise<void>>(async () => undefined);
   const progressionSyncPausedRef = React.useRef(false);
+  const learningSummaryRevisionRef = React.useRef(0);
   const [state, setState] = React.useState<KoiSenseiLocalStateV1 | null>(null);
   const stateRef = React.useRef<KoiSenseiLocalStateV1 | null>(null);
   const [ready, setReady] = React.useState(false);
@@ -310,6 +311,70 @@ export function KoiSenseiProvider({
       subscription.unsubscribe();
     };
   }, [learning.ready, learning.repo, learning.store, loadFromRepository, ready]);
+
+  React.useEffect(() => {
+    const learningStore = learning.store;
+    const learningRepository = learning.repo;
+    const srs = learning.srs;
+    const detailedProgressEnabled = state?.preferences.detailedProgressConsent === true;
+    if (runtimeStage === 'mock' || !ready || !learning.ready || !profile.ready
+      || !learningStore || !learningRepository || !srs || !detailedProgressEnabled
+      || !liveAuth.authenticated || !liveAuth.emailVerified || liveAuth.enrollmentStatus !== 'active') {
+      return undefined;
+    }
+    let active = true;
+    let queue = Promise.resolve();
+    const schedule = () => {
+      const task = queue.then(async () => {
+        if (!active || !stateRef.current?.preferences.detailedProgressConsent
+          || liveAuthRef.current.enrollmentStatus !== 'active') return;
+        await learningStore.ready();
+        const [progress, dueCount] = await Promise.all([
+          learningRepository.getProgress(),
+          srs.dueCount(),
+        ]);
+        if (!active || !stateRef.current?.preferences.detailedProgressConsent) return;
+        learningSummaryRevisionRef.current = Math.max(
+          learningSummaryRevisionRef.current + 1,
+          Date.now(),
+        );
+        await gatewayRef.current!.gateway.syncLearningSummary({
+          requestId: createKoiUuid(),
+          context: buildKoiLearningSummary({
+            revision: learningSummaryRevisionRef.current,
+            dueCount,
+            progress,
+            events: learningStore.getExtendedProgress().todoEventCounts,
+            profile: profile.profile,
+          }),
+        });
+      });
+      queue = task.catch(cause => {
+        if (active) setError(cause instanceof Error
+          ? cause.message
+          : 'Koi could not sync the approved learning summary.');
+      });
+    };
+    const unsubscribe = learningStore.subscribeExtendedProgress(schedule);
+    schedule();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [
+    learning.ready,
+    learning.repo,
+    learning.srs,
+    learning.store,
+    liveAuth.authenticated,
+    liveAuth.emailVerified,
+    liveAuth.enrollmentStatus,
+    profile.profile,
+    profile.ready,
+    ready,
+    runtimeStage,
+    state?.preferences.detailedProgressConsent,
+  ]);
 
   const eligibility = React.useMemo(
     () => evaluateKoiEligibility(state?.eligibility),

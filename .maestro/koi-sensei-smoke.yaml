@@ -1,4 +1,4 @@
-appId: com.belion.japanesetutor
+appId: koi.sensei_personal123
 name: Koi Sensei v2 local smoke
 ---
 - launchApp:
@@ -41,4 +41,3 @@ name: Koi Sensei v2 local smoke
     visible: "「は」 marks the topic*"
     timeout: 15000
 - assertVisible: "Sources: mock.grammar.n5.wa-ga"
-

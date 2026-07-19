@@ -40,5 +40,8 @@ describe('Koi Sensei navigation foundation', () => {
     expect(chat).toContain('koi-consent-us-processing');
     expect(chat).toContain('koi-chat-revoke-confirm');
     expect(screen).toContain('BackHandler.addEventListener');
+    expect(screen).toContain('title="Koi Sensei"');
+    expect(screen).toContain('Koi personal live mode');
+    expect(screen).not.toContain("title={route === 'home' ? 'Back'");
   });
 });

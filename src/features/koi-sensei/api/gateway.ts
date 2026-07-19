@@ -398,14 +398,30 @@ function parseSynthesis(value: unknown, requestId: string): KoiSynthesisResult {
 }
 
 function validateLearningSummary(summary: KoiLearningSummary): void {
+  const validCountRecord = (value: Readonly<Record<string, number>>): boolean => {
+    const entries = Object.entries(value);
+    return entries.length <= 100 && entries.every(([key, count]) => (
+      key.length <= 80 && Number.isSafeInteger(count) && count >= 0 && count <= 100_000
+    ));
+  };
   if (!Number.isSafeInteger(summary.revision) || summary.revision < 0
     || !summary.consentVersion.trim()
     || !['en', 'vi', 'tl'].includes(summary.supportLanguage)
-    || !Number.isSafeInteger(summary.dueCount) || summary.dueCount < 0
-    || !Number.isSafeInteger(summary.streakDays) || summary.streakDays < 0
+    || (summary.jlptTarget !== undefined && !['N5', 'N4', 'N3', 'N2', 'N1'].includes(summary.jlptTarget))
+    || (summary.placementLevel !== undefined && !['N5', 'N4', 'N3'].includes(summary.placementLevel))
+    || (summary.studyGoalId !== undefined && summary.studyGoalId.trim().length > 120)
+    || (summary.currentLessonId !== undefined && summary.currentLessonId.trim().length > 160)
+    || !Number.isSafeInteger(summary.dueCount) || summary.dueCount < 0 || summary.dueCount > 100_000
+    || !Number.isSafeInteger(summary.streakDays) || summary.streakDays < 0 || summary.streakDays > 100_000
+    || !validCountRecord(summary.completionCounts)
+    || !validCountRecord(summary.masteryBuckets)
     || !Number.isSafeInteger(summary.recentActiveDays)
     || summary.recentActiveDays < 0 || summary.recentActiveDays > 30
-    || summary.weakTopicIds.length > 100) {
+    || (summary.recentQuizAverage !== undefined
+      && (!Number.isFinite(summary.recentQuizAverage)
+        || summary.recentQuizAverage < 0 || summary.recentQuizAverage > 100))
+    || summary.weakTopicIds.length > 100
+    || summary.weakTopicIds.some(topic => !topic.trim() || topic.trim().length > 160)) {
     throw new KoiClientError('INVALID_REQUEST', 'The approved learning summary is invalid.');
   }
 }

@@ -59,6 +59,11 @@ const percent = (remaining: unknown, total: unknown): number | null => {
   return Math.max(0, Math.min(100, remainingValue / totalValue * 100));
 };
 
+const remainingPercent = (value: unknown): number | null => {
+  const result = finiteNumber(value);
+  return result !== null && result >= 0 && result <= 100 ? result : null;
+};
+
 const epochMs = (value: unknown): number | undefined => {
   const result = finiteNumber(value);
   if (result === null || result <= 0) return undefined;
@@ -84,15 +89,23 @@ export function parseMiniMaxCapacity(
   const entries = root.model_remains ?? root.model_remain ?? data?.model_remains ?? data?.model_remain;
   if (!Array.isArray(entries)) return null;
   const normalizedModel = model.toLowerCase().replaceAll('-', '');
-  const entry = entries.map(asRecord).find((candidate): candidate is UnknownRecord => (
-    candidate !== null && modelName(candidate) === normalizedModel
-  ));
+  const candidates = entries.map(asRecord).filter((candidate): candidate is UnknownRecord => candidate !== null);
+  const entry = candidates.find(candidate => modelName(candidate) === normalizedModel)
+    ?? candidates.find(candidate => modelName(candidate) === 'general')
+    ?? (() => {
+      const textFamily = candidates.filter(candidate => /^minimaxm(?:\d|\*)/.test(modelName(candidate)));
+      return textFamily.length === 1 ? textFamily[0] : undefined;
+    })();
   if (!entry) return null;
 
-  const rolling = percent(
-    entry.current_interval_usage_count ?? entry.current_interval_remaining_count,
-    entry.current_interval_total_count,
-  );
+  const intervalStatus = finiteNumber(entry.current_interval_status);
+  if (intervalStatus !== null && intervalStatus !== 1 && intervalStatus !== 2) return null;
+  const rolling = intervalStatus === 2
+    ? 0
+    : remainingPercent(entry.current_interval_remaining_percent) ?? percent(
+      entry.current_interval_usage_count ?? entry.current_interval_remaining_count,
+      entry.current_interval_total_count,
+    );
   if (rolling === null) return null;
 
   const weeklyStatus = finiteNumber(entry.current_weekly_status);
@@ -106,8 +119,9 @@ export function parseMiniMaxCapacity(
       entry.current_weekly_usage_count ?? entry.current_weekly_remaining_count,
       entry.current_weekly_total_count,
     );
-    if (weeklyStatus === 1 && parsedWeekly === null) return null;
-    weekly = parsedWeekly ?? undefined;
+    const parsedWeeklyPercent = remainingPercent(entry.current_weekly_remaining_percent) ?? parsedWeekly;
+    if (weeklyStatus === 1 && parsedWeeklyPercent === null) return null;
+    weekly = parsedWeeklyPercent ?? undefined;
   }
   return {
     rollingRemainingPercent: rolling,
@@ -207,6 +221,52 @@ const blockedInputPatterns = [
 export function isSafeKoiQuestion(value: string): boolean {
   const text = value.trim();
   return text.length > 0 && text.length <= 2_000 && !blockedInputPatterns.some(pattern => pattern.test(text));
+}
+
+/** Keep model formatting readable in React Native's plain Text renderer. */
+export function normalizeKoiReplyText(value: string): string {
+  const normalized = value
+    .replace(/\r\n?/g, '\n')
+    .replace(/<br\s*\/?\s*>/giu, '\n')
+    .replace(/<[^>]{1,120}>/gu, '')
+    .split('\n')
+    .filter(line => !/^\s*(?:[-*_]{3,}|\|?(?:\s*:?-{3,}:?\s*\|)+)\s*$/u.test(line))
+    .map(line => {
+      const withoutPrefix = line
+        .replace(/^\s{0,3}#{1,6}\s+/u, '')
+        .replace(/^\s*>\s?/u, '')
+        .replace(/^\s*[-*+]\s+/u, '• ');
+      const withoutMarkup = withoutPrefix
+        .replace(/\*\*([^*]+)\*\*/gu, '$1')
+        .replace(/__([^_]+)__/gu, '$1')
+        .replace(/\*([^*\n]+)\*/gu, '$1')
+        .replace(/_([^_\n]+)_/gu, '$1')
+        .replace(/`([^`]+)`/gu, '$1')
+        .replace(/~~([^~]+)~~/gu, '$1')
+        .replace(/\[([^\]]+)\]\([^\s)]+\)/gu, '$1');
+      if (!withoutMarkup.includes('|')) return withoutMarkup.trimEnd();
+      return withoutMarkup.split('|').map(part => part.trim()).filter(Boolean).join(' — ');
+    })
+    .join('\n')
+    .replace(/\n{3,}/gu, '\n\n')
+    .trim();
+  return normalized.slice(0, 8_000).trim();
+}
+
+export interface KoiReplyEvaluation {
+  acceptable: boolean;
+  reasons: string[];
+}
+
+/** Deterministic last-line guard; model output is never trusted on its own. */
+export function evaluateKoiReplyText(value: string): KoiReplyEvaluation {
+  const reasons: string[] = [];
+  if (!value.trim() || value.length > 8_000) reasons.push('invalid_length');
+  if (/[\uac00-\ud7af]/u.test(value)) reasons.push('unexpected_hangul');
+  if (/ございます\s*ございます/u.test(value)) reasons.push('duplicated_polite_form');
+  if (/(?:api[ _-]?key|access token|system prompt|credit card)/iu.test(value)) reasons.push('sensitive_content');
+  if (/^(?:\s{0,3}#{1,6}\s|\s*```)|\*\*|<\/?[a-z][^>]*>|\|\s*-{3}/imu.test(value)) reasons.push('raw_markup');
+  return { acceptable: reasons.length === 0, reasons };
 }
 
 const governedStaticQuestions: Readonly<Record<string, Readonly<{

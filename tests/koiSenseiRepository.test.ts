@@ -183,6 +183,21 @@ describe('Koi Sensei local repository', () => {
     expect(() => createRepository(storage, { maxMessages: 201 })).toThrow('at most 200');
   });
 
+  it('renders historical assistant Markdown as safe plain text without altering user messages', async () => {
+    const repository = createRepository(createInMemoryKeyValueStorage());
+    await repository.replaceMessages([
+      { ...message('user-plain', 1), text: '**Keep my exact input**' },
+      {
+        ...message('assistant-markdown', 2),
+        text: '## は and が\n\n---\n\n| Particle | Use |\n| --- | --- |\n| **は** | *topic* |\n\n[Read more](https://example.com)',
+      },
+    ]);
+
+    const loaded = await repository.load();
+    expect(loaded.messages[0].text).toBe('**Keep my exact input**');
+    expect(loaded.messages[1].text).toBe('は and が\n\nParticle — Use\nは — topic\n\nRead more');
+  });
+
   it('serializes concurrent message writes so none are lost', async () => {
     const backing = createInMemoryKeyValueStorage();
     const delayedStorage: AsyncKeyValueStorage = {

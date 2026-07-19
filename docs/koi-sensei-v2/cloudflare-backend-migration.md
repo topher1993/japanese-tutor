@@ -2,14 +2,17 @@
 
 This migration is active for personal live mode. It keeps the existing Koi
 callable contracts while moving their server authority off Firebase Functions.
-The mobile app calls one authenticated Worker endpoint, and the Worker routes
+The mobile app calls one authenticated Worker origin, and the Worker routes
 stateful operations to Durable Objects.
 
 ## Request boundary
 
 `POST /v1/koi/:callableName` accepts the existing callable payload and a
 Firebase ID token in `Authorization: Bearer`. The Worker verifies the token's
-signature, issuer, audience, expiry, and subject before dispatching.
+signature, issuer, audience, issued-at time, expiry, subject, and verified-email
+claim before dispatching. Bodies are stream-read with a 32 KiB ceiling, public
+operations use an explicit allowlist, and nested payloads are validated before
+a Durable Object receives them.
 
 The MiniMax Token Plan key is a Worker secret only. No pay-as-you-go key,
 Credits fallback, or client credential is supported.
@@ -18,10 +21,13 @@ Credits fallback, or client credential is supported.
 
 - `KoiUserObject(userId)`: registration, consent epochs, retention, memories,
   presentation, learning-context high-water marks, and per-user allowance use.
-- `KoiGlobalObject("global")`: active-account admission (maximum 50), provider
-  semaphore (maximum two), capacity snapshot, and kill switch.
+- `KoiGlobalObject("global")`: personal-owner/future active-account admission
+  (maximum 50), expiring provider leases (maximum two), capacity snapshot, and
+  kill switch. Expired leases self-heal after an interrupted upstream request.
 
-All mutations are persisted before responses are returned. Chat records are
+All mutations are persisted before responses are returned. Turning detailed
+progress sharing off, or revoking AI consent, deletes the synced learning
+summary. Chat records are
 automatically deleted after 30 days and capped at 200 messages per user.
 
 ## Implemented migration order
@@ -36,6 +42,11 @@ automatically deleted after 30 days and capped at 200 messages per user.
 5. Add the mobile transport adapter and keep the mock transport as the default.
 6. Run Worker unit tests, Firebase-independent integration tests, and a single
    personal beta request before enabling any wider account admission.
+
+The MiniMax usage parser supports both count-based model entries and the newer
+`general` entry with `current_interval_remaining_percent` and
+`current_weekly_remaining_percent`. Unknown, ambiguous, stale, unauthenticated,
+or exhausted responses still fail closed.
 
 ## Cost guard
 

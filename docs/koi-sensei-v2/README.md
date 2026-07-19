@@ -20,9 +20,10 @@ accounts.
 - The backend checks a fresh provider-capacity snapshot before every MiniMax
   call, globally permits at most two calls at once, and fails closed if quota
   state is stale or exhausted.
-- MiniMax TTS is attempted only while a fresh, subscription-covered character
-  budget can pay for the complete `spokenText`. Otherwise the app uses its
-  included system voice. Raw microphone audio is never uploaded or persisted.
+- Personal mode currently uses the included device system voice. MiniMax TTS
+  stays disabled until its separate subscription character budget can be
+  checked fresh and atomically before a request. Raw microphone audio is never
+  uploaded or persisted.
 - Course progress stays on the device by default. A learner must separately opt
   in before a bounded learning summary can be synced to Koi.
 - Governed N5/N4 Dojo answers are checked by Cloudflare and deduplicated before
@@ -37,17 +38,18 @@ accounts.
 
 ```text
 Japanese Tutor app
-  local course repository ── optional summary consent ─┐
-  Koi local cache (draft, 200 messages, pet snapshot) ─┼─ Firebase callable boundary
-  device speech-to-text ─────────────── text only ─────┘
-                                                         │
-                                          Auth + App Check + 16+ consent
-                                                         │
-                                     Firestore transactions and kill switches
-                                                         │
-                                     MiniMax Token Plan guard + semaphore (2)
-                                                         │
-                         M2.7 text / covered Speech 2.8, or fail closed/fallback
+  local course repository -- optional bounded summary consent --+
+  Koi local cache (draft, 200 messages, pet snapshot) -----------+-- Cloudflare Worker
+  device speech-to-text --------------------------- text only --+       |
+                                                                  Firebase ID token
+                                                                  + optional App Check
+                                                                  + 16+ consent
+                                                                         |
+                                                              Durable Objects authority
+                                                                         |
+                                                       Token Plan guard + 2-call leases
+                                                                         |
+                                                          M2.7 text or fail closed
 ```
 
 The mobile boundary is transport-injected and credential-free. Firebase dev,
@@ -59,6 +61,13 @@ Firebase supplies email-link identity, while Koi state, retention, consent,
 rewards, and provider controls live in the Cloudflare Worker/Durable Objects.
 Firebase Functions are retained only as a contract-compatible emulator and are
 not deployed under the owner's no-additional-cost rule.
+
+As of 2026-07-20, personal live mode is deployed with verified-email Firebase
+claims, strict 32 KiB/exact-key payload validation, expiring two-call provider
+leases, server-authoritative detailed-progress consent, and the current generic
+percentage shape returned by MiniMax's Token Plan usage endpoint. App Check is
+optional in personal development and remains mandatory before any approved
+shared beta.
 
 ## Progression
 

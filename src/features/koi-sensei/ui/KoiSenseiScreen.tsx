@@ -128,7 +128,7 @@ export function KoiSenseiScreen({ supportLanguage, onBack }: KoiSenseiScreenProp
   return (
     <ScreenScaffold>
       <ScreenHeader
-        title={route === 'home' ? 'Back' : 'Koi Sensei'}
+        title="Koi Sensei"
         subtitle={route === 'home' ? 'Your Japanese training companion' : ROUTE_TITLES[route]}
         onBack={goBack}
       />
@@ -140,6 +140,7 @@ export function KoiSenseiScreen({ supportLanguage, onBack }: KoiSenseiScreenProp
           reducedMotion={reducedMotion}
           equippedCosmeticIds={koi.state?.petSnapshot?.equippedCosmeticIds ?? {}}
           supportLanguage={supportLanguage}
+          runtimeStage={koi.runtimeStage}
           onOpen={openRoute}
         />
       ) : (
@@ -156,6 +157,7 @@ function KoiHubHome({
   reducedMotion,
   equippedCosmeticIds,
   supportLanguage,
+  runtimeStage,
   onOpen,
 }: {
   effect: KoiEffectProfile;
@@ -164,6 +166,7 @@ function KoiHubHome({
   reducedMotion: boolean;
   equippedCosmeticIds: Partial<Record<'crest' | 'face' | 'back' | 'hand', string>>;
   supportLanguage: LearnerLanguage;
+  runtimeStage: 'mock' | 'development' | 'staging' | 'production';
   onOpen: (route: KoiHubRoute) => void;
 }) {
   const rank = progression.currentRank;
@@ -200,9 +203,13 @@ function KoiHubHome({
       </Card>
 
       <Card tone="soft" shadow="none" style={styles.noticeCard}>
-        <Text style={styles.noticeTitle}>Koi v2 local preview</Text>
+        <Text style={styles.noticeTitle}>
+          {runtimeStage === 'mock' ? 'Koi v2 local preview' : 'Koi personal live mode'}
+        </Text>
         <Text style={styles.noticeText}>
-          Care, the mastery closet, dojo, league preview, and privacy controls work locally while secure account sync is connected.
+          {runtimeStage === 'mock'
+            ? 'Care, the mastery closet, dojo, league preview, and privacy controls work locally without contacting MiniMax.'
+            : 'Your course stays local by default. Secure account sync and your MiniMax Token Plan power Koi chat; detailed progress is shared only if you turn it on.'}
         </Text>
       </Card>
 

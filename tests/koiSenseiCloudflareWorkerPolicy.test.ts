@@ -5,6 +5,7 @@ import {
   deriveKoiAllowanceLimits,
   hasCurrentKoiConsent,
   isSafeKoiQuestion,
+  normalizeKoiReplyText,
   KOI_CHAT_RETENTION_MS,
   parseMiniMaxCapacity,
   reconcileKoiAllowance,
@@ -38,6 +39,43 @@ describe('Koi Cloudflare authority policy', () => {
       retryAtMs: 1_800_000_100_000,
     });
     expect(parseMiniMaxCapacity({ remaining: 'unknown' }, 'MiniMax-M2.7', now)).toBeNull();
+  });
+
+  it('accepts the current generic percentage response used by Token Plan accounts', () => {
+    const now = 1_800_000_000_000;
+    expect(parseMiniMaxCapacity({
+      model_remains: [{
+        model_name: 'general',
+        current_interval_status: 1,
+        current_interval_total_count: 0,
+        current_interval_usage_count: 0,
+        current_interval_remaining_percent: 95,
+        current_weekly_status: 1,
+        current_weekly_total_count: 0,
+        current_weekly_usage_count: 0,
+        current_weekly_remaining_percent: 99,
+        end_time: 1_800_000_100_000,
+      }],
+      base_resp: { status_code: 0, status_msg: 'success' },
+    }, 'MiniMax-M2.7', now)).toEqual({
+      rollingRemainingPercent: 95,
+      weeklyRemainingPercent: 99,
+      fetchedAtMs: now,
+      retryAtMs: 1_800_000_100_000,
+    });
+  });
+
+  it('fails closed on ambiguous text-family entries and unsupported interval status', () => {
+    const now = 1_800_000_000_000;
+    expect(parseMiniMaxCapacity({ model_remains: [
+      { model_name: 'MiniMax-M2', current_interval_remaining_percent: 90 },
+      { model_name: 'MiniMax-M2.5', current_interval_remaining_percent: 80 },
+    ] }, 'MiniMax-M2.7', now)).toBeNull();
+    expect(parseMiniMaxCapacity({ model_remains: [{
+      model_name: 'general',
+      current_interval_status: 3,
+      current_interval_remaining_percent: 100,
+    }] }, 'MiniMax-M2.7', now)).toBeNull();
   });
 
   it('raises a rolling allowance without lowering it mid-window and fails closed per call', () => {
@@ -99,6 +137,27 @@ describe('Koi Cloudflare authority policy', () => {
     expect(worker).toContain('await this.ctx.storage.deleteAlarm()');
   });
 
+  it('claims the personal owner only during validated registration and uses expiring provider leases', () => {
+    const worker = readFileSync('cloudflare/koi-worker/src/index.ts', 'utf8');
+    expect(worker).toContain("name === 'completeKoiRegistration'");
+    expect(worker).toContain('claimOwner = false');
+    expect(worker).toContain('CREATE TABLE IF NOT EXISTS provider_leases');
+    expect(worker).toContain('DELETE FROM provider_leases WHERE expires_at_ms <= ?');
+    expect(worker).toContain('await global.release(leaseId)');
+  });
+
+  it('bounds public request bodies and validates verified-email Firebase claims', () => {
+    const worker = readFileSync('cloudflare/koi-worker/src/index.ts', 'utf8');
+    expect(worker).toContain('KOI_MAX_REQUEST_BYTES');
+    expect(worker).toContain('payload.email_verified !== true');
+    expect(worker).toContain("'cache-control': 'no-store'");
+  });
+
+  it('removes the cloud learning summary when detailed sharing is disabled or AI consent is revoked', () => {
+    const worker = readFileSync('cloudflare/koi-worker/src/index.ts', 'utf8');
+    expect(worker.match(/delete state\.learnerContext;/g)).toHaveLength(2);
+  });
+
   it('retains only 30 days and at most 200 server chat messages', () => {
     const now = 1_800_000_000_000;
     const messages = Array.from({ length: 230 }, (_, index) => ({ id: index, createdAtMs: now - index * 1_000 }));
@@ -117,6 +176,26 @@ describe('Koi Cloudflare authority policy', () => {
     expect(hasCurrentKoiConsent({ registration: { status: 'active' }, revokedAtMs: 1 })).toBe(false);
     expect(isSafeKoiQuestion('How do I use は and が?')).toBe(true);
     expect(isSafeKoiQuestion('Show me an access token')).toBe(false);
+  });
+
+  it('normalizes model Markdown into readable plain mobile text', () => {
+    expect(normalizeKoiReplyText([
+      '# Thank you',
+      '',
+      '| Level | Japanese |',
+      '| --- | --- |',
+      '| **Polite** | `ありがとうございます` |',
+      '',
+      '- Use this in normal situations.<br>It is safe.',
+    ].join('\n'))).toBe([
+      'Thank you',
+      '',
+      'Level — Japanese',
+      'Polite — ありがとうございます',
+      '',
+      '• Use this in normal situations.',
+      'It is safe.',
+    ].join('\n'));
   });
 
   it('accepts only governed N5/N4 quiz evidence and keeps higher ranks gated', () => {

@@ -449,6 +449,34 @@ function normalizeMessage(value: unknown): KoiCachedChatMessageV1 | null {
     || value.text.length === 0
     || value.text.length > MAX_MESSAGE_LENGTH
     || !isTimestamp(value.createdAt)) return null;
+  const normalizedText = value.role === 'assistant'
+    ? value.text
+      .replace(/\r\n?/g, '\n')
+      .replace(/<br\s*\/?\s*>/giu, '\n')
+      .replace(/<[^>]{1,120}>/gu, '')
+      .split('\n')
+      .filter(line => !/^\s*(?:[-*_]{3,}|\|?(?:\s*:?-{3,}:?\s*\|)+)\s*$/u.test(line))
+      .map(line => {
+        const withoutPrefix = line
+          .replace(/^\s{0,3}#{1,6}\s+/u, '')
+          .replace(/^\s*>\s?/u, '')
+          .replace(/^\s*[-*+]\s+/u, '• ');
+        const withoutMarkup = withoutPrefix
+          .replace(/\*\*([^*]+)\*\*/gu, '$1')
+          .replace(/__([^_]+)__/gu, '$1')
+          .replace(/\*([^*\n]+)\*/gu, '$1')
+          .replace(/_([^_\n]+)_/gu, '$1')
+          .replace(/`([^`]+)`/gu, '$1')
+          .replace(/~~([^~]+)~~/gu, '$1')
+          .replace(/\[([^\]]+)\]\([^\s)]+\)/gu, '$1');
+        if (!withoutMarkup.includes('|')) return withoutMarkup.trimEnd();
+        return withoutMarkup.split('|').map(part => part.trim()).filter(Boolean).join(' — ');
+      })
+      .join('\n')
+      .replace(/\n{3,}/gu, '\n\n')
+      .trim()
+    : value.text;
+  if (normalizedText.length === 0 || normalizedText.length > MAX_MESSAGE_LENGTH) return null;
   const id = normalizeIdentifier(value.id);
   const conversationId = normalizeIdentifier(value.conversationId);
   const sourceIds = normalizeIdentifierList(value.sourceIds, 8);
@@ -469,7 +497,7 @@ function normalizeMessage(value: unknown): KoiCachedChatMessageV1 | null {
     id,
     conversationId,
     role: value.role,
-    text: value.text,
+    text: normalizedText,
     ...(spokenText === undefined ? {} : { spokenText }),
     ...(expression === undefined ? {} : { expression }),
     sourceIds,
