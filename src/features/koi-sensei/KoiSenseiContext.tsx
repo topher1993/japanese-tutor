@@ -36,6 +36,14 @@ import {
   type KoiSenseiRepository,
 } from './data';
 import { subscribeKoiLearningProgression } from './integration';
+import {
+  createDefaultKoiProgression,
+  mergeKoiProgressionHighWater,
+  type KoiDomain,
+  type KoiRank,
+} from './domain';
+
+type KoiQuizEvidenceResult = Awaited<ReturnType<KoiGateway['submitQuizAnswer']>>;
 
 export interface KoiSenseiContextValue {
   ready: boolean;
@@ -67,6 +75,12 @@ export interface KoiSenseiContextValue {
   revokeAiConsent(): Promise<void>;
   askKoi(text: string): Promise<KoiAnswer>;
   synthesizeKoiReply(assistantMessageId: string): Promise<KoiSynthesisResult>;
+  submitQuizAnswer(input: {
+    questionId: string;
+    answer: string;
+    domain: KoiDomain;
+    rank: KoiRank;
+  }): Promise<KoiQuizEvidenceResult>;
   saveDraft(draft: string): Promise<void>;
   savePreferences(patch: Partial<KoiLocalPreferencesV1>): Promise<void>;
   savePetSnapshot(snapshot: KoiCachedPetSnapshotV1 | null): Promise<void>;
@@ -514,6 +528,35 @@ export function KoiSenseiProvider({
     return result;
   }, []);
 
+  const submitQuizAnswer = React.useCallback(async (input: {
+    questionId: string;
+    answer: string;
+    domain: KoiDomain;
+    rank: KoiRank;
+  }): Promise<KoiQuizEvidenceResult> => {
+    const result = await gatewayRef.current!.gateway.submitQuizAnswer({
+      requestId: createKoiUuid(),
+      ...input,
+    });
+    const currentSnapshot = stateRef.current?.petSnapshot;
+    if (currentSnapshot && result.domainStars) {
+      const incoming = createDefaultKoiProgression();
+      incoming.currentRank = result.highestRank ?? input.rank;
+      incoming.rankProgress[input.rank].domainStars = {
+        ...incoming.rankProgress[input.rank].domainStars,
+        ...Object.fromEntries(Object.entries(result.domainStars)
+          .filter(([domain]) => ['vocabulary', 'grammar', 'phrases', 'quizzes'].includes(domain))
+          .map(([domain, stars]) => [domain, Math.min(2, Math.max(0, Math.floor(stars)))])),
+      } as typeof incoming.rankProgress[typeof input.rank]['domainStars'];
+      await withRepository(repository => repository.savePetSnapshot({
+        ...currentSnapshot,
+        revision: currentSnapshot.revision + 1,
+        progression: mergeKoiProgressionHighWater(currentSnapshot.progression, incoming),
+      }));
+    }
+    return result;
+  }, [withRepository]);
+
   const savePetSnapshot = React.useCallback(async (snapshot: KoiCachedPetSnapshotV1 | null) => {
     await withRepository(repository => repository.savePetSnapshot(snapshot));
     if (runtimeStage !== 'mock' && snapshot) {
@@ -556,6 +599,7 @@ export function KoiSenseiProvider({
     revokeAiConsent,
     askKoi,
     synthesizeKoiReply,
+    submitQuizAnswer,
     saveDraft: draft => withRepository(repository => repository.saveDraft(draft)),
     savePreferences: patch => withRepository(repository => repository.savePreferences(patch)),
     savePetSnapshot,
@@ -590,6 +634,7 @@ export function KoiSenseiProvider({
     sendEmailSignInLink,
     state,
     synthesizeKoiReply,
+    submitQuizAnswer,
     savePetSnapshot,
     withRepository,
   ]);

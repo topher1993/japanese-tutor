@@ -11,6 +11,7 @@ export const KOI_CALLABLE_NAMES = [
   'exportKoiData',
   'deleteKoiData',
   'reportKoiMessage',
+  'submitQuizAnswer',
 ] as const;
 
 export type KoiCallableName = (typeof KOI_CALLABLE_NAMES)[number];
@@ -531,7 +532,7 @@ export function createKoiGateway(
         || !['N5', 'N4', 'N3', 'N2', 'N1'].includes(input.rank)) {
         throw new KoiClientError('INVALID_REQUEST', 'The quiz submission is invalid.');
       }
-      const response = await transport.invoke('submitQuizAnswer' as KoiCallableName, {
+      const response = await transport.invoke('submitQuizAnswer', {
         schemaVersion: 1,
         requestId,
         questionId: input.questionId,

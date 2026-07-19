@@ -64,12 +64,12 @@ describe('Koi Firebase live client configuration', () => {
     });
   });
 
-  it('fails startup for incomplete live config or non-HTTPS production links', () => {
+  it('keeps Android App Check optional until enforcement and rejects unsafe production links', () => {
     const environment = liveEnvironment();
-    expect(() => resolveKoiFirebaseLiveConfig(
+    expect(resolveKoiFirebaseLiveConfig(
       { ...environment, EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY: '' },
       resolveKoiPublicRuntimeConfig(environment),
-    )).toThrow(/APP_CHECK_SITE_KEY/);
+    )).toMatchObject({ appCheckRequired: false });
     const production = {
       ...environment,
       EXPO_PUBLIC_KOI_STAGE: 'production',
@@ -90,8 +90,10 @@ describe('Koi Firebase live client configuration', () => {
     expect(provider).toContain('liveConfig={koiFirebaseLiveConfig}');
     expect(liveClient).toContain('limitedUseAppCheckTokens: true');
     expect(liveClient).toContain('appCheckModule.getToken(appCheck)');
+    expect(liveClient).toContain('config.appCheckRequired && !appCheckToken');
     expect(liveClient).toContain("'X-Firebase-AppCheck': appCheckToken");
     expect(liveClient).toContain("name === 'synthesizeKoiReply'");
+    expect(liveClient).toContain("name === 'submitQuizAnswer' ? 'koi/quiz/submit'");
     expect(liveClient).toContain("android: { provider: 'playIntegrity' }");
     expect(liveClient).toContain("apple: { provider: 'appAttestWithDeviceCheckFallback' }");
     expect(context).toContain('createKoiFirebaseLiveClient(liveConfig)');

@@ -10,7 +10,9 @@ import {
   KOI_CURRENT_PRIVACY_POLICY_VERSION,
   parseMiniMaxCapacity,
   reconcileKoiAllowance,
+  reconcileKoiQuestionEvidence,
   reserveChat,
+  resolveGovernedKoiQuestion,
   retainKoiMessages,
   type KoiAllowanceGrant,
   type KoiAllowanceLimits,
@@ -209,25 +211,23 @@ export class KoiUserObject extends DurableObject<KoiWorkerEnv> {
       return { error: 'consent_required' };
     }
     if (name === 'submitQuizAnswer') {
-      const bank: Record<string, { answer: string; domain: string; rank: string }> = {
-        'n5-grammar-001': { answer: 'B', domain: 'grammar', rank: 'N5' },
-        'n5-vocabulary-001': { answer: 'A', domain: 'vocabulary', rank: 'N5' },
-        'n5-phrases-001': { answer: 'C', domain: 'phrases', rank: 'N5' },
-        'n5-quiz-001': { answer: 'A', domain: 'quizzes', rank: 'N5' },
-        'n4-grammar-001': { answer: 'C', domain: 'grammar', rank: 'N4' },
-        'n4-vocabulary-001': { answer: 'B', domain: 'vocabulary', rank: 'N4' },
-        'n4-phrases-001': { answer: 'A', domain: 'phrases', rank: 'N4' },
-        'n4-quiz-001': { answer: 'C', domain: 'quizzes', rank: 'N4' },
-      };
-      const question = bank[String(payload.questionId)];
-      if (!question || question.domain !== payload.domain || question.rank !== payload.rank) return { error: 'invalid_question' };
-      const correct = String(payload.answer).toUpperCase() === question.answer;
-      const evidence = (state.evidence as Record<string, number> | undefined) ?? {};
+      const questionId = String(payload.questionId ?? '');
+      const question = resolveGovernedKoiQuestion(questionId, String(payload.domain ?? ''), String(payload.rank ?? ''));
+      if (!question) return { error: 'invalid_question' };
+      const correct = String(payload.answer).trim().toUpperCase() === question.answer.toUpperCase();
+      const evidence = (state.evidenceQuestionIds as Record<string, string[]> | undefined) ?? {};
       const key = `${question.rank}:${question.domain}`;
-      if (correct) evidence[key] = Number(evidence[key] ?? 0) + 1;
-      state.evidence = evidence;
+      const reconciledEvidence = reconcileKoiQuestionEvidence(
+        Array.isArray(evidence[key]) ? evidence[key] : [],
+        questionId,
+        correct,
+      );
+      evidence[key] = reconciledEvidence.questionIds;
+      state.evidenceQuestionIds = evidence;
       await this.save(state);
-      const practiceStars = Math.min(8, Math.floor(Number(evidence[key] ?? 0) / 1));
+      const evidenceCount = reconciledEvidence.evidenceCount;
+      const practiceStars = reconciledEvidence.domainStars >= 1 ? 1 : 0;
+      const masteryStars = reconciledEvidence.domainStars >= 2 ? 1 : 0;
       const cosmeticByKey: Record<string, string> = {
         'N5:vocabulary': 'mastery-n5-vocabulary-sakura-pin',
         'N5:grammar': 'mastery-n5-grammar-reading-glasses',
@@ -238,16 +238,19 @@ export class KoiUserObject extends DurableObject<KoiWorkerEnv> {
         'N4:phrases': 'mastery-n4-phrases-koinobori-banner',
         'N4:quizzes': 'mastery-n4-quizzes-folding-fan',
       };
-      const unlockedCosmeticIds = practiceStars >= 8 && cosmeticByKey[key] ? [cosmeticByKey[key]] : [];
+      const unlockedCosmeticIds = masteryStars === 1 && cosmeticByKey[key] ? [cosmeticByKey[key]] : [];
       const ranks = ['N5', 'N4', 'N3', 'N2', 'N1'];
       const domains = ['vocabulary', 'grammar', 'phrases', 'quizzes'];
       let highestRank = 'N5';
       for (const candidate of ranks) {
         if (candidate === 'N3' || candidate === 'N2' || candidate === 'N1') break;
-        if (domains.every(domain => Number(evidence[`${candidate}:${domain}`] ?? 0) >= 8)) highestRank = candidate;
+        if (domains.every(domain => (evidence[`${candidate}:${domain}`]?.length ?? 0) >= 8)) highestRank = candidate;
       }
-      const domainStars = Object.fromEntries(domains.map(domain => [domain, Math.min(8, Math.floor(Number(evidence[`${question.rank}:${domain}`] ?? 0)))]));
-      return { schemaVersion: 1, requestId: payload.requestId, questionId: payload.questionId, correct, evidenceCount: Number(evidence[key] ?? 0), practiceStars, masteryStars: practiceStars >= 8 ? 1 : 0, unlockedCosmeticIds, highestRank, domainStars, serverTimeMs: now };
+      const domainStars = Object.fromEntries(domains.map(domain => {
+        const count = evidence[`${question.rank}:${domain}`]?.length ?? 0;
+        return [domain, count >= 8 ? 2 : count >= 4 ? 1 : 0];
+      }));
+      return { schemaVersion: 1, requestId: payload.requestId, questionId: payload.questionId, correct, evidenceCount, practiceStars, masteryStars, unlockedCosmeticIds, highestRank, domainStars, serverTimeMs: now };
     }
     if (name === 'completeKoiRegistration') {
       const status = payload.__admissionStatus === 'waitlisted' ? 'waitlisted' : 'active';

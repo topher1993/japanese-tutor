@@ -11,6 +11,7 @@ export interface KoiFirebaseLiveConfig {
   messagingSenderId: string;
   region: string;
   emailLinkUrl: string;
+  appCheckRequired: boolean;
   appCheckSiteKey?: string;
   functionsEmulator?: { host: string; port: number };
   authEmulatorOrigin?: string;
@@ -100,9 +101,10 @@ export function resolveKoiFirebaseLiveConfig(
     messagingSenderId: required(environment, 'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
     region: runtime.functionsRegion,
     emailLinkUrl,
+    appCheckRequired: environment.EXPO_PUBLIC_KOI_APP_CHECK_REQUIRED?.trim().toLowerCase() === 'true',
     ...(environment.EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY?.trim()
       ? { appCheckSiteKey: environment.EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY.trim() }
-      : runtime.stage === 'development' ? {} : { appCheckSiteKey: required(environment, 'EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY') }),
+      : {}),
     ...(emulator ? { functionsEmulator: { host: emulator.hostname, port: Number(emulator.port) } } : {}),
     ...(authEmulatorOrigin ? { authEmulatorOrigin } : {}),
     ...(runtime.workerUrl ? { workerUrl: runtime.workerUrl } : {}),
@@ -199,17 +201,19 @@ export async function createKoiFirebaseLiveClient(
         throw new KoiClientError('AUTH_REQUIRED', 'A verified email-link account is required.');
       }
       try {
-        if (config.workerUrl && (name === 'askKoiSensei' || name === 'synthesizeKoiReply' || name === 'syncKoiLearningContext' || name === 'syncKoiPetPresentation' || name === 'upsertKoiMemory' || name === 'deleteKoiMemory' || name === 'exportKoiData' || name === 'deleteKoiData' || name === 'reportKoiMessage' || name === 'revokeKoiConsent' || name === 'completeKoiRegistration' || name === 'getKoiAllowance' || name === ('submitQuizAnswer' as KoiCallableName))) {
+        if (config.workerUrl && (name === 'askKoiSensei' || name === 'synthesizeKoiReply' || name === 'syncKoiLearningContext' || name === 'syncKoiPetPresentation' || name === 'upsertKoiMemory' || name === 'deleteKoiMemory' || name === 'exportKoiData' || name === 'deleteKoiData' || name === 'reportKoiMessage' || name === 'revokeKoiConsent' || name === 'completeKoiRegistration' || name === 'getKoiAllowance' || name === 'submitQuizAnswer')) {
           const user = auth.currentUser;
           const [token, appCheckToken] = await Promise.all([
             user?.getIdToken(),
-            appCheck ? appCheckModule.getToken(appCheck).then(result => result.token) : Promise.resolve(null),
+            appCheck
+              ? appCheckModule.getToken(appCheck).then(result => result.token).catch(() => null)
+              : Promise.resolve(null),
           ]);
           if (!token) throw new KoiClientError('AUTH_REQUIRED', 'A verified email-link account is required.');
-          if (config.stage === 'production' && !appCheckToken) {
+          if (config.appCheckRequired && !appCheckToken) {
             throw new KoiClientError('APP_CHECK_FAILED', 'Koi could not verify this app installation.');
           }
-          const endpoint = name === ('submitQuizAnswer' as KoiCallableName) ? 'quiz/submit' : `koi/${name}`;
+          const endpoint = name === 'submitQuizAnswer' ? 'koi/quiz/submit' : `koi/${name}`;
           const response = await fetch(`${config.workerUrl}/v1/${endpoint}`, {
             method: 'POST',
             headers: {

@@ -227,6 +227,7 @@ export function KoiDojoPanel() {
   const [catalog, setCatalog] = React.useState<KoiDojoCatalogCard[]>([]);
   const [catalogSessionId, setCatalogSessionId] = React.useState<string | null>(null);
   const [catalogError, setCatalogError] = React.useState<string | null>(null);
+  const [evidenceNotice, setEvidenceNotice] = React.useState<string | null>(null);
   const activeSession = koi.state?.activeDojoSession ?? null;
 
   React.useEffect(() => {
@@ -283,8 +284,27 @@ export function KoiDojoPanel() {
     if (!session || feedback || busy || catalogSessionId !== session.sessionId) return;
     setBusy(true);
     try {
+      const question = getKoiDojoQuestion(session, catalog);
+      if (!question) throw new Error('This governed Koi question is unavailable.');
       const result = answerKoiDojoRound(session, choiceId, catalog);
       await koi.saveActivityState(petSnapshot, state.experience, result.session);
+      setEvidenceNotice(null);
+      if (koi.runtimeStage !== 'mock') {
+        try {
+          const authoritative = await koi.submitQuizAnswer({
+            questionId: question.contentId,
+            answer: choiceId,
+            domain: 'vocabulary',
+            rank: session.rank,
+          });
+          if (authoritative.correct !== result.correct) {
+            throw new Error('Koi could not reconcile this governed answer.');
+          }
+        } catch (cause) {
+          const reason = cause instanceof Error ? cause.message : 'server evidence is unavailable';
+          setEvidenceNotice(`The round is saved locally, but no rank star was granted: ${reason}`);
+        }
+      }
       setFeedback(result);
     } catch {
       // The round remains resumable from the last successfully persisted checkpoint.
@@ -400,6 +420,7 @@ export function KoiDojoPanel() {
         <Mascot expression={feedback.correct ? 'celebrate' : 'encourage'} size={84} />
         <Text accessibilityLiveRegion="assertive" style={styles.resultScore}>{feedback.correct ? 'Correct!' : 'Keep going'}</Text>
         <Text style={styles.bodyMuted}>The answer is “{feedback.correctLabel}”. Nothing is lost for a mistake.</Text>
+        {evidenceNotice ? <Text accessibilityRole="alert" style={styles.disclaimer}>{evidenceNotice}</Text> : null}
         <Button
           label={isLast ? 'See dojo result' : 'Next round'}
           onPress={() => {

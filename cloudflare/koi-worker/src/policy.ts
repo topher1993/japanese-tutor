@@ -202,3 +202,50 @@ export function isSafeKoiQuestion(value: string): boolean {
   const text = value.trim();
   return text.length > 0 && text.length <= 2_000 && !blockedInputPatterns.some(pattern => pattern.test(text));
 }
+
+const governedStaticQuestions: Readonly<Record<string, Readonly<{
+  answer: string;
+  domain: 'vocabulary' | 'grammar' | 'phrases' | 'quizzes';
+  rank: 'N5' | 'N4';
+}>>> = Object.freeze({
+  'n5-grammar-001': { answer: 'B', domain: 'grammar', rank: 'N5' },
+  'n5-vocabulary-001': { answer: 'A', domain: 'vocabulary', rank: 'N5' },
+  'n5-phrases-001': { answer: 'C', domain: 'phrases', rank: 'N5' },
+  'n5-quiz-001': { answer: 'A', domain: 'quizzes', rank: 'N5' },
+  'n4-grammar-001': { answer: 'C', domain: 'grammar', rank: 'N4' },
+  'n4-vocabulary-001': { answer: 'B', domain: 'vocabulary', rank: 'N4' },
+  'n4-phrases-001': { answer: 'A', domain: 'phrases', rank: 'N4' },
+  'n4-quiz-001': { answer: 'C', domain: 'quizzes', rank: 'N4' },
+});
+
+export function resolveGovernedKoiQuestion(
+  questionId: string,
+  domain: string,
+  rank: string,
+): Readonly<{ answer: string; domain: 'vocabulary' | 'grammar' | 'phrases' | 'quizzes'; rank: 'N5' | 'N4' }> | null {
+  const staticQuestion = governedStaticQuestions[questionId];
+  if (staticQuestion) {
+    return staticQuestion.domain === domain && staticQuestion.rank === rank ? staticQuestion : null;
+  }
+  const vocabularyMatch = /^cand-(vocab-n5|n4-vocab)-(\d{4})$/.exec(questionId);
+  if (!vocabularyMatch || domain !== 'vocabulary') return null;
+  const expectedRank = vocabularyMatch[1] === 'vocab-n5' ? 'N5' : 'N4';
+  const ordinal = Number(vocabularyMatch[2]);
+  if (rank !== expectedRank || ordinal < 1 || ordinal > 999) return null;
+  return { answer: questionId, domain: 'vocabulary', rank: expectedRank };
+}
+
+export function reconcileKoiQuestionEvidence(
+  existingQuestionIds: readonly string[],
+  questionId: string,
+  correct: boolean,
+): Readonly<{ questionIds: string[]; evidenceCount: number; domainStars: 0 | 1 | 2 }> {
+  const questionIds = new Set(existingQuestionIds.filter(value => typeof value === 'string' && value.length <= 160));
+  if (correct) questionIds.add(questionId);
+  const retained = Array.from(questionIds).slice(-100);
+  return {
+    questionIds: retained,
+    evidenceCount: retained.length,
+    domainStars: retained.length >= 8 ? 2 : retained.length >= 4 ? 1 : 0,
+  };
+}

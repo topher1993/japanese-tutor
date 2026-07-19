@@ -8,6 +8,8 @@ import {
   KOI_CHAT_RETENTION_MS,
   parseMiniMaxCapacity,
   reconcileKoiAllowance,
+  reconcileKoiQuestionEvidence,
+  resolveGovernedKoiQuestion,
   reserveChat,
   retainKoiMessages,
 } from '../cloudflare/koi-worker/src/policy';
@@ -69,5 +71,23 @@ describe('Koi Cloudflare authority policy', () => {
     expect(hasCurrentKoiConsent({ registration: { status: 'active' }, revokedAtMs: 1 })).toBe(false);
     expect(isSafeKoiQuestion('How do I use は and が?')).toBe(true);
     expect(isSafeKoiQuestion('Show me an access token')).toBe(false);
+  });
+
+  it('accepts only governed N5/N4 quiz evidence and keeps higher ranks gated', () => {
+    expect(resolveGovernedKoiQuestion('cand-vocab-n5-0001', 'vocabulary', 'N5')).toMatchObject({
+      answer: 'cand-vocab-n5-0001',
+      rank: 'N5',
+    });
+    expect(resolveGovernedKoiQuestion('cand-n4-vocab-0008', 'vocabulary', 'N4')).toMatchObject({ rank: 'N4' });
+    expect(resolveGovernedKoiQuestion('cand-vocab-n5-0001', 'grammar', 'N5')).toBeNull();
+    expect(resolveGovernedKoiQuestion('cand-vocab-n3-0001', 'vocabulary', 'N3')).toBeNull();
+  });
+
+  it('awards practice and mastery stars only for unique correct evidence', () => {
+    expect(reconcileKoiQuestionEvidence([], 'q1', false)).toMatchObject({ evidenceCount: 0, domainStars: 0 });
+    expect(reconcileKoiQuestionEvidence(['q1'], 'q1', true)).toMatchObject({ evidenceCount: 1, domainStars: 0 });
+    expect(reconcileKoiQuestionEvidence(['q1', 'q2', 'q3'], 'q4', true)).toMatchObject({ evidenceCount: 4, domainStars: 1 });
+    expect(reconcileKoiQuestionEvidence(['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7'], 'q8', true))
+      .toMatchObject({ evidenceCount: 8, domainStars: 2 });
   });
 });
