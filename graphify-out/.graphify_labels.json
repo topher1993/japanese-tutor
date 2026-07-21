@@ -331,6 +331,14 @@
   "329": "phase5WorkplaceSurvival.test.ts",
   "330": "overrides",
   "331": "WeeklyLessonScreen.tsx",
+  "332": "WorkplaceSurvivalScreen.tsx",
+  "333": "userProfile.ts",
   "334": "adjectiveCandidatePack.ts",
-  "336": "index.ts"
+  "335": "manifest.ts",
+  "336": "index.ts",
+  "337": "getN5VocabularyCandidatePack",
+  "338": "LearningRepository",
+  "339": "AsyncKeyValueStorage",
+  "340": "SrsKeyValueStorage",
+  "341": "koiSenseiGateway.test.ts"
 }
