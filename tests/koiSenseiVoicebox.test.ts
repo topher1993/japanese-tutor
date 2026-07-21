@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   isKoiVoiceboxConfigured,
+  KOI_VOICEBOX_TIMEOUT_MS,
   resolveKoiVoiceboxLanguage,
   synthesizeKoiVoiceboxReply,
 } from '../cloudflare/koi-worker/src/voicebox';
@@ -15,6 +16,10 @@ const configured = {
 };
 
 describe('Koi self-hosted Voicebox bridge', () => {
+  it('allows a bounded cold-start window for the local voice model', () => {
+    expect(KOI_VOICEBOX_TIMEOUT_MS).toBe(60_000);
+  });
+
   it('fails closed without HTTPS and both Cloudflare Access credentials', () => {
     expect(isKoiVoiceboxConfigured(configured)).toBe(true);
     expect(isKoiVoiceboxConfigured({ ...configured, VOICEBOX_BASE_URL: 'http://192.168.1.2:17493' })).toBe(false);

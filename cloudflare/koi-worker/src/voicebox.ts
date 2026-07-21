@@ -1,5 +1,8 @@
 export const KOI_VOICEBOX_MAX_AUDIO_BYTES = 8 * 1_024 * 1_024;
-export const KOI_VOICEBOX_TIMEOUT_MS = 45_000;
+// A cold Qwen CustomVoice load can take just over 45 seconds on the supported
+// CPU-only local host. Keep a bounded buffer so the first reply does not
+// silently fall back while still preventing a stuck upstream request.
+export const KOI_VOICEBOX_TIMEOUT_MS = 60_000;
 
 export interface KoiVoiceboxEnv {
   KOI_VOICEBOX_ENABLED?: string;
