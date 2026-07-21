@@ -4010,13 +4010,13 @@
     "semantic_hash": ""
   },
   "cloudflare/koi-worker/src/voicebox.ts": {
-    "mtime": 1784633576.4004054,
-    "ast_hash": "ffd181573f21c2bccdbfb6412e935359",
+    "mtime": 1784643240.128597,
+    "ast_hash": "c85ccad685895463519f55eb6174f6c9",
     "semantic_hash": ""
   },
   "tests/koiSenseiVoicebox.test.ts": {
-    "mtime": 1784633579.0860043,
-    "ast_hash": "1a5e6f2e2c8d2fc92a8ebd0cdd1c2e96",
+    "mtime": 1784643242.0117145,
+    "ast_hash": "dc42b479d61f03faca7f8378400cd3f6",
     "semantic_hash": ""
   },
   "docs/koi-sensei-v2/voicebox-setup.md": {

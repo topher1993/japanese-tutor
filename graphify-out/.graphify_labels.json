@@ -331,15 +331,7 @@
   "329": "phase5WorkplaceSurvival.test.ts",
   "330": "overrides",
   "331": "AppShell.tsx",
-  "332": "analyticsBackend.ts",
-  "333": "koiSenseiNativeSpeechInput.test.ts",
   "334": "adjectiveCandidatePack.ts",
   "335": "KoiDeviceSttAdapter",
-  "336": "index.ts",
-  "337": "SrsKeyValueStorage",
-  "338": "koiSenseiGateway.test.ts",
-  "339": "phaseUxSimplification.test.ts",
-  "340": "koiSenseiMediaSpeechVoice.test.ts",
-  "341": "koiSenseiMediaAvatarRetention.test.ts",
-  "342": "koiSenseiAvatarRenderer.test.ts"
+  "336": "index.ts"
 }
