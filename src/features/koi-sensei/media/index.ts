@@ -4,3 +4,4 @@ export * from './retention';
 export * from './speechInput';
 export * from './expoDeviceStt';
 export * from './ttsPolicy';
+export * from './cloudVoiceAudio';

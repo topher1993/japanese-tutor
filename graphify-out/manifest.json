@@ -3520,8 +3520,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/media/index.ts": {
-    "mtime": 1784211310.9231725,
-    "ast_hash": "b5dc4d79fad64db6acdd5a54fc146c86",
+    "mtime": 1784646158.1018312,
+    "ast_hash": "743abca2eab13b129566a78758e28dea",
     "semantic_hash": ""
   },
   "src/features/koi-sensei/media/persistenceSafety.ts": {
@@ -3745,8 +3745,8 @@
     "semantic_hash": ""
   },
   "src/features/koi-sensei/ui/KoiChatPanel.tsx": {
-    "mtime": 1784630348.6558094,
-    "ast_hash": "950c2d1e6279be05aa3f1f7a8d30ab09",
+    "mtime": 1784646229.5076008,
+    "ast_hash": "863957a322279f714f6ee3d0e8fe33bf",
     "semantic_hash": ""
   },
   "tests/koiSenseiAnalytics.test.ts": {
@@ -4022,6 +4022,16 @@
   "docs/koi-sensei-v2/voicebox-setup.md": {
     "mtime": 1784633581.8589704,
     "ast_hash": "b9bf6b7803e5e5878f95b36b94cb9679",
+    "semantic_hash": ""
+  },
+  "src/features/koi-sensei/media/cloudVoiceAudio.ts": {
+    "mtime": 1784646154.0087185,
+    "ast_hash": "cad423bd153bb7e59619cf3102da9a71",
+    "semantic_hash": ""
+  },
+  "tests/koiSenseiCloudVoicePlayback.test.ts": {
+    "mtime": 1784646166.550405,
+    "ast_hash": "4ce2041465730a0a98496bbaa702c25d",
     "semantic_hash": ""
   }
 }

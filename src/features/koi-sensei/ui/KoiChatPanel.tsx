@@ -1,5 +1,11 @@
 import React from 'react';
-import { useAudioPlayer } from 'expo-audio';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import {
+  EncodingType,
+  cacheDirectory,
+  deleteAsync,
+  writeAsStringAsync,
+} from 'expo-file-system/legacy';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -22,6 +28,7 @@ import { createKoiUuid, getKoiSystemVoiceText } from '../api';
 import {
   KOI_DEFAULT_SPEECH_INPUT_LOCALE,
   createExpoKoiDeviceSttAdapter,
+  prepareKoiCloudAudioSource,
   type KoiDeviceSttSession,
 } from '../media';
 import { ds } from '../../../theme/designSystem';
@@ -363,12 +370,17 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
   const [memoryStatus, setMemoryStatus] = React.useState('');
   const [savingMemory, setSavingMemory] = React.useState(false);
   const [dictating, setDictating] = React.useState(false);
+  const [voiceBusyMessageId, setVoiceBusyMessageId] = React.useState<string | null>(null);
+  const [voiceStatus, setVoiceStatus] = React.useState('');
   const speechSession = React.useRef<KoiDeviceSttSession | null>(null);
+  const voiceBusy = React.useRef<string | null>(null);
+  const cloudVoiceTemporaryUri = React.useRef<string | null>(null);
   const dictationRun = React.useRef(0);
   const dictationActive = React.useRef(false);
   const mounted = React.useRef(true);
   const speechAdapter = React.useMemo(() => createExpoKoiDeviceSttAdapter(), []);
-  const cloudVoicePlayer = useAudioPlayer(null, { downloadFirst: true });
+  const cloudVoicePlayer = useAudioPlayer(null);
+  const cloudVoicePlayerStatus = useAudioPlayerStatus(cloudVoicePlayer);
   const preferences = koi.state!.preferences;
   const messages = koi.state!.messages;
   const remaining = koi.allowance
@@ -379,6 +391,27 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
   React.useEffect(() => {
     if (draft === '' && koi.state?.draft) setDraft(koi.state.draft);
   }, [draft, koi.state?.draft]);
+
+  const deleteTemporaryVoiceFile = React.useCallback(async (uri?: string | null) => {
+    const target = uri ?? cloudVoiceTemporaryUri.current;
+    if (!target) return;
+    if (cloudVoiceTemporaryUri.current === target) cloudVoiceTemporaryUri.current = null;
+    await deleteAsync(target, { idempotent: true });
+  }, []);
+
+  React.useEffect(() => {
+    void setAudioModeAsync({
+      playsInSilentMode: true,
+      interruptionMode: 'doNotMix',
+      shouldRouteThroughEarpiece: false,
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (!cloudVoicePlayerStatus.didJustFinish) return;
+    setVoiceStatus('');
+    void deleteTemporaryVoiceFile();
+  }, [cloudVoicePlayerStatus.didJustFinish, deleteTemporaryVoiceFile]);
 
   const completeDictation = React.useCallback((run: number) => {
     if (dictationRun.current !== run) return;
@@ -396,8 +429,10 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
       const session = speechSession.current;
       speechSession.current = null;
       void session?.cancel();
+      cloudVoicePlayer.pause();
+      void deleteTemporaryVoiceFile();
     };
-  }, []);
+  }, [cloudVoicePlayer, deleteTemporaryVoiceFile]);
 
   const toggleDictation = async () => {
     if (dictationActive.current) {
@@ -455,22 +490,43 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
   };
 
   const speakKoiReply = React.useCallback(async (assistantMessageId: string, spokenText: string) => {
+    if (voiceBusy.current) return;
+    voiceBusy.current = assistantMessageId;
+    setVoiceBusyMessageId(assistantMessageId);
+    setVoiceStatus("Preparing Koi's custom voice…");
     let systemVoiceText = spokenText;
     try {
       const synthesis = await koi.synthesizeKoiReply(assistantMessageId);
       if (synthesis.status === 'cloud_audio' && synthesis.expiresAtMs > Date.now()) {
-        cloudVoicePlayer.replace(synthesis.audioUrl);
+        cloudVoicePlayer.pause();
+        await deleteTemporaryVoiceFile();
+        const prepared = await prepareKoiCloudAudioSource(synthesis.audioUrl, assistantMessageId, {
+          cacheDirectory,
+          deleteFile: uri => deleteAsync(uri, { idempotent: true }),
+          writeBase64: (uri, base64) => writeAsStringAsync(uri, base64, {
+            encoding: EncodingType.Base64,
+          }),
+        });
+        cloudVoiceTemporaryUri.current = prepared.temporaryUri;
+        cloudVoicePlayer.replace({ uri: prepared.uri });
         cloudVoicePlayer.play();
+        setVoiceStatus("Playing Koi's custom voice.");
+        voiceBusy.current = null;
+        setVoiceBusyMessageId(null);
         return;
       }
       systemVoiceText = getKoiSystemVoiceText(synthesis, spokenText);
-      // The URL is handed directly to the managed player and is never stored
-      // in Koi state, chat history, analytics, or local persistence.
+      setVoiceStatus("Koi's custom voice is unavailable. Using the device voice.");
     } catch {
-      // A live transport outage must not break the included system voice.
+      setVoiceStatus("Koi's custom voice could not play. Using the device voice.");
     }
-    if (systemVoiceText) await speakKoiReplyText(systemVoiceText);
-  }, [cloudVoicePlayer, koi]);
+    try {
+      if (systemVoiceText) await speakKoiReplyText(systemVoiceText);
+    } finally {
+      voiceBusy.current = null;
+      setVoiceBusyMessageId(null);
+    }
+  }, [cloudVoicePlayer, deleteTemporaryVoiceFile, koi]);
 
   const send = async () => {
     const text = draft.trim();
@@ -553,6 +609,9 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
       {chatError || koi.error ? (
         <Text accessibilityRole="alert" style={styles.error}>{chatError || koi.error}</Text>
       ) : null}
+      {voiceStatus ? (
+        <Text accessibilityLiveRegion="polite" style={styles.voiceStatus}>{voiceStatus}</Text>
+      ) : null}
       <ScreenScaffold contentStyle={styles.messageList}>
         {messages.length === 0 ? (
           <View style={[styles.messageBubble, styles.assistantBubble]}>
@@ -575,10 +634,18 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Speak Koi's reply"
+                accessibilityState={{ busy: voiceBusyMessageId === message.id, disabled: voiceBusyMessageId !== null }}
+                disabled={voiceBusyMessageId !== null}
                 onPress={() => { void speakKoiReply(message.id, message.spokenText!); }}
-                style={({ pressed }) => [styles.speakButton, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.speakButton,
+                  voiceBusyMessageId !== null && styles.speakButtonDisabled,
+                  pressed && styles.pressed,
+                ]}
               >
-                <Text style={styles.speakText}>Speak reply</Text>
+                <Text style={styles.speakText}>
+                  {voiceBusyMessageId === message.id ? 'Preparing voice…' : 'Speak reply'}
+                </Text>
               </Pressable>
             ) : null}
             {message.role === 'assistant' && koi.runtimeStage !== 'mock' ? (
@@ -745,6 +812,7 @@ const styles = StyleSheet.create({
   versionText: { color: ds.colors.textMuted, fontSize: ds.type.micro, lineHeight: 16 },
   notice: { color: ds.colors.brandDark, backgroundColor: ds.colors.brandSoft, padding: ds.spacing.sm, borderRadius: ds.radius.md, fontSize: ds.type.caption, lineHeight: 19 },
   error: { color: ds.colors.danger, backgroundColor: ds.colors.dangerSoft, padding: ds.spacing.sm, fontSize: ds.type.caption },
+  voiceStatus: { color: ds.colors.brandDark, backgroundColor: ds.colors.brandSoft, paddingHorizontal: ds.spacing.md, paddingVertical: ds.spacing.sm, fontSize: ds.type.caption },
   pressed: { opacity: 0.82 },
   chatShell: { flex: 1, backgroundColor: ds.colors.background },
   chatHeader: { paddingHorizontal: ds.spacing.md, paddingTop: ds.spacing.md, gap: ds.spacing.sm },
@@ -766,6 +834,7 @@ const styles = StyleSheet.create({
   reportChoiceSelected: { borderColor: ds.colors.danger, backgroundColor: ds.colors.dangerSoft },
   reportChoiceText: { color: ds.colors.text, fontSize: ds.type.micro, textTransform: 'capitalize' },
   speakButton: { alignSelf: 'flex-start', minHeight: ds.touch.min, justifyContent: 'center', marginTop: ds.spacing.xs },
+  speakButtonDisabled: { opacity: 0.55 },
   speakText: { color: ds.colors.brandDark, fontSize: ds.type.caption, fontWeight: '900' },
   chatActions: { gap: ds.spacing.sm, marginTop: ds.spacing.md },
   composer: {
