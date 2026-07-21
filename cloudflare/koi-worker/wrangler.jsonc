@@ -10,6 +10,7 @@
     "KOI_ACTIVE_ACCOUNT_LIMIT": "50",
     "KOI_APP_CHECK_REQUIRED": "false",
     "KOI_PROVIDER_ENABLED": "true",
+    "KOI_VOICEBOX_ENABLED": "true",
     "KOI_USAGE_MODE": "personal_unlimited"
   },
   "durable_objects": {

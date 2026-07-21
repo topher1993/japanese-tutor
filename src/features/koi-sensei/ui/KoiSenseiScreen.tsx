@@ -95,7 +95,7 @@ export function KoiSenseiScreen({ supportLanguage, onBack }: KoiSenseiScreenProp
     trackKoiEvent('koi_hub_opened', {
       rank,
       stars,
-      avatar_mode: koi.state?.preferences.avatarMode ?? '2d',
+      avatar_mode: koi.state?.preferences.avatarMode ?? '3d',
       effect_mode: effect.renderMode,
     });
   }, [effect.renderMode, koi.state?.preferences.avatarMode, rank, stars]);

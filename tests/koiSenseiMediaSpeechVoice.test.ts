@@ -121,6 +121,32 @@ describe('Koi Sensei raw-audio persistence guard', () => {
 });
 
 describe('Koi Sensei zero-additional-cost TTS routing', () => {
+  it('prefers the authenticated self-hosted Voicebox stream at zero per-generation cost', () => {
+    expect(selectKoiTtsRoute({
+      playbackEnabled: true,
+      networkAvailable: true,
+      systemVoice: includedSystemVoice,
+      voicebox: {
+        available: true,
+        selfHosted: true,
+        authenticatedTunnel: true,
+        streamingOnly: true,
+        additionalPerGenerationCost: false,
+      },
+      miniMax: coveredAttestation(),
+      requestedCharacters: 5,
+      now: NOW,
+    })).toEqual({
+      engine: 'voicebox-self-hosted',
+      reason: 'voicebox-self-hosted-available',
+      mayUsePaidCredits: false,
+      rawAudioPersistence: 'prohibited',
+      credentialLocation: 'server-only',
+      requestedCharacters: 5,
+      serverCharacterReservation: 'not-required',
+    });
+  });
+
   it('uses MiniMax only with a fresh explicit yearly-plan coverage attestation', () => {
     expect(selectKoiTtsRoute({
       playbackEnabled: true,

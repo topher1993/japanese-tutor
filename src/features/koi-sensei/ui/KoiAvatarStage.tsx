@@ -5,11 +5,16 @@ import type { MascotExpression } from '../../../components/Mascot';
 import { ds } from '../../../theme/designSystem';
 import type { KoiAvatarMode, KoiCosmeticSlot } from '../domain';
 import {
-  KOI_AVATAR_PLACEHOLDER_MANIFEST,
+  KOI_AVATAR_TANUKI_MANIFEST,
   selectKoiAvatarRenderPlan,
 } from '../media';
 import { getKoiEquippedCosmeticVisuals } from './avatarCosmeticVisuals';
 import { KoiPet } from './KoiPet';
+
+const LazyKoiAvatarThreeStage = React.lazy(async () => {
+  const module = await import('./KoiAvatarThreeStage');
+  return { default: module.KoiAvatarThreeStage };
+});
 
 export interface KoiAvatarStageProps {
   avatarMode: KoiAvatarMode;
@@ -18,6 +23,50 @@ export interface KoiAvatarStageProps {
   equippedCosmeticIds: Partial<Record<KoiCosmeticSlot, string>>;
   expression?: MascotExpression;
   effectDescription?: string;
+}
+
+interface KoiAvatarBoundaryProps {
+  children: React.ReactNode;
+  fallback: React.ReactNode;
+  onError: () => void;
+}
+
+interface KoiAvatarBoundaryState {
+  failed: boolean;
+}
+
+class KoiAvatarBoundary extends React.Component<KoiAvatarBoundaryProps, KoiAvatarBoundaryState> {
+  state: KoiAvatarBoundaryState = { failed: false };
+
+  static getDerivedStateFromError(): KoiAvatarBoundaryState {
+    return { failed: true };
+  }
+
+  componentDidCatch(): void {
+    this.props.onError();
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
+let cachedWebGlSupport: boolean | undefined;
+
+function supportsWebGl(): boolean {
+  if (Platform.OS !== 'web') return true;
+  if (typeof document !== 'object') return false;
+  if (cachedWebGlSupport !== undefined) return cachedWebGlSupport;
+
+  try {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    cachedWebGlSupport = context !== null;
+    context?.getExtension('WEBGL_lose_context')?.loseContext();
+  } catch {
+    cachedWebGlSupport = false;
+  }
+  return cachedWebGlSupport;
 }
 
 function KoiAvatarTwoDimensional({
@@ -65,7 +114,9 @@ export function KoiAvatarStage({
   expression = 'happy',
   effectDescription,
 }: KoiAvatarStageProps) {
-  const motionDisabled = reducedMotion || avatarMode === '2d';
+  const [rendererFailed, setRendererFailed] = React.useState(false);
+  React.useEffect(() => setRendererFailed(false), [avatarMode]);
+  const motionDisabled = reducedMotion || lowPowerMode || avatarMode === '2d';
   const useNativeDriver = Platform.OS !== 'web';
   const entrance = React.useRef(new Animated.Value(motionDisabled ? 1 : 0)).current;
   const floatOffset = React.useRef(new Animated.Value(0)).current;
@@ -115,11 +166,9 @@ export function KoiAvatarStage({
     preferredMode: avatarMode,
     reducedMotion,
     lowPowerMode,
-    webGlAvailable: false,
-    // The bundled GLB is an engineering contract, not production character
-    // art. Never surface its old fish-like placeholder as the user's pet.
-    assetStatus: 'missing',
-    manifest: KOI_AVATAR_PLACEHOLDER_MANIFEST,
+    webGlAvailable: supportsWebGl(),
+    assetStatus: rendererFailed ? 'failed' : 'ready',
+    manifest: KOI_AVATAR_TANUKI_MANIFEST,
     fallback2dAvailable: true,
   });
   const visuals = getKoiEquippedCosmeticVisuals(equippedCosmeticIds);
@@ -154,7 +203,16 @@ export function KoiAvatarStage({
           },
         ]}
       >
-        {fallback}
+        {plan.renderer === '3d' ? (
+          <KoiAvatarBoundary fallback={fallback} onError={() => setRendererFailed(true)}>
+            <React.Suspense fallback={fallback}>
+              <LazyKoiAvatarThreeStage
+                equippedCosmeticIds={equippedCosmeticIds}
+                expression={expression}
+              />
+            </React.Suspense>
+          </KoiAvatarBoundary>
+        ) : fallback}
       </Animated.View>
     </View>
   );

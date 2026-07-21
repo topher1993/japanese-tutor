@@ -682,11 +682,11 @@ export function KoiSettingsPanel() {
       <View style={styles.section}>
         <Text accessibilityRole="header" style={styles.sectionTitle}>Avatar and effects</Text>
         <Card shadow="none" style={styles.settingsCard}>
-          <Text style={styles.cardTitle}>Pet motion</Text>
-          <Text style={styles.bodyMuted}>Koi uses polished tanuki art. Choose gentle floating or keep the pet completely still.</Text>
+          <Text style={styles.cardTitle}>Avatar style</Text>
+          <Text style={styles.bodyMuted}>Choose real-time 3D with live lighting and expressions or the polished 2D fallback.</Text>
           <View style={styles.segmentRow}>
-            <PreferenceChoice label="Float gently" selected={preferences.avatarMode === '3d'} onPress={() => save({ avatarMode: '3d' })} testID="koi-setting-avatar-3d" />
-            <PreferenceChoice label="Keep still" selected={preferences.avatarMode === '2d'} onPress={() => save({ avatarMode: '2d' })} testID="koi-setting-avatar-2d" />
+            <PreferenceChoice label="3D animated" selected={preferences.avatarMode === '3d'} onPress={() => save({ avatarMode: '3d' })} testID="koi-setting-avatar-3d" />
+            <PreferenceChoice label="2D still" selected={preferences.avatarMode === '2d'} onPress={() => save({ avatarMode: '2d' })} testID="koi-setting-avatar-2d" />
           </View>
         </Card>
         <Card shadow="none" style={styles.settingsCard}>

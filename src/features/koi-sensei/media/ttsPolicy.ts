@@ -23,10 +23,19 @@ export interface KoiIncludedSystemVoiceAvailability {
   includedWithPlatform: boolean;
 }
 
+export interface KoiVoiceboxAvailability {
+  available: boolean;
+  selfHosted: boolean;
+  authenticatedTunnel: boolean;
+  streamingOnly: boolean;
+  additionalPerGenerationCost: false;
+}
+
 export interface KoiTtsPolicyInput {
   playbackEnabled: boolean;
   networkAvailable: boolean;
   systemVoice: KoiIncludedSystemVoiceAvailability;
+  voicebox?: KoiVoiceboxAvailability | null;
   miniMax?: KoiMiniMaxTtsCoverageAttestation | null;
   /** Count of the already-truncated text that the server must atomically reserve. */
   requestedCharacters: number;
@@ -35,6 +44,7 @@ export interface KoiTtsPolicyInput {
 
 export type KoiTtsRouteReason =
   | 'playback-disabled'
+  | 'voicebox-self-hosted-available'
   | 'minimax-explicitly-covered'
   | 'minimax-not-explicitly-covered'
   | 'minimax-attestation-stale'
@@ -45,7 +55,7 @@ export type KoiTtsRouteReason =
   | 'no-cost-free-voice-available';
 
 export interface KoiTtsRoute {
-  engine: 'minimax-subscription' | 'system-included' | 'silent';
+  engine: 'voicebox-self-hosted' | 'minimax-subscription' | 'system-included' | 'silent';
   reason: KoiTtsRouteReason;
   mayUsePaidCredits: false;
   rawAudioPersistence: 'prohibited';
@@ -124,6 +134,27 @@ export function selectKoiTtsRoute(input: KoiTtsPolicyInput): KoiTtsRoute {
   }
 
   const now = input.now ?? Date.now();
+  const voiceboxEligible = input.networkAvailable
+    && input.voicebox?.available === true
+    && input.voicebox.selfHosted
+    && input.voicebox.authenticatedTunnel
+    && input.voicebox.streamingOnly
+    && input.voicebox.additionalPerGenerationCost === false
+    && requestedCharacters > 0
+    && requestedCharacters <= KOI_MAX_TTS_TEXT_LENGTH;
+
+  if (voiceboxEligible) {
+    return {
+      engine: 'voicebox-self-hosted',
+      reason: 'voicebox-self-hosted-available',
+      mayUsePaidCredits: false,
+      rawAudioPersistence: 'prohibited',
+      credentialLocation: 'server-only',
+      requestedCharacters,
+      serverCharacterReservation: 'not-required',
+    };
+  }
+
   const miniMaxEligible = input.networkAvailable
     && input.miniMax?.source === 'trusted-server'
     && input.miniMax.usageMode === 'yearly-token-plan'
@@ -202,7 +233,7 @@ export function createKoiTtsPlaybackRequest(
   return {
     text,
     locale,
-    transport: route.engine === 'minimax-subscription'
+    transport: route.engine === 'minimax-subscription' || route.engine === 'voicebox-self-hosted'
       ? 'server-text-only'
       : 'device-text-only',
     responseHandling: 'ephemeral-playback-only',

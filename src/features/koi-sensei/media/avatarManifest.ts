@@ -25,9 +25,9 @@ export interface KoiAvatarManifestV1 {
   contractId: typeof KOI_AVATAR_CONTRACT_ID;
   assetId: string;
   label: string;
-  source: 'engineering-placeholder' | 'commissioned';
-  delivery: 'metadata-only' | 'bundled-glb';
-  format: 'glb';
+  source: 'engineering-placeholder' | 'commissioned' | 'procedural-art';
+  delivery: 'metadata-only' | 'bundled-glb' | 'runtime-mesh';
+  format: 'glb' | 'procedural';
   assetUri: string | null;
   rootNode: string;
   bodyNode: string;
@@ -45,9 +45,49 @@ export interface KoiAvatarManifestV1 {
 
 export const KOI_AVATAR_ASSET_BUDGETS = Object.freeze({
   triangleCount: 12_000,
-  drawCalls: 8,
+  drawCalls: 64,
   textureDimension: 2_048,
   fileBytes: 4 * 1_024 * 1_024,
+});
+
+/**
+ * Koi's production identity is assembled from local Three.js primitives. This
+ * keeps the mascot deterministic and offline while still providing genuine
+ * depth, lighting, expression animation, and socketed 3D equipment.
+ */
+export const KOI_AVATAR_TANUKI_MANIFEST: Readonly<KoiAvatarManifestV1> = Object.freeze({
+  schemaVersion: 1,
+  contractId: KOI_AVATAR_CONTRACT_ID,
+  assetId: 'koi-tanuki-procedural-v1',
+  label: 'Koi, the magical tanuki study companion',
+  source: 'procedural-art',
+  delivery: 'runtime-mesh',
+  format: 'procedural',
+  assetUri: null,
+  rootNode: 'KoiRoot',
+  bodyNode: 'KoiBody',
+  sockets: Object.freeze({
+    crest: 'Socket_Crest',
+    face: 'Socket_Face',
+    back: 'Socket_Back',
+    hand: 'Socket_Hand',
+  }),
+  animations: Object.freeze({
+    idle: 'Idle',
+    blink: 'Blink',
+    thinking: 'Thinking',
+    speaking: 'Speaking',
+    celebration: 'Celebration',
+    encouragement: 'Encouragement',
+  }),
+  fallback2dId: 'koi-tanuki-2d-fallback',
+  budgets: Object.freeze({
+    triangleCount: 11_800,
+    drawCalls: 58,
+    textureDimension: 0,
+    fileBytes: 0,
+  }),
+  accessibilityLabel: `${KOI_AVATAR_ACCESSIBILITY_LABEL}. A magical tanuki companion`,
 });
 
 /**
@@ -119,7 +159,7 @@ export function validateKoiAvatarManifest(value: unknown): KoiAvatarManifestVali
   if (value.contractId !== KOI_AVATAR_CONTRACT_ID) issues.push('contractId:unsupported');
   if (!isNonEmptyText(value.assetId)) issues.push('assetId:required');
   if (!isNonEmptyText(value.label)) issues.push('label:required');
-  if (value.format !== 'glb') issues.push('format:must-be-glb');
+  if (value.format !== 'glb' && value.format !== 'procedural') issues.push('format:unsupported');
   if (!isNonEmptyText(value.rootNode)) issues.push('rootNode:required');
   if (!isNonEmptyText(value.bodyNode)) issues.push('bodyNode:required');
   if (!isNonEmptyText(value.fallback2dId)) issues.push('fallback2dId:required');
@@ -156,14 +196,19 @@ export function validateKoiAvatarManifest(value: unknown): KoiAvatarManifestVali
     && value.assetUri === null;
   const bundled = (value.source === 'commissioned' || value.source === 'engineering-placeholder')
     && value.delivery === 'bundled-glb'
+    && value.format === 'glb'
     && isNonEmptyText(value.assetUri)
     && !/^(?:https?:|data:|file:)/iu.test(value.assetUri)
     && value.assetUri.toLowerCase().endsWith('.glb');
-  if (!metadataOnly && !bundled) issues.push('delivery:invalid-source-or-uri');
+  const procedural = value.source === 'procedural-art'
+    && value.delivery === 'runtime-mesh'
+    && value.format === 'procedural'
+    && value.assetUri === null;
+  if (!metadataOnly && !bundled && !procedural) issues.push('delivery:invalid-source-or-uri');
 
   return {
     valid: issues.length === 0,
-    renderable3d: issues.length === 0 && bundled,
+    renderable3d: issues.length === 0 && (bundled || procedural),
     issues,
   };
 }

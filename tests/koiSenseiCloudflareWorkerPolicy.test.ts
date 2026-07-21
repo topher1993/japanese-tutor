@@ -153,6 +153,20 @@ describe('Koi Cloudflare authority policy', () => {
     expect(worker).toContain("'cache-control': 'no-store'");
   });
 
+  it('keeps Voicebox behind Access or gateway Basic Auth and uses its non-persisting stream route', () => {
+    const bridge = readFileSync('cloudflare/koi-worker/src/voicebox.ts', 'utf8');
+    const config = readFileSync('cloudflare/koi-worker/wrangler.jsonc', 'utf8');
+    expect(bridge).toContain('/generate/stream');
+    expect(bridge).toContain("'CF-Access-Client-Id'");
+    expect(bridge).toContain("'CF-Access-Client-Secret'");
+    expect(bridge).toContain("mode === 'basic'");
+    expect(bridge).toContain('VOICEBOX_BASIC_PASSWORD');
+    expect(bridge).toContain("url.protocol !== 'https:'");
+    expect(config).toContain('"KOI_VOICEBOX_ENABLED": "true"');
+    expect(config).not.toContain('VOICEBOX_ACCESS_CLIENT_SECRET');
+    expect(config).not.toContain('VOICEBOX_BASIC_PASSWORD');
+  });
+
   it('removes the cloud learning summary when detailed sharing is disabled or AI consent is revoked', () => {
     const worker = readFileSync('cloudflare/koi-worker/src/index.ts', 'utf8');
     expect(worker.match(/delete state\.learnerContext;/g)).toHaveLength(2);

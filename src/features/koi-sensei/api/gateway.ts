@@ -344,6 +344,11 @@ function parseSynthesis(value: unknown, requestId: string): KoiSynthesisResult {
   const allowance = parseAllowance(value.allowance);
 
   if (value.status === 'cloud_audio') {
+    const validHttpsAudioUrl = typeof value.audioUrl === 'string'
+      && /^https:\/\/[^\s/]+(?:\/|$)/u.test(value.audioUrl);
+    const validEphemeralWavDataUrl = typeof value.audioUrl === 'string'
+      && value.audioUrl.length <= 12_000_000
+      && /^data:audio\/(?:wav|x-wav);base64,[A-Za-z0-9+/]+={0,2}$/u.test(value.audioUrl);
     if (!hasOnlyKeys(value, [
       'schemaVersion',
       'requestId',
@@ -354,7 +359,7 @@ function parseSynthesis(value: unknown, requestId: string): KoiSynthesisResult {
       'dailyCharacterRemaining',
       'allowance',
     ])
-      || typeof value.audioUrl !== 'string' || !/^https:\/\/[^\s/]+(?:\/|$)/u.test(value.audioUrl)
+      || (!validHttpsAudioUrl && !validEphemeralWavDataUrl)
       || finiteInteger(value.expiresAtMs, 1, Number.MAX_SAFE_INTEGER) === null
       || typeof value.cached !== 'boolean') {
       throw new KoiClientError('INVALID_RESPONSE', 'Koi returned an invalid cloud voice response.');
@@ -362,7 +367,7 @@ function parseSynthesis(value: unknown, requestId: string): KoiSynthesisResult {
     return {
       requestId,
       status: 'cloud_audio',
-      audioUrl: value.audioUrl,
+      audioUrl: value.audioUrl as string,
       expiresAtMs: value.expiresAtMs as number,
       cached: value.cached,
       dailyCharacterRemaining,

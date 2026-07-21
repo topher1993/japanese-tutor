@@ -253,6 +253,55 @@ export function normalizeKoiReplyText(value: string): string {
   return normalized.slice(0, 8_000).trim();
 }
 
+export interface KoiModelReply {
+  text: string;
+  stoppedForLength: boolean;
+}
+
+/** Collect every text block and surface provider length stops to the caller. */
+export function parseKoiModelReply(value: unknown): KoiModelReply {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { text: '', stoppedForLength: false };
+  }
+  const response = value as { content?: unknown; stop_reason?: unknown };
+  const text = Array.isArray(response.content)
+    ? response.content
+      .filter((part): part is { type: 'text'; text: string } => (
+        Boolean(part)
+        && typeof part === 'object'
+        && !Array.isArray(part)
+        && (part as { type?: unknown }).type === 'text'
+        && typeof (part as { text?: unknown }).text === 'string'
+      ))
+      .map(part => part.text)
+      .join('\n')
+    : '';
+  return {
+    text: normalizeKoiReplyText(text),
+    stoppedForLength: response.stop_reason === 'max_tokens' || response.stop_reason === 'length',
+  };
+}
+
+/** Build a short voice version without cutting through a sentence or word. */
+export function buildKoiSpokenText(value: string, maxLength = 240): string {
+  const normalized = normalizeKoiReplyText(value);
+  if (normalized.length <= maxLength) return normalized;
+  const candidate = normalized.slice(0, maxLength);
+  const sentencePattern = /[.!?\u3002\uff01\uff1f]+["'\u201d\u2019\u300d\u300f\uff09)]*/gu;
+  let sentenceEnd = 0;
+  for (const match of candidate.matchAll(sentencePattern)) {
+    sentenceEnd = (match.index ?? 0) + match[0].length;
+  }
+  if (sentenceEnd >= Math.min(80, Math.floor(maxLength / 2))) {
+    return candidate.slice(0, sentenceEnd).trimEnd();
+  }
+  const wordEnd = Math.max(candidate.lastIndexOf(' '), candidate.lastIndexOf('\n'));
+  const fallbackEnd = wordEnd >= Math.min(80, Math.floor(maxLength / 2))
+    ? wordEnd
+    : maxLength - 1;
+  return `${candidate.slice(0, fallbackEnd).trimEnd()}\u2026`;
+}
+
 export interface KoiReplyEvaluation {
   acceptable: boolean;
   reasons: string[];

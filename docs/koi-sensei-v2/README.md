@@ -20,10 +20,11 @@ accounts.
 - The backend checks a fresh provider-capacity snapshot before every MiniMax
   call, globally permits at most two calls at once, and fails closed if quota
   state is stale or exhausted.
-- Personal mode currently uses the included device system voice. MiniMax TTS
-  stays disabled until its separate subscription character budget can be
-  checked fresh and atomically before a request. Raw microphone audio is never
-  uploaded or persisted.
+- Personal mode prefers the owner's self-hosted Voicebox profile through an
+  authenticated Cloudflare Access tunnel and falls back to the included
+  bilingual device voices. MiniMax TTS stays disabled. Voicebox generation uses
+  its non-persisting stream route; raw microphone and generated audio are never
+  written to Koi state or app storage.
 - Course progress stays on the device by default. A learner must separately opt
   in before a bounded learning summary can be synced to Koi.
 - Governed N5/N4 Dojo answers are checked by Cloudflare and deduplicated before
@@ -50,6 +51,9 @@ Japanese Tutor app
                                                        Token Plan guard + 2-call leases
                                                                          |
                                                           M2.7 text or fail closed
+                                                                         |
+                                              Voicebox stream through Access tunnel
+                                                or bilingual device-voice fallback
 ```
 
 The mobile boundary is transport-injected and credential-free. Firebase dev,
@@ -61,6 +65,10 @@ Firebase supplies email-link identity, while Koi state, retention, consent,
 rewards, and provider controls live in the Cloudflare Worker/Durable Objects.
 Firebase Functions are retained only as a contract-compatible emulator and are
 not deployed under the owner's no-additional-cost rule.
+
+The optional Voicebox companion setup is documented in
+[`voicebox-setup.md`](./voicebox-setup.md). The PC must be online for Koi's
+custom voice; the app remains usable and audible when it is offline.
 
 As of 2026-07-20, personal live mode is deployed with verified-email Firebase
 claims, strict 32 KiB/exact-key payload validation, expiring two-call provider

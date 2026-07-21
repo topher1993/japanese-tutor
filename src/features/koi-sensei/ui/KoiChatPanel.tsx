@@ -14,7 +14,9 @@ import { Button } from '../../../components/Button';
 import { Card } from '../../../components/Card';
 import { ScreenHeader } from '../../../components/ScreenHeader';
 import { ScreenScaffold } from '../../../components/ScreenScaffold';
-import { speakJapanese } from '../../../services/speechPracticeService';
+import {
+  speakKoiReplyText,
+} from '../../../services/speechPracticeService';
 import { koiLatencyBucket, trackKoiEvent } from '../analytics';
 import { createKoiUuid, getKoiSystemVoiceText } from '../api';
 import {
@@ -467,7 +469,7 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
     } catch {
       // A live transport outage must not break the included system voice.
     }
-    if (systemVoiceText) speakJapanese(systemVoiceText);
+    if (systemVoiceText) await speakKoiReplyText(systemVoiceText);
   }, [cloudVoicePlayer, koi]);
 
   const send = async () => {
@@ -572,7 +574,7 @@ function EligibleKoiChat({ onBack }: { onBack: () => void }) {
             {message.role === 'assistant' && message.spokenText && preferences.voicePlaybackEnabled ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Speak Koi's reply with the included system voice"
+                accessibilityLabel="Speak Koi's reply"
                 onPress={() => { void speakKoiReply(message.id, message.spokenText!); }}
                 style={({ pressed }) => [styles.speakButton, pressed && styles.pressed]}
               >

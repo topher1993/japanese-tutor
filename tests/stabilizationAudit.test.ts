@@ -24,13 +24,23 @@ describe('production stabilization regressions', () => {
     expect(toasts).toContain('accessibilityLiveRegion="assertive"');
   });
 
-  it('removes unnecessary production permissions, disables backup, and forbids implicit debug signing', () => {
+  it('removes unnecessary permissions, blocks backup leakage, gates API-33 splash resources, and forbids implicit debug signing', () => {
     const manifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
     const gradle = readFileSync('android/app/build.gradle', 'utf8');
+    const baseStyles = readFileSync('android/app/src/main/res/values/styles.xml', 'utf8');
+    const api33Styles = readFileSync('android/app/src/main/res/values-v33/styles.xml', 'utf8');
+    const backupRules = readFileSync('android/app/src/main/res/xml/backup_rules.xml', 'utf8');
+    const extractionRules = readFileSync('android/app/src/main/res/xml/data_extraction_rules.xml', 'utf8');
     expect(manifest).not.toContain('READ_EXTERNAL_STORAGE');
     expect(manifest).not.toContain('WRITE_EXTERNAL_STORAGE');
     expect(manifest).not.toContain('SYSTEM_ALERT_WINDOW');
     expect(manifest).toContain('android:allowBackup="false"');
+    expect(manifest).toContain('android:fullBackupContent="@xml/backup_rules"');
+    expect(manifest).toContain('android:dataExtractionRules="@xml/data_extraction_rules"');
+    expect(backupRules).toContain('<exclude domain="database" path="." />');
+    expect(extractionRules).toContain('<device-transfer>');
+    expect(baseStyles).not.toContain('android:windowSplashScreenBehavior');
+    expect(api33Styles).toContain('android:windowSplashScreenBehavior');
     expect(gradle).toContain('hasProductionSigning');
     expect(gradle).toContain('allowDebugReleaseSigning');
     expect(gradle).toContain('verifyReleaseSigningPolicy');

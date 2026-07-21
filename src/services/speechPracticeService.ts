@@ -71,6 +71,91 @@ export function speakJapanese(text: string, rate = 0.82): void {
   track('japanese_audio_played', { text_length: reading.length, rate });
 }
 
+export type KoiSpeechLanguage = 'ja-JP' | 'en-US';
+
+export interface KoiSpeechSegment {
+  text: string;
+  language: KoiSpeechLanguage;
+}
+
+const JAPANESE_SPEECH_CHARACTER = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\u3005\u3006\u30f5\u30f6]/u;
+const ENGLISH_SPEECH_CHARACTER = /[A-Za-z\u00c0-\u024f]/u;
+
+function speechLanguageForCharacter(character: string): KoiSpeechLanguage | null {
+  if (JAPANESE_SPEECH_CHARACTER.test(character)) return 'ja-JP';
+  if (ENGLISH_SPEECH_CHARACTER.test(character)) return 'en-US';
+  return null;
+}
+
+/** Split a tutor reply into script runs so each language gets a native voice. */
+export function segmentKoiSpeechText(text: string): KoiSpeechSegment[] {
+  const source = text.trim();
+  if (!source) return [];
+  const segments: KoiSpeechSegment[] = [];
+  let language: KoiSpeechLanguage | null = null;
+  let segment = '';
+  let neutral = '';
+
+  const pushSegment = () => {
+    const normalized = segment.trim();
+    if (normalized && language) segments.push({ text: normalized, language });
+    segment = '';
+  };
+
+  for (const character of source) {
+    const nextLanguage = speechLanguageForCharacter(character);
+    if (!nextLanguage) {
+      neutral += character;
+      continue;
+    }
+    if (!language) {
+      language = nextLanguage;
+      segment = `${neutral}${character}`;
+      neutral = '';
+      continue;
+    }
+    if (nextLanguage === language) {
+      segment += `${neutral}${character}`;
+      neutral = '';
+      continue;
+    }
+    segment += neutral;
+    neutral = '';
+    pushSegment();
+    language = nextLanguage;
+    segment = character;
+  }
+
+  if (!language) return [{ text: source, language: 'en-US' }];
+  segment += neutral;
+  pushSegment();
+  return segments;
+}
+
+export function koiSpeechContainsEnglish(text: string): boolean {
+  return segmentKoiSpeechText(text).some(segment => segment.language === 'en-US');
+}
+
+/** Speak Koi's bilingual reply with native Japanese and English system voices. */
+export async function speakKoiReplyText(text: string): Promise<void> {
+  const segments = segmentKoiSpeechText(text);
+  if (segments.length === 0) return;
+  await Speech.stop().catch(() => undefined);
+  for (const item of segments) {
+    Speech.speak(item.text, {
+      language: item.language,
+      rate: item.language === 'ja-JP' ? 0.82 : 0.94,
+      pitch: 1,
+      useApplicationAudioSession: false,
+    });
+  }
+  track('japanese_audio_played', {
+    text_length: text.length,
+    mode: 'koi-bilingual',
+    segment_count: segments.length,
+  });
+}
+
 export function markShadowingAttempt(text: string): void {
   track('japanese_shadowing_attempt', { text_length: text.length });
 }

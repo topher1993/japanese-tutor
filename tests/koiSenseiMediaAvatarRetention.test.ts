@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   KOI_AVATAR_PLACEHOLDER_MANIFEST,
+  KOI_AVATAR_TANUKI_MANIFEST,
   KOI_CHAT_RETENTION_MS,
   KOI_MAX_APPROVED_MEMORIES,
   KOI_MAX_RETAINED_MESSAGES,
@@ -36,6 +37,35 @@ function commissionedManifest(): KoiAvatarManifestV1 {
 }
 
 describe('Koi Sensei avatar delivery contract', () => {
+  it('ships the production tanuki as a valid local procedural 3D avatar', () => {
+    expect(validateKoiAvatarManifest(KOI_AVATAR_TANUKI_MANIFEST)).toEqual({
+      valid: true,
+      renderable3d: true,
+      issues: [],
+    });
+    expect(KOI_AVATAR_TANUKI_MANIFEST).toMatchObject({
+      source: 'procedural-art',
+      delivery: 'runtime-mesh',
+      format: 'procedural',
+      assetUri: null,
+      rootNode: 'KoiRoot',
+      bodyNode: 'KoiBody',
+    });
+    expect(selectKoiAvatarRenderPlan({
+      preferredMode: '3d',
+      reducedMotion: false,
+      lowPowerMode: false,
+      webGlAvailable: true,
+      assetStatus: 'ready',
+      manifest: KOI_AVATAR_TANUKI_MANIFEST,
+      fallback2dAvailable: true,
+    })).toMatchObject({
+      renderer: '3d',
+      motion: 'full',
+      reason: 'three-dimensional-ready',
+    });
+  });
+
   it('ships a valid bundled engineering placeholder using the final GLB contract', () => {
     expect(validateKoiAvatarManifest(KOI_AVATAR_PLACEHOLDER_MANIFEST)).toEqual({
       valid: true,

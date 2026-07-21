@@ -217,7 +217,7 @@ describe('Koi mobile gateway boundary', () => {
     })).resolves.toBeUndefined();
   });
 
-  it('accepts only short-lived HTTPS TTS references, never raw audio', async () => {
+  it('accepts short-lived HTTPS TTS references', async () => {
     const transport: KoiCallableTransport = {
       invoke: vi.fn(async () => ({
         schemaVersion: 1,
@@ -238,6 +238,24 @@ describe('Koi mobile gateway boundary', () => {
         audioUrl: 'https://storage.example.test/voice/one',
         dailyCharacterRemaining: 3_900,
       });
+  });
+
+  it('accepts bounded ephemeral Voicebox WAV data without persisting it', async () => {
+    const audioUrl = 'data:audio/wav;base64,UklGRg==';
+    const gateway = createKoiGateway({
+      invoke: async () => ({
+        schemaVersion: 1,
+        requestId: REQUEST_ID,
+        status: 'cloud_audio',
+        audioUrl,
+        expiresAtMs: 200,
+        cached: false,
+        dailyCharacterRemaining: 4_000,
+        allowance: allowance(),
+      }),
+    }, () => activeSession());
+    await expect(gateway.synthesize({ requestId: REQUEST_ID, assistantMessageId: MESSAGE_ID }))
+      .resolves.toMatchObject({ status: 'cloud_audio', audioUrl });
   });
 
   it('accepts the backend system-voice fallback as a safe voice result', async () => {
@@ -295,6 +313,7 @@ describe('Koi mobile gateway boundary', () => {
     [{ status: 'system_voice_fallback', reason: 'PROVIDER_UNAVAILABLE', spokenText: 'x'.repeat(241) }],
     [{ status: 'system_voice_fallback', reason: 'PROVIDER_UNAVAILABLE', spokenText: 'safe', rawAudio: 'forbidden' }],
     [{ status: 'cloud_audio', audioUrl: 'http://insecure.test/voice', expiresAtMs: 200, cached: false }],
+    [{ status: 'cloud_audio', audioUrl: 'data:text/plain;base64,dW5zYWZl', expiresAtMs: 200, cached: false }],
   ])('rejects malformed synthesis union variants', async (patch) => {
     const gateway = createKoiGateway({
       invoke: async () => ({
