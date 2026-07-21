@@ -19,6 +19,9 @@ export interface KoiPublicEnvironment {
 }
 
 const STAGES: readonly KoiRuntimeStage[] = ['mock', 'development', 'staging', 'production'];
+const STAGE_ALIASES: Readonly<Record<string, KoiRuntimeStage>> = {
+  personal: 'production',
+};
 const SECRET_NAME_PATTERN = /(?:MINIMAX|TOKEN_PLAN).*(?:KEY|SECRET|TOKEN)|(?:KEY|SECRET|TOKEN).*(?:MINIMAX|TOKEN_PLAN)/i;
 
 function normalizeOrigin(value: string | undefined): string | undefined {
@@ -43,7 +46,8 @@ export function resolveKoiPublicRuntimeConfig(
   environment: KoiPublicEnvironment,
 ): KoiPublicRuntimeConfig {
   assertNoKoiClientSecrets(environment);
-  const stage = (environment.EXPO_PUBLIC_KOI_STAGE?.trim() || 'mock') as KoiRuntimeStage;
+  const configuredStage = environment.EXPO_PUBLIC_KOI_STAGE?.trim() || 'mock';
+  const stage = STAGE_ALIASES[configuredStage] ?? configuredStage as KoiRuntimeStage;
   if (!STAGES.includes(stage)) throw new Error(`Unsupported Koi runtime stage: ${stage}.`);
   const functionsRegion = environment.EXPO_PUBLIC_FIREBASE_FUNCTIONS_REGION?.trim() || 'us-central1';
   if (!/^[a-z]+(?:-[a-z0-9]+)+\d$/.test(functionsRegion)) {

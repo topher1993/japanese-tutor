@@ -1,16 +1,16 @@
 # Graph Report - japanese-tutor-mobile-app  (2026-07-22)
 
 ## Corpus Check
-- 674 files · ~1,282,604 words
+- 674 files · ~1,282,638 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 5167 nodes · 10274 edges · 333 communities (297 shown, 36 thin omitted)
+- 5168 nodes · 10322 edges · 334 communities (299 shown, 35 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 98 edges (avg confidence: 0.73)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a45d36f3`
+- Built from commit: `5ba667e6`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -321,11 +321,12 @@
 - .setDetailedProgressConsent
 - phase5WorkplaceSurvival.test.ts
 - overrides
+- WeeklyLessonScreen.tsx
 - adjectiveCandidatePack.ts
 - index.ts
 
 ## God Nodes (most connected - your core abstractions)
-1. `ds` - 55 edges
+1. `ds` - 56 edges
 2. `localDateKey()` - 50 edges
 3. `KoiStore` - 40 edges
 4. `SenseiLesson` - 38 edges
@@ -337,22 +338,22 @@
 10. `useUserProfileContext()` - 31 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `create()` --indirect_call--> `source()`  [INFERRED]
+  scripts/generate-icon-assets.mjs → functions/src/providers/groundingRegistry.ts
 - `buildQuestionChoices()` --indirect_call--> `normalized()`  [INFERRED]
   src/features/koi-sensei/data/koiDojo.ts → functions/src/providers/groundingRegistry.ts
 - `segmentKoiSpeechText()` --indirect_call--> `normalized()`  [INFERRED]
   src/services/speechPracticeService.ts → functions/src/providers/groundingRegistry.ts
-- `create()` --indirect_call--> `source()`  [INFERRED]
+- `createMonochrome()` --indirect_call--> `source()`  [INFERRED]
   scripts/generate-icon-assets.mjs → functions/src/providers/groundingRegistry.ts
 - `isQuestion()` --indirect_call--> `source()`  [INFERRED]
   src/repositories/jlptExamAttemptRepository.ts → functions/src/providers/groundingRegistry.ts
-- `buildKanjiQuestions()` --indirect_call--> `source()`  [INFERRED]
-  src/services/jlptExamContentService.ts → functions/src/providers/groundingRegistry.ts
 
 ## Import Cycles
 - 3-file cycle: `src/services/additionalLessonContentService.ts -> src/types/additionalLessonContent.ts -> src/services/lessonCategoryService.ts -> src/services/additionalLessonContentService.ts`
 - 4-file cycle: `src/data/additionalLessonCategoryContent.ts -> src/types/additionalLessonContent.ts -> src/services/lessonCategoryService.ts -> src/services/additionalLessonContentService.ts -> src/data/additionalLessonCategoryContent.ts`
 
-## Communities (333 total, 36 thin omitted)
+## Communities (334 total, 35 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.06
@@ -360,39 +361,39 @@ Nodes (58): BetaFeedbackScreen(), categoryLabels, severityLabels, styles, create
 
 ### Community 1 - "Community 1"
 Cohesion: 0.16
-Nodes (22): AudioStudyPanel(), NativeAudioStudyService, styles, AUDIO_STUDY_GROUPS, AUDIO_STUDY_WORD_DELAY_OPTIONS, AudioStudyVoices, buildAudioStudyPlaylist(), chooseVoice() (+14 more)
+Nodes (21): AudioStudyPanel(), NativeAudioStudyService, styles, AUDIO_STUDY_GROUPS, AUDIO_STUDY_WORD_DELAY_OPTIONS, AudioStudyVoices, buildAudioStudyPlaylist(), chooseVoice() (+13 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.27
-Nodes (9): KoiLearningSummary, buildKoiLearningSummary(), clampInteger(), KoiLearningSummaryInput, placementLevel(), recentActiveDays(), validScores(), QuizScore (+1 more)
+Cohesion: 0.19
+Nodes (10): absoluteBeginnerLessons, createFlashcardDeck(), getDueFlashcards(), getFlashcardStudySummary(), getAllLessons(), getLocalizedLessonItem(), getWorkplaceSurvivalTopics(), requiredCategories (+2 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.11
-Nodes (24): EXPRESSION_KEY, Mascot(), MascotProps, IMPORTANT: The source PNGs are portrait (1024×1536, 2:3 aspect ratio)., styles, fireHaptic(), Rating, RATING_META (+16 more)
+Cohesion: 0.38
+Nodes (6): createFlashcardNavigator(), FlashcardNavigatorState, getNextRandomFlashcardIndex(), getRandomFlashcardIndex(), moveToNextFlashcard(), moveToPreviousFlashcard()
 
 ### Community 4 - "Community 4"
 Cohesion: 0.05
-Nodes (30): createInMemoryLearningRepository(), LearningRepository, LearningSnapshotV1, ExtendedLearnerProgress, isVersionedTodoBlob(), parseTodoBlob(), PersistentLearningRepository, PROGRESS_TODO_COLUMNS (+22 more)
+Nodes (27): createTablesSql, createInMemoryLearningRepository(), LearningRepository, LearningSnapshotV1, isVersionedTodoBlob(), parseTodoBlob(), PersistentLearningRepository, PROGRESS_TODO_COLUMNS (+19 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.04
 Nodes (44): Constraints (hard), Current Context, Execution Handoff, Files Likely to Change (summary), Modified files, New files, Open questions for Chris, Owners (per agent governance) (+36 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.13
-Nodes (37): CardSubtitle(), CardTitle(), getJlptSectionQuestionCount(), ANNOUNCEMENT_THRESHOLDS, answeredCount(), FlowView, formatDuration(), JlptExamFlowScreen() (+29 more)
+Cohesion: 0.15
+Nodes (33): CardSubtitle(), CardTitle(), getJlptSectionQuestionCount(), ANNOUNCEMENT_THRESHOLDS, answeredCount(), FlowView, formatDuration(), JlptExamFlowScreen() (+25 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.08
-Nodes (36): RFC-4122, disableWeeklyTodos(), enableWeeklyTodos(), getWeeklyTodosEnabled(), safeToggle(), AnalyticsDebugQueue(), SettingsScreen(), styles (+28 more)
+Cohesion: 0.09
+Nodes (34): RFC-4122, disableWeeklyTodos(), enableWeeklyTodos(), getWeeklyTodosEnabled(), safeToggle(), trackSrsReviewTelemetry(), PlacementTestScreen(), AnalyticsDebugQueue() (+26 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.05
 Nodes (41): 0.1 Push-back #1 — onboarding PNGs exist, 0.2 Push-back #2 — no SVG masters in onboarding, 0.3 Push-back #3 — existing empty-state PNGs, 0.4 Push-back #4 — dead wire on HomeScreen, 0.5 Push-back #5 — badge SVG pipeline shape, 0.6 Derived finding — manifest key gaps, 0.7 Derived finding — assetRequireMap literal-require pattern, 0.8 Derived finding — Phase 20G visual recipe is not pre-painted tooling (+33 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.08
-Nodes (31): n5KanjiCandidatePack, raw, RawKanji, REVIEW, seen, SOURCE_KANJIDIC, getN5KanjiCandidatePack(), KanjiCandidateEntry (+23 more)
+Cohesion: 0.13
+Nodes (21): KanjiExampleWord, kanjiExampleWords, KanjiSection, buildCandidateKanjiSection(), getCandidateKanjiCounts(), getExampleWords(), isSingleKanjiCharacter(), buildKanjiSection() (+13 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.32
@@ -403,16 +404,16 @@ Cohesion: 0.11
 Nodes (18): AudioItem, AudioStudyForegroundService, Bundle, Override, AudioStudyServiceModule, Override, ReactApplicationContext, IBinder (+10 more)
 
 ### Community 12 - "Community 12"
-Cohesion: 0.10
-Nodes (27): styles, TranslationReviewStatus, TranslationStatusBadge(), TranslationStatusBadgeProps, LANGUAGE_LABELS, OnboardingScreen(), OnboardingStepId, STEP_ILLUSTRATION (+19 more)
+Cohesion: 0.16
+Nodes (18): LANGUAGE_LABELS, OnboardingScreen(), OnboardingStepId, STEP_ILLUSTRATION, STEP_ORDER, STEP_VISUALS, stepIndex(), styles (+10 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.14
-Nodes (18): groupLabel(), LEVEL_LABELS, MasteryMapCard(), MODALITY_LABELS, styles, AdaptiveDailyPlan, AdaptiveDailyPlanTask, masteryTopicLabel() (+10 more)
+Cohesion: 0.15
+Nodes (17): groupLabel(), LEVEL_LABELS, MasteryMapCard(), MODALITY_LABELS, styles, AdaptiveDailyPlan, AdaptiveDailyPlanTask, masteryTopicLabel() (+9 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.10
-Nodes (11): createKeyValueSrsStore(), SrsKeyValueStorage, SrsRow, WebSrsSnapshotV1, createSpacedRepetitionScheduler(), source, srcPath, KNOWN_EF_TABLE (+3 more)
+Cohesion: 0.09
+Nodes (17): SrsReviewTelemetryProperties, createKeyValueSrsStore(), SrsKeyValueStorage, SrsRow, WebSrsSnapshotV1, createSpacedRepetitionScheduler(), diffDays(), ReviewRating (+9 more)
 
 ### Community 15 - "Community 15"
 Cohesion: 0.05
@@ -428,59 +429,59 @@ Nodes (35): Candidate Features, Current Status, Do Not Do Yet, Exit Gate, Exit G
 
 ### Community 18 - "Community 18"
 Cohesion: 0.07
-Nodes (54): GRAMMAR_WEEKLY_PLANS, N5_WEEK_1_LESSON_IDS, WEEKLY_PLANS, KoiLearningExtendedProgress, createSqliteLearningRepository(), SqliteLikeDatabase, courseLessonById(), createPracticeProgressStore() (+46 more)
+Nodes (52): GRAMMAR_WEEKLY_PLANS, N5_WEEK_1_LESSON_IDS, WEEKLY_PLANS, createSqliteLearningRepository(), SqliteLikeDatabase, courseLessonById(), createPracticeProgressStore(), dailyRushTodoProgress() (+44 more)
 
 ### Community 19 - "Community 19"
 Cohesion: 0.06
 Nodes (34): 10. CHANGE HISTORY, 11. REMAINING RISKS, 12. PRODUCTION READINESS SCORE, 13. FINAL VERDICT, 1. EXECUTIVE SUMMARY, 2. ARCHITECTURE REPORT, 3. CODE QUALITY REPORT, 4. SECURITY AUDIT (+26 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.08
-Nodes (36): AppContent(), styles, AppShell(), renderTab(), RenderTabProps, Splash(), styles, CompletionToast() (+28 more)
+Cohesion: 0.11
+Nodes (25): AppContent(), styles, AppShell(), styles, renderTab(), Splash(), styles, CompletionToast() (+17 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.06
-Nodes (47): FORBIDDEN_BILLABLE_KEY_NAMES, isTrue(), KOI_ACTIVE_ACCOUNT_LIMIT, KOI_ALLOWANCE_REFRESH_COOLDOWN_MS, KOI_ALLOWANCE_REFRESH_LEASE_MS, KOI_CALLABLE_TIMEOUT_MS, KOI_MINIMAX_MESSAGES_URL, KOI_MINIMAX_MODEL (+39 more)
+Cohesion: 0.05
+Nodes (57): decideKoiAllowanceRefresh(), KoiAllowanceRefreshDecision, KoiAllowanceRefreshState, FORBIDDEN_BILLABLE_KEY_NAMES, isTrue(), KOI_ACTIVE_ACCOUNT_LIMIT, KOI_ALLOWANCE_REFRESH_COOLDOWN_MS, KOI_ALLOWANCE_REFRESH_LEASE_MS (+49 more)
 
 ### Community 22 - "Community 22"
 Cohesion: 0.07
 Nodes (29): 10. Decision, 1. Summary — what we're building, 2. Beru's pedagogy (locked), 3.1 — 10 approved phrases (use ONLY these in AI prompts / overlays), 3.2 — Hard no-list (Sensei's stroke-count danger zone), 3.3 — Sensei's top recommendation, 3. Sensei's kanji safety (locked), 4.1 — Folder layout (kebab-case, source/ for hand-authored, generated/ gitignored) (+21 more)
 
 ### Community 23 - "Community 23"
-Cohesion: 0.18
-Nodes (8): LearningKeyValueStorage, LearningContext, LearningContextValue, createLearningRuntimeWithSrsFallback(), LearningRuntime, makeResetAll(), createInMemorySrsStore(), PracticeProgressStore
+Cohesion: 0.14
+Nodes (13): createKeyValueLearningRepository(), emptyProgress(), emptySnapshot(), isRecord(), LearningKeyValueStorage, parseSnapshot(), LearningContext, LearningContextValue (+5 more)
 
 ### Community 24 - "Community 24"
 Cohesion: 0.04
-Nodes (66): KOI_EMAIL_LINK_AUTH_CLAIM, KoiCallableAuth, KoiCallableIdentityInput, requireKoiCaller(), ERROR_CODES, KoiBackendError, toHttpsError(), askKoiSensei (+58 more)
+Nodes (64): KOI_EMAIL_LINK_AUTH_CLAIM, KoiCallableAuth, KoiCallableIdentityInput, requireKoiCaller(), ERROR_CODES, KoiBackendError, toHttpsError(), askKoiSensei (+56 more)
 
 ### Community 25 - "Community 25"
 Cohesion: 0.10
 Nodes (24): fs, rasterizeSvgFile(), sharp, escapeXml(), fs, labelOverlay(), main(), MASCOT_DIR (+16 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.05
-Nodes (62): d, deck, dupes, uniq, absoluteBeginnerLessons, FoundationItem, item(), lesson() (+54 more)
+Cohesion: 0.10
+Nodes (30): styles, FoundationItem, item(), grammarLesson(), RuleDefinition, ruleItem(), buildSourceBackedItem(), candidates (+22 more)
 
 ### Community 27 - "Community 27"
 Cohesion: 0.07
 Nodes (26): Action when Batch I lands, Addendum — Task 1 Final Verdict (appended 2026-07-04 by Belion on behalf of Tusk), Audit-trail note, Checklist (Definition of Done from work card), Cold-start new-install test (Batch I Task 2 deliverable), Commit `d0625ba` — `fix(lessons): make mark-complete CTA tappable and remove false check state`, Commit `d9943a8` — `fix(progress): migrate legacy native progress table before lesson completion`, Disposition (+18 more)
 
 ### Community 28 - "Community 28"
-Cohesion: 0.19
-Nodes (20): applyDecision(), clearAllReviewDecisions(), clearReviewDecision(), exportReviewDecisions(), getAllReviewablePhrases(), getKvStore(), getReviewProgress(), inMemoryDecisions (+12 more)
+Cohesion: 0.20
+Nodes (17): applyDecision(), clearAllReviewDecisions(), clearReviewDecision(), exportReviewDecisions(), getKvStore(), getReviewProgress(), inMemoryDecisions, loadReviewDecisions() (+9 more)
 
 ### Community 29 - "Community 29"
 Cohesion: 0.07
 Nodes (25): all(), archiveSha256, counts, curated, curatedUnique, CURRICULUM_GLOSS_OVERRIDES, CURRICULUM_POS_OVERRIDES, decode() (+17 more)
 
 ### Community 30 - "Community 30"
-Cohesion: 0.12
-Nodes (17): AssetKey, getAsset(), BadgeImage(), BadgeImageProps, BadgeKey, KEY_TO_ASSET, styles, EmptyStateArt() (+9 more)
+Cohesion: 0.05
+Nodes (45): AssetKey, assetRequireMap, getAsset(), AssetCategory, AssetEntry, AssetManifest, manifest, ROOT (+37 more)
 
 ### Community 31 - "Community 31"
-Cohesion: 0.16
-Nodes (11): built, ids, JLPT, quizQuestionCandidatePack, raw, RawQ, REVIEW, getQuizQuestionCandidatePack() (+3 more)
+Cohesion: 0.25
+Nodes (7): built, ids, JLPT, raw, RawQ, REVIEW, QuizQuestionCandidateEntry
 
 ### Community 32 - "Community 32"
 Cohesion: 0.08
@@ -491,8 +492,8 @@ Cohesion: 0.08
 Nodes (24): For /graphify add and --watch, For /graphify query, For the commit hook and native CLAUDE.md integration, For --update and --cluster-only, /graphify, Honesty Rules, Interpreter guard for subcommands, Part A - Structural extraction for code files (+16 more)
 
 ### Community 34 - "Community 34"
-Cohesion: 0.22
-Nodes (6): assetRequireMap, AssetCategory, AssetEntry, AssetManifest, manifest, ROOT
+Cohesion: 0.18
+Nodes (15): RenderTabProps, AppNavigation, styles, TabBar(), TabBarItem, TabBarProps, KEY_TO_ASSET, styles (+7 more)
 
 ### Community 35 - "Community 35"
 Cohesion: 0.09
@@ -504,15 +505,15 @@ Nodes (22): Added / changed files, Bug fixes, Design system, Flashcard flip anim
 
 ### Community 37 - "Community 37"
 Cohesion: 0.10
-Nodes (22): JLPT_EXAM_BLUEPRINTS, SHARED_LISTENING, slot(), accuracy(), breakdown(), humanize(), LABELS, scoreJlptExamAttempt() (+14 more)
+Nodes (27): getJlptExamBlueprint(), JLPT_EXAM_BLUEPRINTS, SHARED_LISTENING, assembleJlptExam(), createJlptSeededRandom(), JlptExamAssemblyError, shuffle(), shuffleChoices() (+19 more)
 
 ### Community 38 - "Community 38"
-Cohesion: 0.14
-Nodes (28): buildBuilderQuestions(), buildChoiceQuestions(), BuilderPracticeQuestion, buildFillBlankQuestions(), buildGrammarChoiceQuestions(), buildListeningQuestions(), buildQuizPracticeSession(), buildRetryMissedQuizSession() (+20 more)
+Cohesion: 0.12
+Nodes (32): answerQuizPracticeQuestion(), buildBuilderQuestions(), buildChoiceQuestions(), BuilderPracticeQuestion, buildFillBlankQuestions(), buildGrammarChoiceQuestions(), buildListeningQuestions(), buildQuizPracticeSession() (+24 more)
 
 ### Community 39 - "Community 39"
-Cohesion: 0.47
-Nodes (4): source(), clampByte(), create(), createMonochrome()
+Cohesion: 0.50
+Nodes (3): clampByte(), create(), createMonochrome()
 
 ### Community 40 - "Community 40"
 Cohesion: 0.10
@@ -527,12 +528,12 @@ Cohesion: 0.10
 Nodes (20): Current Context, Files Likely to Change, Phase 8 Real-Device Beta QA Implementation Plan, Proposed Phase 8 Name, Recommended Phase 8 Decision, Risk: Adding a feedback screen bloats Phase 8, Risk: Dependency audit remains moderate, Risk: Hermes cannot physically run Expo Go on Chris’s phone (+12 more)
 
 ### Community 43 - "Community 43"
-Cohesion: 0.31
-Nodes (13): clampText(), createDefaultUserProfile(), mergeProfile(), normalizeDailyRushStats(), normalizeLanguage(), normalizePlacement(), normalizeProfile(), normalizeWorkplace() (+5 more)
+Cohesion: 0.15
+Nodes (22): clampText(), createDefaultUserProfile(), mergeProfile(), normalizeDailyRushStats(), normalizeLanguage(), normalizePlacement(), normalizeProfile(), normalizeWorkplace() (+14 more)
 
 ### Community 44 - "Community 44"
 Cohesion: 0.18
-Nodes (13): DailyRushCard, FlashcardAnswer, FlashcardJlptLevel, FlashcardReviewCard, ClassificationConfidence, JapaneseVerbGroup, VerbTransitivity, VocabularyExample (+5 more)
+Nodes (15): d, deck, dupes, uniq, supplementalFlashcards, SupplementalFlashcardSource, filterFlashcardsByCategory(), FlashcardAnswer (+7 more)
 
 ### Community 45 - "Community 45"
 Cohesion: 0.33
@@ -540,11 +541,11 @@ Nodes (5): Automated evidence, Deliberately deferred shared-beta gates, Deployme
 
 ### Community 46 - "Community 46"
 Cohesion: 0.07
-Nodes (57): PrepareKoiDojoSessionOptions, KoiQueuedMasteryClaimV1, buildDomainAvailability(), createKoiContentAvailabilityManifest(), DEFAULT_EVIDENCE_TAGGING, DEFAULT_KOI_CONTENT_AVAILABILITY, DEFAULT_RELEASE_STATES, KoiContentAvailabilityConfig (+49 more)
+Nodes (60): PrepareKoiDojoSessionOptions, buildDomainAvailability(), createKoiContentAvailabilityManifest(), DEFAULT_EVIDENCE_TAGGING, DEFAULT_KOI_CONTENT_AVAILABILITY, DEFAULT_RELEASE_STATES, getKoiMilestoneId(), isKoiRankFullyEarnable() (+52 more)
 
 ### Community 47 - "Community 47"
-Cohesion: 0.14
-Nodes (15): BetaChecklistCategory, BetaChecklistItem, BetaChecklistStatus, BetaReadinessChecklist, BetaReadinessSummary, buildBetaReadinessChecklist(), summarizeBetaReadiness(), analyzeNpmAuditReport() (+7 more)
+Cohesion: 0.13
+Nodes (16): BetaChecklistCategory, BetaChecklistItem, BetaChecklistStatus, BetaReadinessChecklist, BetaReadinessSummary, buildBetaReadinessChecklist(), summarizeBetaReadiness(), analyzeNpmAuditReport() (+8 more)
 
 ### Community 48 - "Community 48"
 Cohesion: 0.11
@@ -568,7 +569,7 @@ Nodes (9): allMeanings(), allReadings(), argValue(), decodeXml(), extractKanji()
 
 ### Community 53 - "Community 53"
 Cohesion: 0.11
-Nodes (21): additionalLessonCategoryContent, AdditionalLessonContentSummary, getAdditionalLessonCategoryContent(), getAdditionalLessonCategoryContentSummary(), getAllAdditionalLessonCategoryContent(), LocalizedAdditionalLessonPhrase, getLessonCategoryCards(), LessonCategoryCard (+13 more)
+Nodes (28): additionalLessonCategoryContent, AdditionalLessonContentSummary, getLocalizedAdditionalLessonPhrase(), LocalizedAdditionalLessonPhrase, asTranslatablePhrase(), getSecondaryTranslations(), getSupportLanguageField(), getSupportTranslation() (+20 more)
 
 ### Community 55 - "Community 55"
 Cohesion: 0.08
@@ -603,16 +604,16 @@ Cohesion: 0.07
 Nodes (30): dependencies, expo, expo-asset, expo-audio, expo-build-properties, expo-file-system, expo-gl, expo-haptics (+22 more)
 
 ### Community 63 - "Community 63"
-Cohesion: 0.10
-Nodes (22): AVATAR_MODES, BLOCK_REASONS, boundedInteger(), buildKoiAnalyticsEnvelope(), CAPACITY_BANDS, CHAT_RESULTS, CONSENTS, DATA_ACTIONS (+14 more)
+Cohesion: 0.07
+Nodes (43): react, AVATAR_MODES, BLOCK_REASONS, boundedInteger(), buildKoiAnalyticsEnvelope(), CAPACITY_BANDS, CHAT_RESULTS, CONSENTS (+35 more)
 
 ### Community 64 - "Community 64"
 Cohesion: 0.18
 Nodes (13): exampleSentenceCandidatePack, raw, RawSentence, REVIEW, seen, SOURCE_TATOEBA, ExampleSentenceCandidateEntry, getExampleSentenceCandidatePack() (+5 more)
 
 ### Community 65 - "Community 65"
-Cohesion: 0.08
-Nodes (33): DailyTodoBoardView(), styles, createKeyValueLearningRepository(), emptyProgress(), emptySnapshot(), isRecord(), parseSnapshot(), trackSrsReviewTelemetry() (+25 more)
+Cohesion: 0.09
+Nodes (23): DailyTodoBoardView(), styles, AdaptiveLearningSnapshot, buildAdaptiveLearningSnapshot(), calculateStudyStreak(), DAILY_TODO_DEFINITIONS, DailyTodo, DailyTodoBoard (+15 more)
 
 ### Community 66 - "Community 66"
 Cohesion: 0.12
@@ -639,16 +640,16 @@ Cohesion: 0.12
 Nodes (15): Browser Smoke Evidence, Dependency Status, Final Verdict, GREEN, Japanese Tutor Mobile App — Phase 8 Completion Report, Key Files Added/Updated, Protected Systems Impact, Reason (+7 more)
 
 ### Community 72 - "Community 72"
-Cohesion: 0.09
-Nodes (27): KoiService, getTtsRemainingCharacters(), isReservation(), KoiTtsBudgetDecision, KoiTtsReservation, readTtsRemainingCharacters(), reserveTtsCharacters(), withTtsCharacterReservation() (+19 more)
+Cohesion: 0.10
+Nodes (25): KoiService, getTtsRemainingCharacters(), isReservation(), KoiTtsBudgetDecision, KoiTtsReservation, readTtsRemainingCharacters(), reserveTtsCharacters(), withTtsCharacterReservation() (+17 more)
 
 ### Community 73 - "Community 73"
 Cohesion: 0.06
-Nodes (33): MascotExpression, RatingMeta, KOI_COSMETICS, KoiAvatarMode, KoiCosmeticSlot, cosmeticColor(), cosmeticSymbol(), getKoiEquippedCosmeticVisuals() (+25 more)
+Nodes (27): slot(), KOI_COSMETICS, KoiCosmeticSlot, cosmeticColor(), cosmeticSymbol(), getKoiEquippedCosmeticVisuals(), KoiCosmeticPrimitive, KoiEquippedCosmeticVisual (+19 more)
 
 ### Community 74 - "exampleSentenceCandidatePack.ts"
-Cohesion: 0.08
-Nodes (28): helperTranslations, n3AdjectiveCandidateData, n3VerbCandidateData, n3VocabularyCandidateData, N3VocabularyCandidateEntry, N3VocabularyReviewStatus, N3VocabularySource, getN4KanjiCandidatePack() (+20 more)
+Cohesion: 0.15
+Nodes (17): getN4KanjiCandidatePack(), getN4VocabularyCandidatePack(), N4KanjiCandidateEntry, N4ReviewStatus, N4Source, N4VocabularyCandidateEntry, n4KanjiCandidateData, raw (+9 more)
 
 ### Community 75 - "Community 75"
 Cohesion: 0.12
@@ -683,20 +684,20 @@ Cohesion: 0.60
 Nodes (5): geminatedPrefix(), kanaToRomaji(), katakanaToHiragana(), lastVowel(), MORA
 
 ### Community 83 - "candidateQuizAdapter.ts"
-Cohesion: 0.18
-Nodes (7): getJlptExamAttemptRepository(), ActiveEnvelope, createJlptExamAttemptRepository(), HistoryEnvelope, JlptExamAttemptRepository, JlptExamAttempt, JlptExamResult
+Cohesion: 0.15
+Nodes (12): ActiveEnvelope, HistoryEnvelope, JlptExamAttemptRepository, accuracy(), breakdown(), humanize(), LABELS, scoreJlptExamAttempt() (+4 more)
 
 ### Community 84 - "jlptExam.ts"
 Cohesion: 0.04
-Nodes (41): createKoiGateway(), createKoiUnconfiguredLiveTransport(), KoiAnswer, KoiClientError, KoiSynthesisResult, createKoiMockTransport(), availableCrypto(), createKoiUuid() (+33 more)
+Nodes (36): KoiFirebaseLiveConfig, createKoiGateway(), createKoiUnconfiguredLiveTransport(), KoiAnswer, KoiSynthesisResult, createKoiMockTransport(), KoiRuntimeStage, availableCrypto() (+28 more)
 
 ### Community 85 - "ReviewCard"
 Cohesion: 0.22
 Nodes (11): AdaptiveDailyPlanInput, AdaptivePlanRoute, allocateTask(), buildAdaptiveDailyPlan(), CandidateTask, isSentenceCard(), todayLocalIso(), weakGroupSummary() (+3 more)
 
 ### Community 86 - "FlashcardsScreen"
-Cohesion: 0.20
-Nodes (12): auditKoiMediaPersistence(), isBinaryPayload(), normalizedFieldName(), RAW_AUDIO_FIELD_NAMES, isMemoryKind(), KoiApprovedMemoryV1, KoiMemoryCandidate, KoiMemoryKind (+4 more)
+Cohesion: 0.22
+Nodes (11): auditKoiMediaPersistence(), isBinaryPayload(), normalizedFieldName(), RAW_AUDIO_FIELD_NAMES, isMemoryKind(), KoiApprovedMemoryV1, KoiMemoryCandidate, KoiMemoryKind (+3 more)
 
 ### Community 87 - "Community 87"
 Cohesion: 0.14
@@ -719,8 +720,8 @@ Cohesion: 0.20
 Nodes (12): fetch_jisho(), main(), normalize_romaji(), Normalize learner-facing romaji without pretending kana is Latin text., Romanize a Jisho kana reading with the project's installed romanizer., romanize_reading(), verify_phrase(), AUDIT_JSON_PATH (+4 more)
 
 ### Community 92 - "Community 92"
-Cohesion: 0.19
-Nodes (12): AppProviders(), koiFirebaseLiveConfig, koiPublicEnvironment, koiRuntimeConfig, assertNoKoiClientSecrets(), KoiPublicEnvironment, KoiPublicRuntimeConfig, normalizeOrigin() (+4 more)
+Cohesion: 0.04
+Nodes (43): AppProviders(), koiFirebaseLiveConfig, koiPublicEnvironment, koiRuntimeConfig, createKoiFirebaseCallableTransport(), FetchLike, isRecord(), KoiFirebaseCallableConfig (+35 more)
 
 ### Community 93 - "Community 93"
 Cohesion: 0.22
@@ -731,16 +732,16 @@ Cohesion: 0.18
 Nodes (14): decideKoiConsentLedgerOperation(), isSafeEpoch(), isSafeGeneration(), KoiConsentLedgerDecision, KoiConsentOperationKind, KoiConsentOperationRecord, KoiConsentProviderOperationKind, ownsKoiConsentProviderOperation() (+6 more)
 
 ### Community 95 - "SenseiLesson"
-Cohesion: 0.20
-Nodes (5): UserProfileRepository, UserProfileContextValue, UserProfileService, UserProfile, UserProfilePatch
+Cohesion: 0.12
+Nodes (13): buildKoiLearningSummary(), clampInteger(), KoiLearningSummaryInput, placementLevel(), recentActiveDays(), validScores(), UserProfileRepository, UserProfileContextValue (+5 more)
 
 ### Community 96 - "Community 96"
-Cohesion: 0.20
-Nodes (14): quickQuiz, survivalPhrases, buildSenseiContentReview(), getInternalBetaContentPack(), hasText(), InternalBetaContentPack, requiredLanguages, SenseiContentReview (+6 more)
+Cohesion: 0.26
+Nodes (12): buildSenseiContentReview(), hasText(), InternalBetaContentPack, requiredLanguages, SenseiContentReview, SenseiContentReviewInput, SenseiContentVerdict, validateLessons() (+4 more)
 
 ### Community 97 - "Community 97"
-Cohesion: 0.17
-Nodes (28): accuracyPercent(), ATTEMPT_STATUSES, breakdownsMatchQuestionResults(), CHOICE_IDS, clone(), ExamStorage, hasUniqueStrings(), isAttempt() (+20 more)
+Cohesion: 0.15
+Nodes (30): getJlptExamAttemptRepository(), accuracyPercent(), ATTEMPT_STATUSES, breakdownsMatchQuestionResults(), CHOICE_IDS, clone(), createJlptExamAttemptRepository(), ExamStorage (+22 more)
 
 ### Community 98 - "Community 98"
 Cohesion: 0.14
@@ -771,12 +772,16 @@ Cohesion: 0.15
 Nodes (12): 1. `app.json` schema cleanup, 2. Metro wasm resolver fix, 3. Regression test, Changes made, Current release verdict, Device / SDK environment probe, Live manual Expo Go server, Manual smoke checklist still required (+4 more)
 
 ### Community 105 - "HomeScreen.tsx"
-Cohesion: 0.13
-Nodes (20): fallbackReason(), isBudgetValue(), isNonEmptyText(), isRecord(), KOI_AVATAR_ASSET_BUDGETS, KOI_AVATAR_CONTRACT_ID, KOI_AVATAR_PLACEHOLDER_MANIFEST, KOI_AVATAR_REQUIRED_ANIMATIONS (+12 more)
+Cohesion: 0.12
+Nodes (21): fallbackReason(), isBudgetValue(), isNonEmptyText(), isRecord(), KOI_AVATAR_ASSET_BUDGETS, KOI_AVATAR_CONTRACT_ID, KOI_AVATAR_PLACEHOLDER_MANIFEST, KOI_AVATAR_REQUIRED_ANIMATIONS (+13 more)
+
+### Community 106 - "dailyTodoService.ts"
+Cohesion: 0.10
+Nodes (11): finiteInteger(), hasOnlyKeys(), isRecord(), KoiAllowanceView, KoiClientErrorReason, KoiGateway, KoiLearningSummary, parseAllowance() (+3 more)
 
 ### Community 107 - "jlptExamContentService.ts"
 Cohesion: 0.17
-Nodes (29): getN3VocabularyCandidatePack(), AUTHORED_READING, AuthoredReadingSeed, buildGrammarQuestions(), buildJlptExamQuestionBank(), buildKanjiQuestions(), buildListeningQuestions(), buildReadingQuestions() (+21 more)
+Nodes (30): source(), getN3VocabularyCandidatePack(), grammarLessons, AUTHORED_READING, AuthoredReadingSeed, buildGrammarQuestions(), buildJlptExamQuestionBank(), buildKanjiQuestions() (+22 more)
 
 ### Community 108 - "Community 108"
 Cohesion: 0.17
@@ -816,18 +821,18 @@ Nodes (12): enabled, appConfigFieldsNotSyncedCheck, engines, node, npm, expo, do
 
 ### Community 117 - "koiSenseiLearningProgressionIntegration.test.ts"
 Cohesion: 0.21
-Nodes (19): averageScores(), blend(), buildItem(), buildMasteryMap(), buildMasterySnapshot(), clampScore(), dateMs(), daysBetween() (+11 more)
+Nodes (19): averageScores(), blend(), buildItem(), buildMasteryMap(), changeFromSnapshots(), clampScore(), dateMs(), daysBetween() (+11 more)
 
 ### Community 118 - "OnboardingScreen.tsx"
-Cohesion: 0.08
-Nodes (47): createDefaultKoiExperienceState(), clone(), createDefaultState(), createKoiSenseiRepository(), DEFAULT_KOI_LOCAL_PREFERENCES, isEnum(), isIntegerInRange(), isLocalDateKey() (+39 more)
+Cohesion: 0.10
+Nodes (45): createDefaultKoiExperienceState(), clone(), createDefaultState(), createKoiSenseiRepository(), DEFAULT_KOI_LOCAL_PREFERENCES, isEnum(), isIntegerInRange(), isLocalDateKey() (+37 more)
 
 ### Community 119 - "Community 119"
 Cohesion: 0.17
 Nodes (6): APP_PATH, HOOK_PATH, ROOT, SCREEN_PATH, SETTINGS_PATH, TOAST_PATH
 
 ### Community 120 - "Community 120"
-Cohesion: 0.11
+Cohesion: 0.12
 Nodes (34): cardKindForRush(), CompletionSaveStatus, DailyRushScreen(), styles, todayIso(), getRecallBaseline(), kanjiByKind, answerDailyRushCard() (+26 more)
 
 ### Community 121 - "Community 121"
@@ -868,11 +873,11 @@ Nodes (10): continues_verb_group(), ExampleRow, insert_or_replace_romaji(), kana
 
 ### Community 130 - "persistentSrsStore.ts"
 Cohesion: 0.26
-Nodes (12): approvedVocabulary(), buildCandidateReviewItems(), CandidateVocab, choicesFor(), getCandidateReviewCounts(), normalizeChoice(), buildReviewSession(), ReviewItem (+4 more)
+Nodes (11): approvedVocabulary(), buildCandidateReviewItems(), CandidateVocab, choicesFor(), getCandidateReviewCounts(), normalizeChoice(), buildReviewSession(), ReviewItem (+3 more)
 
 ### Community 131 - "quiz.ts"
-Cohesion: 0.20
-Nodes (16): buildCandidateQuizQuestions(), CHOICE_IDS, getAppReadyCandidateQuizQuestions(), getCandidateQuizCounts(), hasFourUniqueChoices(), getQuickQuiz(), gradeQuiz(), createQuizSession() (+8 more)
+Cohesion: 0.15
+Nodes (15): getLessonsByCategory(), getQuickQuiz(), gradeQuiz(), answerCurrentQuestion(), createQuizSession(), finishQuizSession(), getCurrentQuestion(), getQuizSessionProgress() (+7 more)
 
 ### Community 132 - "Community 132"
 Cohesion: 0.18
@@ -931,16 +936,16 @@ Cohesion: 0.33
 Nodes (9): card(), f(), Regenerate onboarding-XX-final.png files using the LANDSCAPE chibi master.  Thes, Chibi LEFT + しごと card RIGHT with helmet icon., Chibi LEFT + clock icon + 7時 card RIGHT., Chibi LEFT + speech bubble with 日本語/にほんご + 3 small kanji cards at bottom-right., scene_habit_final(), scene_welcome_final() (+1 more)
 
 ### Community 146 - "Community 146"
-Cohesion: 0.27
-Nodes (6): JapaneseContentSource, japaneseContentSources, generatedJmdictStarterVocabulary, GeneratedJmdictStarterVocabularyEntry, generatedKanjidic2StarterKanji, GeneratedKanjidic2StarterKanjiEntry
+Cohesion: 0.22
+Nodes (9): getContentSourceAcknowledgementText(), JapaneseContentSource, japaneseContentSources, generatedJmdictStarterVocabulary, GeneratedJmdictStarterVocabularyEntry, generatedKanjidic2StarterKanji, GeneratedKanjidic2StarterKanjiEntry, SourcesScreen() (+1 more)
 
 ### Community 147 - "senseiReviewService.ts"
-Cohesion: 0.26
+Cohesion: 0.24
 Nodes (3): PersistentSpacedRepetitionScheduler, recordSentenceLabResult(), ReviewCard
 
 ### Community 148 - "Community 148"
-Cohesion: 0.16
-Nodes (16): createUnavailableKoiDeviceSttAdapter(), createKoiTtsPlaybackRequest(), getKoiTtsCharacterCount(), hasEnoughSubscriptionCharacters(), hasValidAttestationWindow(), KoiIncludedSystemVoiceAvailability, KoiMiniMaxTtsCoverageAttestation, KoiTtsPlaybackRequest (+8 more)
+Cohesion: 0.18
+Nodes (15): createKoiTtsPlaybackRequest(), getKoiTtsCharacterCount(), hasEnoughSubscriptionCharacters(), hasValidAttestationWindow(), KoiIncludedSystemVoiceAvailability, KoiMiniMaxTtsCoverageAttestation, KoiTtsPlaybackRequest, KoiTtsPolicyInput (+7 more)
 
 ### Community 149 - "Community 149"
 Cohesion: 0.39
@@ -979,16 +984,16 @@ Cohesion: 0.22
 Nodes (8): graphify reference: extra exports and benchmark, Step 6b - Wiki (only if --wiki flag), Step 7 - Neo4j export (only if --neo4j or --neo4j-push flag), Step 7a - FalkorDB export (only if --falkordb or --falkordb-push flag), Step 7b - SVG export (only if --svg flag), Step 7c - GraphML export (only if --graphml flag), Step 7d - MCP server (only if --mcp flag), Step 8 - Token reduction benchmark (only if total_words > 5000)
 
 ### Community 158 - "TabBar.tsx"
-Cohesion: 0.12
-Nodes (14): decideKoiAllowanceRefresh(), KoiAllowanceRefreshDecision, KoiAllowanceRefreshState, KoiMockTransportError, KoiMockTransportOptions, clampPercent(), consumeKoiAllowance(), deriveKoiAllowanceLimits() (+6 more)
+Cohesion: 0.14
+Nodes (11): KoiMockTransportError, KoiMockTransportOptions, clampPercent(), consumeKoiAllowance(), deriveKoiAllowanceLimits(), getEffectiveRemainingPercent(), KoiAllowanceDecision, KoiAllowanceKind (+3 more)
 
 ### Community 159 - "contentEvidenceAudit.ts"
-Cohesion: 0.17
-Nodes (8): createKoiFirebaseCallableTransport(), FetchLike, isRecord(), KoiFirebaseCallableConfig, koiFirebaseCallableUrlForTest, KoiFirebaseTokenSource, remoteError(), payload
+Cohesion: 0.21
+Nodes (8): mockSenseiLessons, workplaceSurvivalTopics, quickQuiz, survivalCategoryBase, survivalPhrases, getInternalBetaContentPack(), allPhrases, approvedPhrases
 
 ### Community 160 - "jlptExamScoringService.ts"
-Cohesion: 0.18
-Nodes (12): createKoiFirebaseLiveClient(), initializeKoiFirebaseApp(), KOI_WORKER_CALLABLE_NAMES, KoiFirebaseLiveConfig, KoiLiveAuthSnapshot, parseOrigin(), reconcileKoiAuthSnapshot(), required() (+4 more)
+Cohesion: 0.25
+Nodes (12): KoiContentAvailabilityManifestV1, KoiDomain, auditKoiContentEvidence(), auditLessonDomain(), auditQuizzes(), auditRank(), auditVocabulary(), KoiContentDomainAudit (+4 more)
 
 ### Community 161 - "Community 161"
 Cohesion: 0.25
@@ -1060,7 +1065,7 @@ Nodes (9): devDependencies, babel-preset-expo, @expo/ngrok, sharp, @types/node, 
 
 ### Community 178 - "CompletionToast.tsx"
 Cohesion: 0.30
-Nodes (12): buildMeaningChoices(), buildSentenceLabSession(), buildSentenceTokens(), getMistakeNotebookEntries(), isCorrectSentenceOrder(), isSentenceLabEligible(), localDateKey(), SentenceChoice (+4 more)
+Nodes (13): SentenceLabScreen(), buildMeaningChoices(), buildSentenceLabSession(), buildSentenceTokens(), getMistakeNotebookEntries(), isCorrectSentenceOrder(), isSentenceLabEligible(), localDateKey() (+5 more)
 
 ### Community 179 - "Community 179"
 Cohesion: 0.32
@@ -1068,11 +1073,11 @@ Nodes (6): buildInternalBetaLaunchPackage(), buildTesterFeedbackWorkflow(), Expo
 
 ### Community 180 - "userProfile.ts"
 Cohesion: 0.10
-Nodes (19): ownsKoiAllowanceRefresh(), decideKoiRequestReservation(), ownsKoiRequestReservation(), recordFrom(), pausedLimits(), allowanceFrom(), allowanceRefreshStateFrom(), evaluateKoiRegistrationAccess() (+11 more)
+Nodes (19): ownsKoiAllowanceRefresh(), ownsKoiRequestReservation(), pausedLimits(), allowanceFrom(), allowanceRefreshStateFrom(), evaluateKoiRegistrationAccess(), KoiStore, memoryFrom() (+11 more)
 
 ### Community 181 - "userProfile.ts"
-Cohesion: 0.26
-Nodes (12): getJlptExamBlueprint(), assembleJlptExam(), createJlptSeededRandom(), JlptExamAssemblyError, shuffle(), shuffleChoices(), VALID_CHOICE_IDS, VALID_SOURCE_KINDS (+4 more)
+Cohesion: 0.24
+Nodes (9): quizQuestionCandidatePack, getQuizQuestionCandidatePack(), QuizChoice, QuizReviewStatus, buildCandidateQuizQuestions(), CHOICE_IDS, getAppReadyCandidateQuizQuestions(), getCandidateQuizCounts() (+1 more)
 
 ### Community 182 - "Community 182"
 Cohesion: 0.29
@@ -1133,6 +1138,10 @@ Nodes (5): Getting started, Japanese Tutor Mobile App, Stack, Validation, Applic
 ### Community 196 - "Community 196"
 Cohesion: 0.57
 Nodes (6): card(), f(), Derive 3 onboarding scene variants from a clean chibi master illustration.  Stra, scene_habit(), scene_welcome(), scene_workplace()
+
+### Community 197 - "mockSenseiLessons.ts"
+Cohesion: 0.19
+Nodes (10): n5KanjiCandidatePack, raw, RawKanji, REVIEW, seen, SOURCE_KANJIDIC, getN5KanjiCandidatePack(), KanjiCandidateEntry (+2 more)
 
 ### Community 198 - "wrapTabChangeForAnalytics.ts"
 Cohesion: 0.29
@@ -1207,16 +1216,16 @@ Cohesion: 0.40
 Nodes (4): Expected Verdict Unless Physical Device QA Is Provided, Explicit Non-Goals, Phase 8 Scope, WC-JTMA-014 — Phase 8 Real-Device Beta QA and Internal Release Candidate
 
 ### Community 216 - "Community 216"
-Cohesion: 0.14
-Nodes (16): buildProfileProgression(), levelFromXp(), ProfileBadgeProgress, ProfileHistoryItem, ProfileProgression, ProfileProgressionExtras, ProgressDashboard, consecutiveIsoWeeks() (+8 more)
+Cohesion: 0.19
+Nodes (10): n5VocabularyCandidatePack, raw, RawEntry, REVIEW, seen, SOURCE_JMDICT, VocabularyCandidateEntry, VocabularyReviewStatus (+2 more)
 
 ### Community 217 - "getN5VocabularyCandidatePack"
-Cohesion: 0.16
-Nodes (10): createTablesSql, createInMemoryUserProfileRepository(), createKeyValueUserProfileRepository(), createSqliteUserProfileRepository(), isRecord(), parseProfile(), UserProfileKeyValueStorage, getOnboardingStorageKey() (+2 more)
+Cohesion: 0.13
+Nodes (17): createSharedSqliteAdapter(), openSharedNativeDatabase(), operationTails, serialize(), createInMemoryUserProfileRepository(), createKeyValueUserProfileRepository(), createSqliteUserProfileRepository(), isRecord() (+9 more)
 
 ### Community 218 - "n5VocabularyCandidatePack.ts"
-Cohesion: 0.06
-Nodes (51): n5VocabularyCandidatePack, raw, RawEntry, REVIEW, seen, SOURCE_JMDICT, getN5VocabularyCandidatePack(), VocabularyCandidateEntry (+43 more)
+Cohesion: 0.17
+Nodes (23): KoiQueuedMasteryClaimV1, getKoiDomainGate(), applyKoiMilestone(), allReviewedVocabularyIds(), bestScoreByLesson(), DomainEvidence, evidenceForDomain(), KOI_LEARNING_MILESTONE_THRESHOLDS (+15 more)
 
 ### Community 220 - "Community 220"
 Cohesion: 0.15
@@ -1236,7 +1245,7 @@ Nodes (3): gradlew script, die(), warn()
 
 ### Community 225 - "Community 225"
 Cohesion: 0.10
-Nodes (18): createExpoKoiDeviceSttAdapter(), KoiExpoDeviceSttDependencies, SpeechModule, isRecord(), KoiDeviceSttAdapter, KoiDeviceSttAvailability, KoiDeviceSttCapabilities, KoiDeviceSttSession (+10 more)
+Nodes (18): KoiExpoDeviceSttDependencies, SpeechModule, createUnavailableKoiDeviceSttAdapter(), isRecord(), KoiDeviceSttAdapter, KoiDeviceSttAvailability, KoiDeviceSttCapabilities, KoiDeviceSttSession (+10 more)
 
 ### Community 226 - "Community 226"
 Cohesion: 0.50
@@ -1283,8 +1292,8 @@ Cohesion: 0.50
 Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphify reference: incremental update and cluster-only
 
 ### Community 238 - "Community 238"
-Cohesion: 0.12
-Nodes (22): animatedParticleBudget(), clampRankStars(), DEFAULT_KOI_EFFECT_ACCESSIBILITY_SETTINGS, getKoiEffectIntensity(), getKoiEffectProfile(), isAvatarMode(), isEffectPreference(), isRecord() (+14 more)
+Cohesion: 0.13
+Nodes (20): animatedParticleBudget(), clampRankStars(), getKoiEffectIntensity(), getKoiEffectProfile(), isAvatarMode(), isEffectPreference(), isRecord(), normalizeKoiEffectAccessibilitySettings() (+12 more)
 
 ### Community 239 - "Community 239"
 Cohesion: 0.50
@@ -1299,12 +1308,12 @@ Cohesion: 0.11
 Nodes (17): compilerOptions, baseUrl, esModuleInterop, module, moduleResolution, noUnusedLocals, noUnusedParameters, outDir (+9 more)
 
 ### Community 283 - "jlptExamAnalyticsService.ts"
-Cohesion: 0.25
-Nodes (9): decideKoiCapacityRefresh(), KoiCapacityRefreshDecision, ownsKoiCapacityRefresh(), parseKoiProviderCapacityBundle(), recordFrom(), validNonnegative(), validPercent(), KoiProviderCapacityBundle (+1 more)
+Cohesion: 0.31
+Nodes (8): decideKoiCapacityRefresh(), KoiCapacityRefreshDecision, ownsKoiCapacityRefresh(), parseKoiProviderCapacityBundle(), recordFrom(), validNonnegative(), validPercent(), KoiProviderCapacityBundle
 
 ### Community 284 - "phase5WorkplaceSurvival.test.ts"
-Cohesion: 0.08
-Nodes (57): notifyLessonError(), StreakFlame(), StreakFlameProps, styles, useTodayDateKey(), HomeScreen(), styles, SqliteLearningRepositoryLike (+49 more)
+Cohesion: 0.09
+Nodes (52): AdaptiveDailyPlanCard(), HeroLogo(), StreakFlame(), StreakFlameProps, styles, lesson(), useTodayDateKey(), DailyLessonScreen() (+44 more)
 
 ### Community 285 - "JLPT-style mock exams"
 Cohesion: 0.29
@@ -1315,28 +1324,28 @@ Cohesion: 0.11
 Nodes (16): animationNames, animationTimes, animationTranslations, binary, binaryHeader, glb, gltf, header (+8 more)
 
 ### Community 288 - "retention.ts"
-Cohesion: 0.12
-Nodes (22): AsyncKeyValueStorage, initializeAppStorage(), loadOnboardingPreference(), openOnboardingStorage(), saveOnboardingPreference(), createSharedSqliteAdapter(), openSharedNativeDatabase(), operationTails (+14 more)
+Cohesion: 0.18
+Nodes (15): AsyncKeyValueStorage, initializeAppStorage(), loadOnboardingPreference(), openOnboardingStorage(), saveOnboardingPreference(), allowedLanguages, clearOnboardingPreference(), createBrowserOnboardingStorage() (+7 more)
 
 ### Community 289 - "koiSenseiRepository.test.ts"
-Cohesion: 0.31
-Nodes (12): adjectivePart(), classifyPart(), classifyVocabulary(), GODAN_RU_EXCEPTIONS, inferVerbGroup(), INTERROGATIVE_ADVERBS, INTRANSITIVE_VERBS, learningGroupFor() (+4 more)
+Cohesion: 0.23
+Nodes (15): adjectivePart(), classifyPart(), classifyVocabulary(), GODAN_RU_EXCEPTIONS, inferVerbGroup(), INTERROGATIVE_ADVERBS, INTRANSITIVE_VERBS, learningGroupFor() (+7 more)
 
 ### Community 290 - "n5KanjiCandidatePack.ts"
-Cohesion: 0.08
-Nodes (23): styles, WeeklyTodoBoardView(), WeeklyTodoBoardViewProps, WeeklyTodoRow(), WeeklyTodoRowProps, WIRED_TODO_KINDS, TodoCtaRoute, WeeklyTodoBoard (+15 more)
+Cohesion: 0.09
+Nodes (19): emptyTodoEventCounts(), WeekTodoKind, n5Lessons(), vocabularyEvents(), makeEmptyPayload(), APP_DIR, APP_PATH, HOME_PATH (+11 more)
 
 ### Community 291 - "n4CandidatePack.ts"
-Cohesion: 0.16
-Nodes (9): estimatedBase64Bytes(), extractKoiWavBase64(), KoiCloudAudioStorage, PreparedKoiCloudAudio, prepareKoiCloudAudioSource(), safeCacheKey(), EligibleKoiChat(), KoiChatPanel() (+1 more)
+Cohesion: 0.46
+Nodes (6): estimatedBase64Bytes(), extractKoiWavBase64(), KoiCloudAudioStorage, PreparedKoiCloudAudio, prepareKoiCloudAudioSource(), safeCacheKey()
 
 ### Community 292 - "userProfile.ts"
-Cohesion: 0.28
-Nodes (8): finiteInteger(), hasOnlyKeys(), isRecord(), KoiAllowanceView, KoiClientErrorReason, parseAllowance(), parseAnswer(), parseSynthesis()
+Cohesion: 0.24
+Nodes (8): getAdditionalLessonCategoryContent(), getAdditionalLessonCategoryContentSummary(), getAllAdditionalLessonCategoryContent(), getLessonCategoryCards(), LessonCategoryCard, LessonCategoryCardId, LessonCategoryStatus, additionalCategoryIds
 
 ### Community 294 - "featureFlagDevMenu.ts"
-Cohesion: 0.40
-Nodes (7): survivalCategoryBase, SurvivalCategory, SurvivalCategoryId, SurvivalPhrase, SurvivalPriority, SurvivalTopicDetail, TranslationReviewStatus
+Cohesion: 0.21
+Nodes (12): buildDeviceQaChecklist(), getAssetGenerationPrompts(), getDesignSystemSummary(), getAllReviewablePhrases(), getSurvivalCategories(), getSurvivalTopicDetail(), searchSurvivalPhrases(), SurvivalCategory (+4 more)
 
 ### Community 295 - "Koi Sensei release runbook"
 Cohesion: 0.25
@@ -1347,12 +1356,12 @@ Cohesion: 0.13
 Nodes (13): Current provider facts to re-check before live activation, Koi Sensei 2.0, Non-negotiable boundaries, Progression, Runtime shape, 1. Install and prepare Voicebox, 2. Create a protected HTTPS tunnel, 3. Configure Worker secrets (+5 more)
 
 ### Community 298 - "auditKoiMediaPersistence"
-Cohesion: 0.05
-Nodes (65): react, answerKoiDojoRound(), buildGovernedKoiDojoCatalog(), buildQuestionChoices(), createKoiDojoSession(), getKoiDojoContentRank(), getKoiDojoQuestion(), isDue() (+57 more)
+Cohesion: 0.06
+Nodes (54): answerKoiDojoRound(), buildGovernedKoiDojoCatalog(), buildQuestionChoices(), createKoiDojoSession(), getKoiDojoContentRank(), getKoiDojoQuestion(), isDue(), isWeak() (+46 more)
 
 ### Community 299 - "placementTestService.ts"
-Cohesion: 0.27
-Nodes (7): buildPlacementTest(), LevelBreakdown, PlacementQuestion, PlacementTest, QUESTIONS, scorePlacementTest(), SHUFFLED
+Cohesion: 0.13
+Nodes (20): Card(), styles, WeeklyTodoBoardView(), WeeklyTodoBoardViewProps, WeeklyTodoRow(), WeeklyTodoRowProps, WIRED_TODO_KINDS, PlacementTestPanel() (+12 more)
 
 ### Community 300 - "MiniMax approval request"
 Cohesion: 0.50
@@ -1363,12 +1372,16 @@ Cohesion: 0.22
 Nodes (5): resetAllDeviceData(), ResetAllDeviceDataDependencies, ResetAllDeviceDataResult, settle(), Settled
 
 ### Community 303 - "onboardingPreferenceService.ts"
-Cohesion: 0.16
-Nodes (11): createNavigationStateStore(), DEFAULT_NAVIGATION_STATE, loadPersistedNavigationState(), NavigationStorage, PersistedNavigationState, savePersistedNavigationState(), AppNavigation, useAppNavigation() (+3 more)
+Cohesion: 0.18
+Nodes (10): createNavigationStateStore(), DEFAULT_NAVIGATION_STATE, loadPersistedNavigationState(), NavigationStorage, PersistedNavigationState, savePersistedNavigationState(), useAppNavigation(), getBottomNavigationTabs() (+2 more)
 
 ### Community 304 - "koiSenseiRepository.test.ts"
 Cohesion: 0.14
 Nodes (13): devDependencies, @cloudflare/workers-types, typescript, wrangler, name, private, scripts, build:check (+5 more)
+
+### Community 305 - "KoiFirebaseLiveClient"
+Cohesion: 0.28
+Nodes (7): JlptExamFlowScreenProps, EVENT_NAMES, JlptExamTelemetry, JlptExamTelemetryEvent, trackJlptExamEvent(), JlptExamQuestion, { track }
 
 ### Community 306 - "quizQuestionCandidateData.ts"
 Cohesion: 0.18
@@ -1383,28 +1396,24 @@ Cohesion: 0.50
 Nodes (3): contentTypes, port, root
 
 ### Community 309 - "featureFlagDevMenu.ts"
-Cohesion: 0.16
-Nodes (17): styles, WorkplaceSurvivalScreen(), getLocalizedAdditionalLessonPhrase(), markShadowingAttempt(), asTranslatablePhrase(), getSecondaryTranslations(), getSupportLanguageDisplayName(), getSupportTranslation() (+9 more)
+Cohesion: 0.39
+Nodes (5): verbVocabularyCandidateData, verbVocabularySourceSnapshot, VerbVocabularyCandidateEntry, VerbVocabularyLevel, VerbVocabularySource
 
 ### Community 310 - "koiSenseiGateway.test.ts"
-Cohesion: 0.29
-Nodes (5): getKoiSystemVoiceText(), KoiCallableTransport, KoiClientSession, allowance(), answer()
+Cohesion: 0.38
+Nodes (3): KoiLearningProgressStoreSource, KoiLearningRepositorySource, subscribeKoiLearningProgression()
 
 ### Community 314 - "Koi Sensei backend scaffold"
 Cohesion: 0.29
 Nodes (6): Dependency release gate, Koi Sensei backend scaffold, Local validation (after dependency install), Progression reward sync remains staged, Safety invariants, Zero-cost boundary
 
 ### Community 315 - "FakeDB"
-Cohesion: 0.05
-Nodes (47): KoiBackendConfig, createGroundingFallback(), GovernedKoiKnowledgeFact, GovernedKoiKnowledgeSource, hasAny(), hasQuestionCue(), KOI_GOVERNED_KNOWLEDGE_SOURCES, KOI_GOVERNED_NOTES_LICENSE_ID (+39 more)
-
-### Community 321 - "KoiAvatarBoundary"
-Cohesion: 0.20
-Nodes (10): StreakState, AudioStudyDelayMs, DailyRushProfileStats, JlptTargetLevel, PlacementProfile, StudyGoal, UserProfileDynamic, UserProfileMeta (+2 more)
+Cohesion: 0.06
+Nodes (44): KoiBackendConfig, createGroundingFallback(), GovernedKoiKnowledgeFact, GovernedKoiKnowledgeSource, hasAny(), hasQuestionCue(), KOI_GOVERNED_KNOWLEDGE_SOURCES, KOI_GOVERNED_NOTES_LICENSE_ID (+36 more)
 
 ### Community 322 - "adaptiveLearningService.ts"
-Cohesion: 0.07
-Nodes (54): AdaptiveDailyPlanCard(), styles, Button(), Card(), CardProps, styles, TONES, notifyLessonCompleted() (+46 more)
+Cohesion: 0.11
+Nodes (25): notifyLessonCompleted(), notifyLessonError(), SqliteLearningRepositoryLike, useMarkComplete(), UseMarkCompleteParams, UseMarkCompleteResult, currentWeekDetails(), getExtendedProgress() (+17 more)
 
 ### Community 323 - "installId.ts"
 Cohesion: 0.33
@@ -1414,17 +1423,13 @@ Nodes (5): Cloudflare Koi backend migration, Cost guard, Durable Object layout, 
 Cohesion: 0.13
 Nodes (7): createPersistentSrsStore(), FakeDB, Row, createFakeSqlite(), FakeDB, roundTrip(), Row
 
-### Community 325 - "FakeDB"
-Cohesion: 0.43
-Nodes (4): buildDeviceQaChecklist(), getAssetGenerationPrompts(), getDesignSystemSummary(), searchSurvivalPhrases()
-
 ### Community 326 - "WeeklyLessonScreen.tsx"
 Cohesion: 0.05
-Nodes (57): styles, AppLogo(), AppLogoProps, styles, Badge(), BadgeProps, BadgeTone, styles (+49 more)
+Nodes (78): styles, Badge(), BadgeProps, BadgeTone, styles, TONES, Button(), ButtonProps (+70 more)
 
 ### Community 328 - ".setDetailedProgressConsent"
-Cohesion: 0.12
-Nodes (23): calculateNextStreak(), completeLesson(), createInitialProgress(), toDay(), emptyProgress(), progressWithAllCompleted(), ALL_LESSONS, progressWith() (+15 more)
+Cohesion: 0.05
+Nodes (58): ExtendedLearnerProgress, DAILY_MINUTES, GOAL_OPTIONS, INDUSTRIES, JLPT_LEVELS, LANGUAGE_OPTIONS, ROLES, SITUATIONS (+50 more)
 
 ### Community 329 - "phase5WorkplaceSurvival.test.ts"
 Cohesion: 0.32
@@ -1434,33 +1439,37 @@ Nodes (7): __BaseEnv_Env, Cloudflare, Env, GlobalProps, NodeJS, ProcessEnv, Stri
 Cohesion: 0.33
 Nodes (6): js-yaml, overrides, brace-expansion@1.1.15, brace-expansion@5.0.6, @istanbuljs/load-nyc-config, shell-quote@1.8.4
 
+### Community 331 - "WeeklyLessonScreen.tsx"
+Cohesion: 0.67
+Nodes (3): styles, WeeklyLessonScreen(), getWeeklyLessonSummary()
+
 ### Community 334 - "adjectiveCandidatePack.ts"
-Cohesion: 0.36
-Nodes (4): AdjectiveReviewStatus, AdjectiveSource, AdjectiveVocabularyCandidateEntry, adjectiveVocabularyCandidateData
+Cohesion: 0.16
+Nodes (11): AdjectiveReviewStatus, AdjectiveSource, AdjectiveVocabularyCandidateEntry, adjectiveVocabularyCandidateData, helperTranslations, n3AdjectiveCandidateData, n3VerbCandidateData, n3VocabularyCandidateData (+3 more)
 
 ### Community 336 - "index.ts"
 Cohesion: 0.05
 Nodes (69): appCheckKeySet(), base64UrlBytes(), fetch(), firebaseKeySet(), hasKoiRequestEnvelope(), hasOnlyPayloadKeys(), isAllowanceLimits(), isBoundedCountRecord() (+61 more)
 
 ## Knowledge Gaps
-- **2212 isolated node(s):** `PreparedKoiCloudAudio`, `styles`, `styles`, `name`, `slug` (+2207 more)
+- **2212 isolated node(s):** `styles`, `name`, `slug`, `scheme`, `version` (+2207 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **36 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **35 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `item()` connect `Community 26` to `Community 0`, `Community 38`, `Community 9`, `Community 10`, `jlptExamContentService.ts`, `Community 18`, `FakeDB`, `phase5WorkplaceSurvival.test.ts`?**
-  _High betweenness centrality (0.030) - this node is a cross-community bridge._
-- **Why does `react` connect `auditKoiMediaPersistence` to `WeeklyLessonScreen.tsx`, `Community 73`, `Community 238`, `Community 20`, `jlptExam.ts`, `Community 62`?**
-  _High betweenness centrality (0.027) - this node is a cross-community bridge._
-- **Why does `dependencies` connect `Community 62` to `auditKoiMediaPersistence`, `Community 116`?**
-  _High betweenness centrality (0.027) - this node is a cross-community bridge._
+- **Why does `item()` connect `Community 26` to `jlptExamScoringService.ts`, `Community 0`, `Community 2`, `adaptiveLearningService.ts`, `Community 38`, `Community 9`, `Community 10`, `jlptExamContentService.ts`, `Community 18`, `FakeDB`, `phase5WorkplaceSurvival.test.ts`?**
+  _High betweenness centrality (0.025) - this node is a cross-community bridge._
+- **Why does `react` connect `Community 63` to `WeeklyLessonScreen.tsx`, `Community 73`, `auditKoiMediaPersistence`, `Community 238`, `Community 20`, `jlptExam.ts`, `Community 62`?**
+  _High betweenness centrality (0.022) - this node is a cross-community bridge._
+- **Why does `dependencies` connect `Community 62` to `Community 116`, `Community 63`?**
+  _High betweenness centrality (0.021) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `KoiSenseiProvider()` (e.g. with `.dueCount()` and `session()`) actually correct?**
   _`KoiSenseiProvider()` has 3 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `PreparedKoiCloudAudio`, `styles`, `styles` to the rest of the system?**
+- **What connects `styles`, `name`, `slug` to the rest of the system?**
   _2225 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.06 - nodes in this community are weakly interconnected._
-- **Should `Community 3` be split into smaller, more focused modules?**
-  _Cohesion score 0.11182795698924732 - nodes in this community are weakly interconnected._
+- **Should `Community 4` be split into smaller, more focused modules?**
+  _Cohesion score 0.046994535519125684 - nodes in this community are weakly interconnected._

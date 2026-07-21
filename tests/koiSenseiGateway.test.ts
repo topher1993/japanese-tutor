@@ -391,6 +391,13 @@ describe('Koi public runtime configuration', () => {
     })).toThrow(/production/i);
   });
 
+  it('normalizes the legacy personal release label without crashing startup', () => {
+    expect(resolveKoiPublicRuntimeConfig({
+      EXPO_PUBLIC_KOI_STAGE: 'personal',
+      EXPO_PUBLIC_FIREBASE_PROJECT_ID: 'koi-sensei-personal',
+    }).stage).toBe('production');
+  });
+
   it('detects a MiniMax or Token Plan secret embedded in an Expo public variable', () => {
     expect(() => assertNoKoiClientSecrets({ EXPO_PUBLIC_MINIMAX_API_KEY: 'do-not-bundle' }))
       .toThrow(/never/i);
